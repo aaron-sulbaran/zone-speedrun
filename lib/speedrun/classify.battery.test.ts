@@ -283,6 +283,11 @@ const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["final3 an offer open to the first applicants stays other", "other", "", "Codecraft Bootcamp <hello@codecraft.example>", "Scholarships", "This offer applies to the first 100 applicants who enroll."],
   // Item 6: a company name with an ampersand.
   ["final6 ashby person, company with an ampersand", "interview", "Harbor & Pine", "Juno Park <no-reply@ashbyhq.com>", "Interview availability for Software Engineer, Payments at Harbor & Pine", "Hi Sam,\n\nCongratulations on moving forward to the next round! We'd like to schedule a 45 minute virtual interview with our engineering manager, Wes.\n\nPlease use the link below to share your availability for next week, and I'll send over a calendar invite once it's confirmed.\n\nThanks!\nJuno Park | Talent Partner, Harbor & Pine"],
+  // Final wave: two everyday phrasings the end-of-build probe missed.
+  ["wave not able to move forward at this time", "rejection", "Tidewell", tw, "Your Tidewell application", "Hi Sam,\n\nThank you for your time. We're not able to move forward at this time, but we wish you well in your search.\n\nBest,\nTidewell Careers"],
+  ["wave unable to proceed at this time", "rejection", "Tidewell", tw, "Update", "Hi Sam, after the final round we are unable to proceed at this time. Thank you for interviewing with us."],
+  ["wave take-home subject from a person, no application words", "assessment", "Quillpoint", "Ravi Anand <ravi@quillpoint.example>", "Take-home exercise", "Hi Sam,\n\nThanks for the chat yesterday. Next up is for you to complete a short take-home. Please return it within 5 days.\n\nRavi"],
+  ["wave newsletter about take-homes stays other", "other", "", "Craft Notes <news@notes.example>", "Take-home exercises that candidates like", "Ten ways to design a fair take-home. Unsubscribe any time."],
 ];
 
 function mail(id: string, from: string, subject: string, body: string, date: string): InboxEmail {

@@ -41,8 +41,8 @@ const RESCINDED = /\b(rescind\w*|retract\w*) (your|the|our) offer\b/;
 const REJECTIONS: RegExp[] = [
   /regret to inform|not (be )?moving forward|will not be proceeding/,
   /(decided not to|won'?t be|will not be|not) (be )?(move|moving|go|going|proceed|proceeding) forward/,
-  /(decided not to|unable to|not able to) (proceed|move forward|continue) with your (application|candidacy)/,
-  /(won'?t|will not|not) be able to (proceed|move forward|go forward|continue)( further)?( with your (application|candidacy)| at this time)/,
+  /(decided not to|unable to|not able to) (proceed|move forward|continue)( with your (application|candidacy)| at this time)/,
+  /(won'?t|will not|not) (be )?able to (proceed|move forward|go forward|continue)( further)?( with your (application|candidacy)| at this time)/,
   /(pursue|pursuing|move forward with|moving forward with|proceed with|proceeding with) (other|another|different) (candidates?|applicants?)/,
   /(chosen|chose|selected|hired|gone with|went with) (another|a different|other|a more \w+) (candidates?|applicants?)/,
   /decided to (move|go|pursue) .{0,30}(other|another)|(move|moving) forward with (a|another|other) (candidate|applicant)s?/,
@@ -55,6 +55,8 @@ const REJECTIONS: RegExp[] = [
   /(move|moving|moved|go|going|proceed|proceeding) forward with (candidates|applicants) (whose|who|that) [^.!?\n]{0,60}\b(more closely|closer|better)\b/,
   /\b(can'?t|cannot|won'?t|will not|unable to|not able to|decided not to)( be able to)? (move|advance|progress|take) you (past|beyond|forward|further|to the next|on to)\b/,
 ];
+// A subject that names the take-home itself, from a hiring sender, is the ask even when the body never says "application".
+const TAKE_HOME_SUBJECT = /\b(take-?home|coding challenge)\b/;
 const ASSESSMENT = /take-home|coding challenge|online (coding )?test|coding test|online assessment|assessment|hackerrank|codesignal|technical exercise/;
 // A real ask, not a "you may get an assessment later": a deadline, a link or an imperative.
 const ASSESSMENT_ASK =
@@ -275,6 +277,7 @@ function kindOf(email: InboxEmail): EventKind {
   if (ASSESSMENT.test(text) && hasContext && asksForAssessment(text)) return "assessment";
   if (APPLIED.test(subject)) return "applied";
   if (ASSESSMENT.test(text) && hasContext) return "assessment";
+  if (hiringSender && TAKE_HOME_SUBJECT.test(subject) && !MARKETING.test(text)) return "assessment";
   const interviewText = text.replace(MOCK_INTERVIEW, "");
   const logistics = YOUR_INTERVIEW.test(interviewText) && LOGISTICS.test(interviewText) && !MARKETING.test(interviewText);
   const interviewContext = INTERVIEW_CONTEXT.test(interviewText) || ROLE_NAMED.test(original) || trusted || logistics;
