@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Affiliation } from "@/components/speedrun/Affiliation";
+import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
+import { Opener } from "@/components/speedrun/act1/Opener";
 import { Shift } from "@/components/speedrun/Shift";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { siteContent, speedrunCopy } from "@/lib/content";
@@ -27,8 +29,9 @@ export const metadata: Metadata = {
 export default function SpeedrunPage() {
   return (
     <main id="main">
-      <section data-act="1" className="px-6 pb-24 pt-32">
-        <Affiliation variant="inline" />
+      <section data-act="1" className="px-6 pb-24 pt-32 md:px-12">
+        <Opener />
+        <AaronFunnel />
         <Shift targetId="act-2" />
       </section>
       <section

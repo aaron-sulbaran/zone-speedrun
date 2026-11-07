@@ -63,3 +63,11 @@ test.describe("short viewport", () => {
     await expect(button).toBeEnabled();
   });
 });
+
+test("act 1 shows the headline, the applications stat and a flow chart", async ({ page }) => {
+  await page.goto("/speedrun");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(speedrunCopy.act1.headline1);
+  await expect(page.locator('[data-funnel-stat="applications"]')).toHaveText("84");
+  const links = page.locator('[data-act="1"] svg path.flow-link');
+  expect(await links.count()).toBeGreaterThanOrEqual(8);
+});
