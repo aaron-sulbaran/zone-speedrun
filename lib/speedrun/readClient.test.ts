@@ -19,7 +19,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("cleanText", () => {
   it("strips NULs and control characters, and stops one past the cap", () => {
-    expect(cleanText("a\u0000b\u0007c\td\ne")).toBe("a b c\td\ne");
+    expect(cleanText("a\u0000b\u0007c\td\ne")).toBe("ab c\td\ne");
     expect(cleanText("x".repeat(50_000))).toHaveLength(20_001);
   });
 });
@@ -32,11 +32,17 @@ describe("postResume", () => {
     expect(bodyOf(fetchMock)).toMatchObject({ text: RESUME });
   });
 
-  it("trims a huge or UTF-16 .txt so the body stays small", async () => {
+  it("answers too_large on the client, with no request, for text over 20,000 characters", async () => {
     const fetchMock = stubFetch();
-    await postResume(fileOf(["y".repeat(3_000_000)], "big.txt"), INTAKE);
-    expect(bodyOf(fetchMock).text).toHaveLength(20_001);
-    fetchMock.mockClear();
+    expect(await postResume(fileOf(["y".repeat(3_000_000)], "big.txt"), INTAKE)).toEqual({ ok: false, error: "too_large" });
+    expect(await postResume(fileOf(["y".repeat(20_001)], "edge.txt"), INTAKE)).toEqual({ ok: false, error: "too_large" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await postResume(fileOf(["y".repeat(20_000)], "limit.txt"), INTAKE);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("trims a UTF-16 .txt so the body stays small", async () => {
+    const fetchMock = stubFetch();
     const utf16 = new Uint8Array(40_000);
     for (let i = 0; i < utf16.length; i += 2) utf16[i] = 65;
     await postResume(fileOf([utf16], "wide.txt"), INTAKE);

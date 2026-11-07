@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const verdict = limit(addressOf(request), Date.now());
   if (!verdict.ok) {
     return NextResponse.json(
-      { error: "rate_limited", retryAfterMs: verdict.retryAfterMs },
+      { error: "slow_down", retryAfterMs: verdict.retryAfterMs },
       { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))) } },
     );
   }

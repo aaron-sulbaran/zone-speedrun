@@ -6,14 +6,22 @@ const MAX_CHARS = 20_000;
 const TIMEOUT_MS = 8_000;
 const MAX_IMAGE_PIXELS = 16_777_216;
 
+/** The PDF library's chunk could not be fetched: a network problem, not a problem with the file. */
+export class PdfLibraryError extends Error {}
+
 /** Resolves to the text (possibly empty for a scan), and throws on a broken or slow PDF. */
 export async function pdfTextInBrowser(bytes: Uint8Array): Promise<string> {
+  // The chunk load stays outside the 8 s race, so a slow network is never read as a PDF with no text.
+  let getDocumentProxy: typeof import("unpdf").getDocumentProxy;
+  try {
+    ({ getDocumentProxy } = await import("unpdf"));
+  } catch {
+    throw new PdfLibraryError("library");
+  }
   let timer: ReturnType<typeof setTimeout> | undefined;
   let doc: Awaited<ReturnType<typeof import("unpdf").getDocumentProxy>> | undefined;
   let abandoned = false;
-  // The library load and the document load sit inside the race, so a slow chunk counts too.
   const read = (async () => {
-    const { getDocumentProxy } = await import("unpdf");
     const loaded = await getDocumentProxy(bytes, { maxImageSize: MAX_IMAGE_PIXELS });
     if (abandoned) {
       await loaded.loadingTask.destroy();

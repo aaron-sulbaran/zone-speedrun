@@ -20,7 +20,7 @@ export type MatchOutcome =
 // Ranking runs here only: the corpus is too big for the client bundle.
 export function handleMatch(raw: unknown): MatchOutcome {
   const parsed = matchBodySchema.safeParse(raw);
-  if (!parsed.success) return { status: 400, body: { error: "invalid_body" } };
+  if (!parsed.success) return { status: 400, body: { error: "bad_input" } };
   const { intake, personKey } = parsed.data;
   const profile = PEOPLE[personKey].profile;
   return { status: 200, body: { profile, result: rankMatches(profile, intake, getSnapshot()) } };

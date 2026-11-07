@@ -1,8 +1,8 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
-import type { BoardCard, InboxEvent, Intake, PersonKey, Profile } from "./types";
+import type { BoardCard, InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
 
-export type UploadErrorKey = "bad_input" | "too_large" | "unreadable" | "slow_down" | "live_off" | "bot" | "internal" | "network";
+export type UploadErrorKey = ReadError | "network";
 
 export type Live = { reading: boolean; email: boolean };
 

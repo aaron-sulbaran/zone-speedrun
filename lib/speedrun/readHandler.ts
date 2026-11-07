@@ -4,7 +4,7 @@ import { RERANK_POOL, readResume, rerank } from "./ai";
 import { BODY_CAPS, BodyTooLargeError, type LimitVerdict } from "./guard";
 import { rankMatches, type MatchResult } from "./match";
 import { getSnapshot } from "./snapshot";
-import { FNS, type Profile } from "./types";
+import { FNS, type Profile, type ReadError } from "./types";
 
 // The browser reads the file (PDF text included); this route only ever sees text.
 export const MAX_TEXT_CHARS = 20_000;
@@ -12,8 +12,6 @@ const SHOWN = 6;
 
 const bodySchema = z.object({
   text: z.string(),
-  // Set when the browser could not get any text out of the file (a scan, a broken PDF).
-  unreadable: z.boolean().optional(),
   intake: z.object({
     targets: z.array(z.enum(FNS)).max(7),
     places: z.array(z.string().max(60)).max(8),
@@ -23,7 +21,7 @@ const bodySchema = z.object({
 
 export { BodyTooLargeError };
 
-export type ReadError = "bad_input" | "too_large" | "unreadable" | "slow_down" | "live_off" | "bot" | "internal";
+export type { ReadError };
 
 export type ReadOutcome =
   | { status: 200; body: { profile: Profile; result: MatchResult; mode: "model" | "rules" } }
@@ -62,10 +60,10 @@ export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<Read
   }
   const body = bodySchema.safeParse(raw);
   if (!body.success) return fail(400, "bad_input");
-  const { intake, unreadable } = body.data;
+  const { intake } = body.data;
   const text = body.data.text.replace(/\u0000/g, "").trim();
   if (text.length > MAX_TEXT_CHARS) return fail(413, "too_large");
-  if (unreadable || text.length === 0) return fail(422, "unreadable");
+  if (text.length === 0) return fail(422, "unreadable");
 
   const { profile, mode } = await readResume({ text, intake }, { model: deps.model });
   // A model that already failed once is not asked a second time.

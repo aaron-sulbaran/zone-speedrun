@@ -52,9 +52,8 @@ describe("handleRead", () => {
   });
 
   it("422 unreadable when the browser got no text", async () => {
-    const flagged = await handleRead(input({ ...ok, unreadable: true }), deps());
     const empty = await handleRead(input({ text: "  \n ", intake: INTAKE }), deps());
-    for (const out of [flagged, empty]) expect(out).toEqual({ status: 422, body: { error: "unreadable" } });
+    expect(empty).toEqual({ status: 422, body: { error: "unreadable" } });
   });
 
   it("200 with the rules reader when there is no model", async () => {
