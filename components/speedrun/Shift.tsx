@@ -12,8 +12,8 @@ import { SHIFT_MS, shiftReducer } from "@/lib/speedrun/shift";
 const COVER_EASE = "cubic-bezier(.7,0,.84,0)";
 const REVEAL_EASE = "cubic-bezier(.16,1,.3,1)";
 const REDUCE = "(prefers-reduced-motion: reduce)";
-const BAND_FADE = "linear-gradient(90deg, black 0%, black 84%, transparent 100%)";
-const BAND_BG = "linear-gradient(90deg, var(--color-accent) 0%, transparent 24%), var(--sr-grad-accent)";
+// The band trails the cover: the accent fades through the speedrun hues to cream, then to nothing.
+const BAND_BG = "linear-gradient(90deg, var(--color-accent) 0%, var(--sr-purple) 22%, var(--sr-aqua) 58%, var(--sr-cream) 84%, transparent 100%)";
 
 function jumpTo(targetId: string) {
   const target = document.getElementById(targetId);
@@ -134,7 +134,7 @@ export function Shift({ targetId }: { targetId: string }) {
             {copy.line}
           </p>
         </div>
-        <div className="h-full w-[28vw]" style={{ background: BAND_BG, maskImage: BAND_FADE, WebkitMaskImage: BAND_FADE }} />
+        <div className="h-full w-[28vw]" style={{ background: BAND_BG }} />
       </div>
     </>
   );

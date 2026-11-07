@@ -9,10 +9,10 @@ import { speedrunCopy } from "@/lib/content";
 export function PinnedAffiliation() {
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    // The join card and the close both carry the line themselves.
-    const covered = [document.getElementById("join"), document.querySelector("[data-close]")].filter((el): el is Element => el !== null);
-    if (covered.length === 0) return;
+    // The join card and the close both carry the line themselves. A failed upload
+    // re-mounts the join form, so the covered set is re-read whenever #act-2 changes.
     const showing = new Set<Element>();
+    let covered: Element[] = [];
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) showing.add(entry.target);
@@ -20,8 +20,23 @@ export function PinnedAffiliation() {
       }
       setHidden(showing.size > 0);
     });
-    covered.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    const observeCovered = () => {
+      const next = [document.getElementById("join"), document.querySelector("[data-close]")].filter((el): el is Element => el !== null);
+      if (next.length === covered.length && next.every((el, i) => el === covered[i])) return;
+      observer.disconnect();
+      showing.clear();
+      covered = next;
+      covered.forEach((el) => observer.observe(el));
+      if (covered.length === 0) setHidden(false);
+    };
+    observeCovered();
+    const section = document.getElementById("act-2");
+    const mutations = new MutationObserver(observeCovered);
+    if (section) mutations.observe(section, { childList: true, subtree: true });
+    return () => {
+      mutations.disconnect();
+      observer.disconnect();
+    };
   }, []);
   // The wrapper has no height, so the pill reserves no space at the end of the page.
   return (

@@ -65,7 +65,7 @@ export default function SpeedrunPage() {
         id="act-2"
         tabIndex={-1}
         data-speedrun=""
-        className={`focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
+        className={`[overflow-y:clip] focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >
         {/* An inline script: /speedrun must be entered by a full page load, never a next/link, or it never runs. */}
         <BotIdClient protect={BOT_PROTECTED} />

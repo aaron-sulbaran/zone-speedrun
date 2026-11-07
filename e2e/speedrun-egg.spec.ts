@@ -62,6 +62,10 @@ test("typing sux at the top of the page (Act 1) does not open it", async ({ page
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.keyboard.type("sux");
   await expect(page.locator("[data-egg]")).toBeHidden();
+  // The negative proves itself: the same keys open it once Act 2 is on screen.
+  await page.locator("#join").scrollIntoViewIfNeeded();
+  await page.keyboard.type("sux");
+  await expect(page.locator("[data-egg]")).toBeVisible();
 });
 
 test.describe("reduced motion", () => {

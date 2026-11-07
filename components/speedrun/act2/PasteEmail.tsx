@@ -14,7 +14,9 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
   const [status, announce] = useAnnounce();
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
+  const empty = text.trim() === "";
   const submit = () => {
+    if (empty) return;
     const outcome = readPaste(text, existing);
     if (outcome.kind !== "added") {
       announce(copy.paste[outcome.kind]);
@@ -22,9 +24,11 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
     }
     onAdd(outcome.event);
     announce(copy.paste.found(copy.kindLabels[outcome.event.kind], outcome.event.company));
+    // The button goes aria-disabled with the text but stays focusable, so focus never drops.
+    // Only a paste made from the box returns focus there; refocusing after a button tap would open a phone keyboard.
+    const hadFocus = document.activeElement === areaRef.current;
     setText("");
-    // The button disables with the text, so focus returns to the box instead of dropping to the page.
-    areaRef.current?.focus();
+    if (hadFocus) areaRef.current?.focus();
   };
 
   return (
@@ -53,8 +57,8 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button
           type="submit"
-          disabled={text.trim() === ""}
-          className="rounded-full bg-sr-ink px-5 py-2.5 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-[transform,opacity] duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple disabled:opacity-40 disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+          aria-disabled={empty}
+          className="rounded-full bg-sr-ink px-5 py-2.5 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-[transform,opacity] duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-disabled:opacity-40 aria-disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           {copy.paste.button}
         </button>

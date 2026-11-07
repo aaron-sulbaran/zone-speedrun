@@ -130,7 +130,6 @@ test.describe("act 2 join card", () => {
   });
 });
 
-// Dev's join path has no inbox to connect, so the Gmail click is conditional.
 for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
   test(`no horizontal scroll at 390 after picking ${key}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -139,8 +138,7 @@ for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
     await card.scrollIntoViewIfNeeded();
     for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
     await card.locator(`[data-person="${key}"]`).click();
-    const gmail = card.getByRole("button", { name: speedrunCopy.join.connect.gmail });
-    if (await gmail.isVisible()) await gmail.click();
+    await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
     await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
     await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
     // Settled: the whole demo is on screen, decisions and close included.

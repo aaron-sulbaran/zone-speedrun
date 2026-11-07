@@ -179,6 +179,7 @@ function CountsTable({ data }: { data: FlowData }) {
 export function FlowChart({ data, tone, title, animate = false }: Props) {
   const chart = (
     <div>
+      {/* Both orientations render on purpose and CSS shows one, so the duplicate titles are expected. */}
       <Svg data={data} tone={tone} title={title} vertical={false} />
       <Svg data={data} tone={tone} title={title} vertical />
       <CountsTable data={data} />

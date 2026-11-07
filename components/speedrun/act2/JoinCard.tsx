@@ -57,7 +57,11 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   };
   const addTypedPlace = () => {
     const place = typedPlace.trim();
-    if (place && !intake.places.includes(place) && intake.places.length < MAX_PLACES) dispatch({ type: "answer", patch: { places: [...intake.places, place] } });
+    if (place && !intake.places.includes(place) && intake.places.length < MAX_PLACES) {
+      dispatch({ type: "answer", patch: { places: [...intake.places, place] } });
+      // The input disables itself at the cap, which would drop focus to the body.
+      if (intake.places.length + 1 >= MAX_PLACES) headingRef.current?.focus({ preventScroll: true });
+    }
     setTypedPlace("");
   };
 
@@ -90,7 +94,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
       aria-label={copy.label}
       onSubmit={(e) => e.preventDefault()}
       onKeyDown={onKeyDown}
-      className="mx-auto w-full max-w-2xl scroll-mt-24 rounded-3xl bg-sr-surface shadow-[0_16px_56px_var(--sr-soft)] focus:outline-none"
+      className="sr-join mx-auto w-full max-w-2xl scroll-mt-24 rounded-3xl bg-sr-surface shadow-[0_16px_56px_var(--sr-soft)] focus:outline-none"
     >
       <div className="flex items-center gap-2 px-6 pt-5 sm:gap-3 md:px-8">
         <SpeedrunLogo className="h-4 w-auto" />
@@ -99,7 +103,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
           {pad(joinStep + 1)} / 04
         </span>
         <p className="sr-only" aria-live="polite">
-          {`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} 4. ${question}`}
+          {`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} 4.${joinStep === 2 ? ` ${question}` : ""}`}
         </p>
       </div>
       <div className="mx-6 mt-4 h-1 overflow-hidden rounded-full bg-sr-soft md:mx-8" role="presentation">
@@ -165,7 +169,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
           >
             {last ? copy.finish : copy.next}
           </button>
-          <span className="hidden font-srcond text-xs uppercase tracking-widest text-sr-ink2 sm:inline">{copy.pressEnter} &crarr;</span>
+          <span className="hidden font-srcond text-xs uppercase tracking-widest text-sr-ink2 sm:inline">{copy.pressEnter} <span aria-hidden="true">&crarr;</span></span>
         </div>
         <p className="mt-3 text-xs text-sr-ink2">{copy.nothingSent}</p>
         <Affiliation variant="inline" />

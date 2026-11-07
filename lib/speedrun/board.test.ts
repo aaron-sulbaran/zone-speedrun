@@ -132,7 +132,7 @@ describe("parsePasted", () => {
     expect(parsePasted("x".repeat(50_000))?.body.length).toBeLessThanOrEqual(20_000);
   });
 
-  it("gives the same id to the same sender, subject and day", () => {
+  it("gives the same id to the same sender and subject, and another id to another subject", () => {
     expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id).toBe(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id);
     expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\n`)?.id).not.toBe(parsePasted(`From: ${FROM}\nSubject: Other\n\n`)?.id);
   });
