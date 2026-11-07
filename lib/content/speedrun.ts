@@ -71,6 +71,19 @@ export const speedrunCopy = {
         helper: "Pick a sample person. Live reading of your own resume turns on soon.",
         helperLive: "Pick a sample person, or upload your own resume.",
         uploadLabel: "Upload a resume",
+        uploadTypes: "PDF or .txt, up to 4 MB",
+        uploadNotice:
+          "Your file is read once to build your board, sent to the AI model without being stored, and never saved here.",
+        uploadErrors: {
+          bad_input: "That file type did not work. Use a PDF or a .txt file.",
+          too_large: "That file is too big or too long. Try a PDF or .txt under 4 MB.",
+          unreadable:
+            "I could not find any text in that file. A scanned image has none, so try a PDF with selectable text, or a .txt.",
+          slow_down: "That is a lot of reads for now. Give it a few minutes, or borrow a sample person.",
+          live_off: "Reading your own resume is off right now. Borrow a sample person instead.",
+          bot: "That request looked automated, so it was blocked. Borrow a sample person instead.",
+          network: "Something went wrong reading that file. Try again, or borrow a sample person.",
+        },
         peopleLabel: "Sample people",
       },
     },
