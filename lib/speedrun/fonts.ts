@@ -4,6 +4,7 @@ import { Inter_Tight, Roboto_Condensed } from "next/font/google";
 export const srSans = Inter_Tight({
   subsets: ["latin"],
   weight: ["600", "900"],
+  style: ["normal", "italic"],
   display: "swap",
   variable: "--font-sr-sans",
 });

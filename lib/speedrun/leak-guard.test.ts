@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const ROOTS = ["app/speedrun", "components/speedrun", "lib/speedrun", "scripts/speedrun-snapshot.mjs"];
+const ROOTS = ["app/speedrun", "components/speedrun", "lib/speedrun", "lib/content/speedrun.ts", "scripts/speedrun-snapshot.mjs"];
 const ALLOWED_PACKAGES = ["react", "react-dom", "next", "zod", "ai", "unpdf", "vitest", "server-only"];
 const ALLOWED_SCOPES = ["@ai-sdk/"];
 const ALLOWED_NODE = "node:";

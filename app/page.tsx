@@ -2,13 +2,26 @@ import type { Metadata } from "next";
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { Shift } from "@/components/speedrun/Shift";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
-import { speedrunCopy } from "@/lib/content";
+import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
 
 export const metadata: Metadata = {
-  title: speedrunCopy.meta.title,
+  title: { absolute: speedrunCopy.meta.title },
   description: speedrunCopy.meta.description,
   robots: { index: false, follow: false },
+  // The page-level object replaces the layout's, so the preview is restated.
+  openGraph: {
+    title: speedrunCopy.meta.title,
+    description: speedrunCopy.meta.description,
+    url: "/speedrun",
+    siteName: siteContent.meta.title,
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: speedrunCopy.meta.title,
+    description: speedrunCopy.meta.description,
+  },
 };
 
 export default function SpeedrunPage() {

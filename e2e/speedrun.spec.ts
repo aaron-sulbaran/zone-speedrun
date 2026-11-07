@@ -5,11 +5,15 @@ test("renders logged out with noindex and the affiliation line", async ({ page }
   const response = await page.goto("/speedrun");
   expect(response?.status()).toBe(200);
 
-  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  await expect(page).toHaveTitle(speedrunCopy.meta.title);
+  const robots = page.locator('meta[name="robots"]');
+  await expect(robots).toHaveAttribute("content", /noindex/);
+  await expect(robots).toHaveAttribute("content", /nofollow/);
   await expect(page.getByText(speedrunCopy.affiliation).first()).toBeVisible();
 
   const logo = page.getByRole("img", { name: speedrunCopy.logoAlt }).first();
-  await expect(logo).toHaveAttribute("alt", /\S/);
+  await expect(logo).toBeVisible();
+  expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Open menu" }).click();
   const panel = page.getByRole("dialog", { name: "Site menu" });
