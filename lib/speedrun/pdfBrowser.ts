@@ -8,30 +8,40 @@ const MAX_IMAGE_PIXELS = 16_777_216;
 
 /** Resolves to the text (possibly empty for a scan), and throws on a broken or slow PDF. */
 export async function pdfTextInBrowser(bytes: Uint8Array): Promise<string> {
-  const { getDocumentProxy } = await import("unpdf");
-  const doc = await getDocumentProxy(bytes, { maxImageSize: MAX_IMAGE_PIXELS });
   let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const read = (async () => {
-      let text = "";
-      for (let n = 1; n <= Math.min(doc.numPages, MAX_PAGES) && text.length <= MAX_CHARS; n += 1) {
-        const page = await doc.getPage(n);
-        const content = await page.getTextContent();
-        for (const item of content.items) {
-          if ("str" in item) text += item.hasEOL ? `${item.str}\n` : item.str;
-        }
-        text += "\n";
-        page.cleanup();
+  let doc: Awaited<ReturnType<typeof import("unpdf").getDocumentProxy>> | undefined;
+  let abandoned = false;
+  // The library load and the document load sit inside the race, so a slow chunk counts too.
+  const read = (async () => {
+    const { getDocumentProxy } = await import("unpdf");
+    const loaded = await getDocumentProxy(bytes, { maxImageSize: MAX_IMAGE_PIXELS });
+    if (abandoned) {
+      await loaded.loadingTask.destroy();
+      throw new Error("timeout");
+    }
+    doc = loaded;
+    let text = "";
+    for (let n = 1; n <= Math.min(loaded.numPages, MAX_PAGES) && text.length <= MAX_CHARS; n += 1) {
+      const page = await loaded.getPage(n);
+      const content = await page.getTextContent();
+      for (const item of content.items) {
+        if ("str" in item) text += item.hasEOL ? `${item.str}\n` : item.str;
       }
-      // One past the cap is enough for the server to say "too large".
-      return text.slice(0, MAX_CHARS + 1);
-    })();
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS);
-    });
+      text += "\n";
+      page.cleanup();
+    }
+    // One past the cap is enough for the server to say "too large".
+    return text.slice(0, MAX_CHARS + 1);
+  })();
+  read.catch(() => {});
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), TIMEOUT_MS);
+  });
+  try {
     return await Promise.race([read, timeout]);
   } finally {
+    abandoned = true;
     if (timer) clearTimeout(timer);
-    await doc.loadingTask.destroy();
+    await doc?.loadingTask.destroy();
   }
 }
