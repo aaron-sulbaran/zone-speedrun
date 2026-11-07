@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { createWindowLimiter, handleMatch } from "@/lib/speedrun/matchHandler";
+import { createLimiter } from "@/lib/speedrun/guard";
+import { handleMatch } from "@/lib/speedrun/matchHandler";
 
 export const dynamic = "force-dynamic";
 
-const limiter = createWindowLimiter(30, 60_000);
+const limit = createLimiter({ windowMs: 60_000, max: 30, dailyMax: 20_000 });
 
 function addressOf(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
 }
 
 export async function POST(request: Request) {
-  if (!limiter.allow(addressOf(request), Date.now())) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
+  const verdict = limit(addressOf(request), Date.now());
+  if (!verdict.ok) {
+    return NextResponse.json(
+      { error: "rate_limited", retryAfterMs: verdict.retryAfterMs },
+      { status: 429, headers: { "Retry-After": String(Math.max(1, Math.ceil(verdict.retryAfterMs / 1000))) } },
+    );
   }
   let body: unknown = null;
   try {
