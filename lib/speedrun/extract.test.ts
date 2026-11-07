@@ -113,6 +113,16 @@ describe("extractProfile", () => {
     expect(extractProfile(text, intake).locations).toContain("Austin");
   });
 
+  it("reads an inline Skills: line as the skills section", () => {
+    const text = "Ana Lopez\nana@example.com\nSkills: TypeScript, Go, Postgres\nExperience\nBuilt a billing API.";
+    expect(extractProfile(text, intake).skills).toEqual(["TypeScript", "Go", "Postgres"]);
+  });
+
+  it("finds the city on a plain second head line", () => {
+    const text = "Ana Lopez\nAustin, TX\nana@example.com\nSKILLS\nPython";
+    expect(extractProfile(text, intake).locations).toContain("Austin");
+  });
+
   it("does not count hardware accelerators or a bare dollar sign", () => {
     const text = "Ana\nBuilt an FPGA accelerator for CNN inference\nTuned GPU accelerators for ML training\nRaised $4,000 for the food bank\nRaised $2,500 for the food bank\nRaised $1,000 for the food bank";
     expect(founderScore(text)).toBeLessThan(0.4);

@@ -43,6 +43,13 @@ function headingOf(line: string): string | null {
   return key.length < 30 ? HEADINGS[key] ?? null : null;
 }
 
+/** A heading with its first line after a colon, as in "Skills: TypeScript, Go, Postgres". */
+function inlineHeading(line: string): { head: string; rest: string } | null {
+  const match = line.match(/^([^:]{3,29}?)\s*:\s*(.+)$/);
+  const head = match ? headingOf(match[1]) : null;
+  return match && head ? { head, rest: match[2].trim() } : null;
+}
+
 const NUMBER_WORDS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
 };
@@ -90,6 +97,12 @@ function sections(text: string): Map<string, string[]> {
     const head = headingOf(line);
     if (head) {
       current = head;
+      continue;
+    }
+    const inline = inlineHeading(line);
+    if (inline) {
+      current = inline.head;
+      map.set(current, [...(map.get(current) ?? []), inline.rest]);
       continue;
     }
     if (!line) continue;
@@ -288,7 +301,8 @@ function cityFrom(segment: string): string {
 
 function locationsFrom(text: string, intake: Intake): string[] {
   const head = text.split("\n").map((l) => l.trim()).filter(Boolean).slice(1, 5);
-  const segments = head.flatMap((line) => (/[|\u2022\u00b7@]/.test(line) ? line.split(/[|\u2022\u00b7]/) : []));
+  // A head line with separators is several segments; a plain second line ("Austin, TX") is one segment whole.
+  const segments = head.flatMap((line) => (/[|\u2022\u00b7@]/.test(line) ? line.split(/[|\u2022\u00b7]/) : [line]));
   const city = segments.map((seg) => cityFrom(seg.trim())).find(Boolean) ?? "";
   return [...new Set([city, ...intake.places].filter((c) => c && c.length < 40))];
 }
