@@ -25,5 +25,43 @@ export const speedrunCopy = {
   brief: {},
   decisions: {},
   close: {},
-  people: {},
+  flow: {
+    lanes: { jobs: "Job search", founder: "Founder lane" },
+    hub: "Applications",
+    stages: {
+      applied: "Applied",
+      assessment: "Assessment",
+      screen: "Screen",
+      interview: "Interview",
+      offer: "Offer",
+    },
+    exits: { rejected: "Rejected", noreply: "No reply", open: "Still open" },
+  },
+  people: {
+    maya: {
+      name: "Maya",
+      line: "Sophomore in CS, looking for a summer 2027 software internship, five applications in.",
+      mode: "Depth",
+    },
+    ravi: {
+      name: "Ravi",
+      line: "New grad AI engineer, sixty applications out, hoping for an applied AI team.",
+      mode: "Matches",
+    },
+    sam: {
+      name: "Sam",
+      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and two founder intros.",
+      mode: "Pipeline",
+    },
+    lena: {
+      name: "Lena",
+      line: "Product designer two years in, forty applications, leading with her portfolio.",
+      mode: "Matches",
+    },
+    dev: {
+      name: "Dev",
+      line: "Laid off from a big-tech infra team, built two side companies, five hundred touches across jobs, accelerators and funds.",
+      mode: "Triage",
+    },
+  },
 };
