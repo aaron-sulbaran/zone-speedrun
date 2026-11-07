@@ -1,5 +1,6 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { AI_WORDS, aiStrength, cleanTitle, escapeRegex, FOREIGN, hits, placeMatches, shortLocation, STOPWORDS, withArticle } from "./matchText";
+import { AI_WORDS, aiStrength, cleanTitle, escapeRegex, placeMatches, remoteFitsUs, shortLocation, withArticle } from "./matchText";
+import { ownWords, personalReasons } from "./matchOwn";
 import type { Snapshot, SnapshotCompany, SnapshotRole } from "./snapshot";
 import type { Fn, Intake, Profile } from "./types";
 
@@ -32,7 +33,6 @@ export type MatchResult = {
 };
 
 type Corpus = Pick<Snapshot, "companies" | "roles">;
-type Terms = { skills: string[]; words: string[] };
 type Place = { kind: "city" | "remote"; place: string; location: string };
 
 const FUND_SLUG = "speedrun";
@@ -109,59 +109,21 @@ function placeFit(places: string[], remoteOk: boolean, role: SnapshotRole): Plac
     }
   }
   const remoteFits = remoteOk && (role.workplace === "Remote" || /remote/i.test(role.location ?? ""));
-  if (!remoteFits) return null;
-  // A remote role in another region only fits a visitor who named that region.
-  const region = FOREIGN.exec(role.location ?? "")?.[0];
-  if (region && !places.some((p) => new RegExp(escapeRegex(region), "i").test(p))) return null;
+  if (!remoteFits || !remoteFitsUs(role.location, places)) return null;
   return { kind: "remote", place: "Remote", location: role.location ?? "" };
 }
 
-function termsFor(profile: Profile, intake: Intake): Terms {
-  const words = intake.why.toLowerCase().split(/[^a-z0-9+#]+/).filter((w) => w.length >= 5 && !STOPWORDS.has(w));
-  return { skills: profile.skills.map((s) => s.trim()).filter(Boolean), words: [...new Set(words)] };
-}
 
-/** Reasons in the visitor's own words: skills, a phrase from their own answer, something they shipped. */
-function personalReasons(profile: Profile, intake: Intake, terms: Terms, role: SnapshotRole | null, company: SnapshotCompany | undefined): { reasons: Reason[]; score: number } {
-  const reasons: Reason[] = [];
-  const title = role?.title ?? "";
-  const excerpt = role?.excerpt ?? "";
-  const blurb = company?.blurb ?? "";
-  const inTitle = hits(terms.skills, title);
-  const inExcerpt = hits(terms.skills, excerpt).filter((s) => !inTitle.includes(s));
-  const inBlurb = hits(terms.skills, blurb).filter((s) => !inTitle.includes(s) && !inExcerpt.includes(s));
-  const wordHits = hits(terms.words, `${title} ${excerpt}`);
-  const score = Math.min(6, inTitle.length * 3 + inExcerpt.length * 1.5 + inBlurb.length + wordHits.length * 0.5);
+type Scored = { role: SnapshotRole; company: SnapshotCompany | undefined; score: number; reasons: Reason[]; tier: number };
+type Ctx = { profile: Profile; intake: Intake; newest: number; hardwareSkills: boolean };
 
-  const pieces = intake.why.split(/[.;:,]\s*/);
-  const clause = wordHits.length >= 2 ? pieces.find((c) => hits(wordHits, c).length >= 1) : undefined;
-  if (clause) {
-    const phrase = clause.trim().length > 70 ? `${clause.trim().slice(0, 70).replace(/\s+\S*$/, "")}...` : clause.trim();
-    reasons.push({ text: copy.reasons.why(phrase), cites: ["excerpt"] });
-  }
-  for (const item of profile.shipped) {
-    const words = item.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 6 && !STOPWORDS.has(w));
-    const inText = words.find((w) => excerpt.toLowerCase().includes(w));
-    const inCompany = words.find((w) => blurb.toLowerCase().includes(w));
-    if (inText || inCompany) {
-      reasons.push({
-        text: copy.reasons.shipped(item, (inText ?? inCompany)!, inText ? "the description" : "the company blurb"),
-        cites: [inText ? "excerpt" : "blurb"],
-      });
-      break;
-    }
-  }
-  if (inTitle.length > 0) reasons.push({ text: copy.reasons.skillsTitle(inTitle.join(" and ")), cites: ["skills", "title"] });
-  if (inExcerpt.length > 0) reasons.push({ text: copy.reasons.skillsExcerpt(inExcerpt.slice(0, 3).join(", ")), cites: ["skills", "excerpt"] });
-  if (inBlurb.length > 0) reasons.push({ text: copy.reasons.skillsBlurb(inBlurb.slice(0, 3).join(", ")), cites: ["skills", "blurb"] });
-  return { reasons, score };
-}
-
-type Scored = { role: SnapshotRole; company: SnapshotCompany | undefined; score: number; reasons: Reason[] };
+const SOFTWARE_TITLE = /software|backend|back-end|frontend|front-end|full.?stack|mobile|\bios\b|android|platform|infrastructure|\bdata\b|\bml\b|machine learning|\bai\b|\bweb\b|cloud|devops|\bsre\b|developer|\bapi\b/i;
+const HARDWARE_TITLE = /mechanical|electrical|hardware|systems? engineer|naval|manufactur|embedded|firmware|avionics|propulsion|structur|\bgnc\b|power systems|civil|chemical|\brf\b|thermal|aerospace|test engineer|field engineer|mission/i;
+const HARDWARE_SKILL = /firmware|embedded|fpga|pcb|\bcad\b|verilog|vhdl|circuit|mechanical|electrical|solidworks|robotics|\bplc\b/i;
 
 function scoreRole(
   role: SnapshotRole, company: SnapshotCompany | undefined, fn: Fn, fnIndex: number, place: Place | null,
-  ctx: { profile: Profile; intake: Intake; terms: Terms; newest: number },
+  ctx: Ctx,
 ): Scored {
   const { profile } = ctx;
   const label = copy.fnLabels[fn];
@@ -171,12 +133,17 @@ function scoreRole(
   if (fits) score += 2;
   const ai = fn === "ai" ? aiStrength(role, company) : null;
   if (ai === "blurb") score -= 1.5;
+  // Software titles lead for engineering and AI targets, unless the resume shows hardware skills.
+  if ((fn === "engineering" || fn === "ai") && !ctx.hardwareSkills) {
+    if (SOFTWARE_TITLE.test(role.title)) score += 2;
+    else if (HARDWARE_TITLE.test(role.title)) score -= 3;
+  }
   const reasons: Reason[] = [
     { text: copy.reasons.fnTitle(label, withArticle(nameForTitle)), cites: fits ? ["functions", "title"] : ["functions"] },
   ];
   if (ai === "blurb") reasons.push({ text: copy.reasons.aiBlurb, cites: ["blurb"] });
 
-  const personal = personalReasons(profile, ctx.intake, ctx.terms, role, company);
+  const personal = personalReasons(profile, ctx.intake, role, company);
   score += personal.score;
   reasons.push(...personal.reasons);
 
@@ -194,7 +161,9 @@ function scoreRole(
   }
   if (role.tier === "speedrun") score += 1;
   score += Math.max(0, 0.5 - (ctx.newest - dayOf(role.postedAt)) / (1000 * 60 * 60 * 24 * 120));
-  return { role, company, score, reasons };
+  // The first target outranks every bonus. For an AI-first visitor that means AI in the title or description.
+  const tier = fnIndex === 0 && ai !== "blurb" ? 1 : 0;
+  return { role, company, score, reasons, tier };
 }
 
 const COMPANY_FNS: Record<Fn, string[]> = {
@@ -202,12 +171,12 @@ const COMPANY_FNS: Record<Fn, string[]> = {
   data: ["engineering"], operations: ["operations"], founder: [],
 };
 
-function companyOnly(company: SnapshotCompany, fn: Fn, place: string | null, ctx: { profile: Profile; intake: Intake; terms: Terms }): Reason[] | null {
+function companyOnly(company: SnapshotCompany, fn: Fn, place: string | null, ctx: Ctx): Reason[] | null {
   if (!company.functions.some((f) => COMPANY_FNS[fn].includes(f))) return null;
   if (fn === "ai" && !AI_WORDS.test(company.blurb.replace(new RegExp(escapeRegex(company.name), "gi"), " "))) return null;
   const reasons: Reason[] = [{ text: copy.reasons.fnCompany(copy.fnLabels[fn], company.name), cites: ["functions"] }];
   if (place) reasons.push({ text: copy.reasons.companyCity(shortLocation(company.location ?? "", place), place), cites: ["location"] });
-  reasons.push(...personalReasons(ctx.profile, ctx.intake, ctx.terms, null, company).reasons);
+  reasons.push(...personalReasons(ctx.profile, ctx.intake, null, company).reasons);
   return reasons;
 }
 
@@ -230,6 +199,7 @@ function toMatch(scored: Scored): Match {
 }
 
 function better(a: Scored, b: Scored): boolean {
+  if (a.tier !== b.tier) return a.tier > b.tier;
   if (a.score !== b.score) return a.score > b.score;
   const da = dayOf(a.role.postedAt), db = dayOf(b.role.postedAt);
   return da !== db ? da > db : a.role.id < b.role.id;
@@ -243,8 +213,13 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   const targets: Fn[] = intake.targets.length > 0 ? intake.targets : profile.functions;
   // What the visitor typed wins over what the resume implies.
   const places = (intake.places.length > 0 ? intake.places : profile.locations).filter(Boolean);
-  const remoteOk = intake.places.length > 0 ? intake.places.some(isRemotePlace) : profile.remoteOk;
-  const ctx = { profile, intake, terms: termsFor(profile, intake), newest: roles.reduce((max, r) => Math.max(max, dayOf(r.postedAt)), 0) };
+  const remoteOk = intake.places.length > 0 ? intake.places.some(isRemotePlace) : true;
+  const ctx: Ctx = {
+    profile,
+    intake,
+    newest: roles.reduce((max, r) => Math.max(max, dayOf(r.postedAt)), 0),
+    hardwareSkills: HARDWARE_SKILL.test([...profile.skills, ...profile.shipped].join(" ")),
+  };
 
   const best = new Map<string, Scored>();
   let afterFilters = 0;
@@ -289,6 +264,16 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   companyMatches.sort((a, b) => b.score - a.score || a.company.name.localeCompare(b.company.name));
 
   const shown = [...matches, ...companyMatches].slice(0, limit);
+  // The same own-words line never repeats on more than two cards.
+  const seen = new Map<string, number>();
+  for (const match of shown) {
+    match.reasons = match.reasons.filter((reason) => {
+      if (!ownWords.has(reason)) return true;
+      const n = (seen.get(reason.text) ?? 0) + 1;
+      seen.set(reason.text, n);
+      return n <= 2;
+    });
+  }
   return {
     matches: shown,
     routes: profile.founderSignal.score >= 0.6 ? ROUTES : [],

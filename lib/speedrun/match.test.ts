@@ -85,27 +85,80 @@ describe("rankMatches", () => {
     expect(result.narrowing.shown).toBe(0);
   });
 
-  it("decides AI from the title or description, never from a company name", () => {
+  const stripCompany = (m: ReturnType<typeof run>["matches"][number]) =>
+    [m.role!.company, m.company.name].reduce((t, n) => t.replace(new RegExp(n.replace(/[()]/g, ""), "gi"), " "), `${m.role!.title} ${m.role!.excerpt}`);
+  const AI_TEXT = /\b(ai|ml|machine learning|llms?|language models?|generative|neural|nlp)\b/i;
+
+  it("shows an AI-first visitor only roles that mention AI in the title or description", () => {
     const { matches } = run("ravi");
-    const names = (m: (typeof matches)[number]) =>
-      [m.role!.company, m.company.name].reduce((t, n) => t.replace(new RegExp(n.replace(/[()]/g, ""), "gi"), " "), `${m.role!.title} ${m.role!.excerpt}`);
-    // Ravi's second target is engineering; only the matches placed under AI must mention it.
-    const asAi = matches.filter((m) => m.reasons[0].text.startsWith("You asked for AI"));
-    expect(asAi.length).toBeGreaterThanOrEqual(3);
-    expect(matches.slice(0, 3)).toEqual(asAi.slice(0, 3));
-    for (const match of asAi) {
+    expect(matches).toHaveLength(6);
+    for (const match of matches) {
       expect(match.role).not.toBeNull();
-      expect(/\b(ai|ml|machine learning|llms?|language models?|generative|neural|nlp)\b/i.test(names(match))).toBe(true);
+      expect(AI_TEXT.test(stripCompany(match))).toBe(true);
+    }
+    const person = PEOPLE.ravi;
+    const wide = rankMatches(extractProfile(person.resumeText, person.intake), person.intake, corpus, 100).matches;
+    expect(wide.filter((m) => m.role && AI_TEXT.test(stripCompany(m))).length).toBeGreaterThanOrEqual(11);
+  });
+
+  it("keeps roles outside the US and generic remote away from every sample person", () => {
+    const outside = /canada|toronto|mexico|spain|madrid|switzerland|zurich|turkey|istanbul|vietnam|china|korea|seoul|india\b|europe|\buk\b|united kingdom|london|lisbon|asia|apac|singapore|japan|australia|sydney|latin america|latam|brazil|belgrade|makati|philippines|dublin, ireland|munich|abu dhabi/i;
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      const person = PEOPLE[key];
+      const profile = extractProfile(person.resumeText, person.intake);
+      for (const match of rankMatches(profile, person.intake, corpus, 100).matches) {
+        const named = person.intake.places.some((p) => outside.test(p));
+        const location = match.role?.location ?? "";
+        const alsoUs = /united states|\busa\b|, [A-Z]{2}\b/.test(location);
+        if (!named && !alsoUs) expect(outside.test(location), `${key}: ${location}`).toBe(false);
+      }
     }
   });
 
-  it("keeps remote roles in other regions away from US visitors", () => {
-    const foreign = /europe|emea|\buk\b|united kingdom|london|lisbon|asia|apac|singapore|india|japan|australia|sydney|latin america|latam|brazil|belgrade|makati|philippines|dublin|munich|abu dhabi/i;
-    for (const key of ["sam", "lena"] as PersonKey[]) {
+  it("puts software titles ahead of hardware titles for engineering targets", () => {
+    const software = /software|developer|backend|frontend|full.?stack|platform|mobile|ios|android|infrastructure|data|ml|machine learning|ai/i;
+    for (const match of run("maya").matches) if (match.role) expect(software.test(match.role.title), match.role.title).toBe(true);
+    for (const key of ["ravi", "sam"] as PersonKey[]) {
       for (const match of run(key).matches) {
-        expect(foreign.test(match.role?.location ?? "")).toBe(false);
+        if (match.role && match.reasons[0].text.startsWith("You asked for engineering")) {
+          expect(software.test(match.role.title), match.role.title).toBe(true);
+        }
       }
     }
+  });
+
+  const ownLine = (text: string) => text.startsWith("You wrote") || text.startsWith("You shipped");
+
+  it("quotes the visitor in at least three of the five top sixes, and never repeats a line past twice", () => {
+    let people = 0;
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      const lines = run(key).matches.flatMap((m) => m.reasons.map((r) => r.text).filter(ownLine));
+      if (lines.length > 0) people += 1;
+      for (const line of lines) expect(lines.filter((l) => l === line).length).toBeLessThanOrEqual(2);
+    }
+    expect(people).toBeGreaterThanOrEqual(3);
+  });
+
+  it("matches words, never substrings, in own-words reasons", () => {
+    const base = corpus.roles.find((r) => r.tier === "speedrun")!;
+    const role = { ...base, title: "Relationship Manager", excerpt: "We manage the relationship with Google and capital partners.", location: "Remote", workplace: "Remote", fn: "engineering", seniority: "junior" };
+    const person = PEOPLE.ravi;
+    const profile = { ...person.profile, skills: ["Go", "api"], shipped: ["Ship tracker"], functions: ["engineering" as const] };
+    const result = rankMatches(profile, { targets: ["engineering"], places: ["Remote"], why: "I like an api and ship things" }, { companies: [], roles: [role] });
+    const text = result.matches.flatMap((m) => m.reasons.map((r) => r.text)).join(" ");
+    expect(result.matches).toHaveLength(1);
+    expect(text).not.toMatch(/You shipped|You wrote|Your Go|Your api/);
+  });
+
+  it("ranks a visitor who skipped places from the resume city without dropping to nothing", () => {
+    const person = PEOPLE.lena;
+    const resume = person.resumeText.replace("Brooklyn, NY |", "Product Designer | Design Systems | Brooklyn, NY |");
+    const profile = extractProfile(resume, { ...person.intake, places: [] });
+    expect(profile.locations).toEqual(["New York"]);
+    expect(rankMatches(profile, { ...person.intake, places: [] }, corpus).matches.length).toBeGreaterThan(0);
+    const headlineOnly = extractProfile(person.resumeText.replace("Brooklyn, NY |", "Product Designer | Design Systems |"), { ...person.intake, places: [] });
+    expect(headlineOnly.locations).toEqual([]);
+    expect(rankMatches(headlineOnly, { ...person.intake, places: [] }, corpus).matches.length).toBeGreaterThan(0);
   });
 
   it("does not depend on corpus order", () => {

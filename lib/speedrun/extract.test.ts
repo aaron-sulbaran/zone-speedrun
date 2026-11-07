@@ -112,4 +112,40 @@ describe("extractProfile", () => {
     const text = "Ana Lopez\nana@example.com | (512) 555-0142 | github.com/ana | Austin, TX\nSKILLS\nPython";
     expect(extractProfile(text, intake).locations).toContain("Austin");
   });
+
+  it("does not count hardware accelerators or a bare dollar sign", () => {
+    const text = "Ana\nBuilt an FPGA accelerator for CNN inference\nTuned GPU accelerators for ML training\nRaised $4,000 for the food bank\nRaised $2,500 for the food bank\nRaised $1,000 for the food bank";
+    expect(founderScore(text)).toBeLessThan(0.4);
+    expect(founderScore("Ana\nRaised $2 million in a seed round\nRaised $1.5M from angels\nRaised a pre-seed round")).toBeGreaterThanOrEqual(0.6);
+  });
+
+  it("keeps a team grown inside a company from blocking founder evidence", () => {
+    const text = "Ana\nCo-founded Acme, grew the team to 12\nSolo founder of Beta\nFounded Gamma, a payments company";
+    const profile = extractProfile(text, intake);
+    expect(profile.founderSignal.score).toBeGreaterThanOrEqual(0.6);
+    expect(profile.founderSignal.evidence[0]).toContain("Acme");
+  });
+
+  it("keeps a closing paragraph out of the skills", () => {
+    const text = "Ana\nSKILLS\nPython, Go\nLooking for a role where I can ship, learn and grow, with a great team.";
+    expect(extractProfile(text, intake).skills).toEqual(["Python", "Go"]);
+  });
+
+  it("does not turn a senior into an intern because they want to mentor one", () => {
+    const dev = PEOPLE.dev;
+    const profile = extractProfile(dev.resumeText, { ...dev.intake, why: "Back to building, and I want to mentor an intern." });
+    expect(profile.seniority).toBe("senior");
+  });
+
+  it("reads a decomposed name and rejects a headline as the city", () => {
+    const text = "Jose\u0301 Ruiz\nProduct Designer | Design Systems\nSKILLS\nFigma";
+    const profile = extractProfile(text, { targets: ["design"], places: [], why: "" });
+    expect(profile.firstName).toBe("Jos\u00e9");
+    expect(profile.locations).toEqual([]);
+  });
+
+  it("takes the city from a place-shaped segment only", () => {
+    const text = "Ana\nProduct Designer | Brooklyn, NY | ana@example.com\nSKILLS\nFigma";
+    expect(extractProfile(text, { targets: ["design"], places: [], why: "" }).locations).toEqual(["New York"]);
+  });
 });
