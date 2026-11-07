@@ -103,16 +103,17 @@ function scoreRole(
   const label = copy.fnLabels[fn];
   const nameForTitle = cleanTitle(role.title, role.company);
   let score = fnIndex === 0 ? 5 : 4;
-  const fits = titleFits(role, fn);
+  // Software titles lead for engineering and AI targets, unless the resume shows hardware skills. Hardware is
+  // checked before the weak words, so "Mechanical Engineer" and "Systems Engineer I" take the penalty, and for
+  // a software visitor such a title does not count as naming the function.
+  const softwareTarget = (fn === "engineering" || fn === "ai") && !ctx.hardwareSkills;
+  const software = softwareTarget && SOFTWARE_TITLE.test(role.title);
+  const hardware = softwareTarget && !software && HARDWARE_TITLE.test(role.title);
+  if (softwareTarget) score += software ? 4 : hardware ? -3 : WEAK_SOFTWARE_TITLE.test(role.title) ? 1 : 0;
+  const fits = titleFits(role, fn) && !hardware;
   if (fits) score += 2;
   const ai = fn === "ai" ? aiStrength(role, company) : null;
   if (ai === "blurb") score -= 1.5;
-  // Software titles lead for engineering and AI targets, unless the resume shows hardware skills.
-  if ((fn === "engineering" || fn === "ai") && !ctx.hardwareSkills) {
-    if (SOFTWARE_TITLE.test(role.title)) score += 4;
-    else if (WEAK_SOFTWARE_TITLE.test(role.title)) score += 1;
-    else if (HARDWARE_TITLE.test(role.title)) score -= 3;
-  }
   const reasons: Reason[] = [
     { text: copy.reasons.fnTitle(label, withArticle(nameForTitle)), cites: fits ? ["functions", "title"] : ["functions"] },
   ];

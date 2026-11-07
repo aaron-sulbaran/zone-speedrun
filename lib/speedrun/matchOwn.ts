@@ -1,5 +1,5 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { hits } from "./matchText";
+import { escapeRegex, hits } from "./matchText";
 import type { Reason } from "./match";
 import type { SnapshotCompany, SnapshotRole } from "./snapshot";
 import type { Intake, Profile } from "./types";
@@ -39,10 +39,10 @@ export const COMMON_WORDS = new Set(
   still even really less only now today soon ago always never often well across around through within without`.split(/\s+/),
 );
 const SHIPPED_GENERIC = new Set("tool app suite library assistant prototype pilots project system platform redesign".split(" "));
-/** Tech and domain terms: an own-words line needs one of these or one of the visitor's skills. */
+/** Tech and domain terms: an own-words line needs one of these or one of the visitor's skills. "Software" alone is too broad. */
 const DOMAIN = new Set(
   `ai ml api apis ios android llm llms nlp sql web mobile cloud devops security data research payments fintech health healthcare
-  clinical medical robotics hardware infrastructure software backend frontend fullstack firmware embedded kubernetes distributed
+  clinical medical robotics hardware infrastructure backend frontend fullstack firmware embedded kubernetes distributed
   compilers database databases search retrieval evaluation evals model models inference agents agent prompts prompt python typescript
   javascript react rust golang java swift kotlin ux ui accessibility figma prototyping defense aerospace energy climate biotech crypto
   blockchain gaming games education edtech legal insurance logistics analytics bookkeeping accounting pricing billing invoices invoicing
@@ -61,12 +61,15 @@ const stems = (text: string): Set<string> => new Set(tokens(text).map(stem));
 
 type Field = { cite: "title" | "excerpt" | "blurb"; text: string; where: string };
 
+/** The listing's fields with the company's own name taken out, so "Omi Health" alone never reads as health work. */
 function fieldsOf(role: SnapshotRole | null, company: SnapshotCompany | undefined): Field[] {
+  const names = [role?.company, company?.name].filter((n): n is string => !!n && n.trim().length > 1);
+  const strip = (text: string) => names.reduce((acc, n) => acc.replace(new RegExp(escapeRegex(n.trim()), "gi"), " "), text);
   return [
-    { cite: "title" as const, text: role?.title ?? "", where: "the title" },
-    { cite: "excerpt" as const, text: role?.excerpt ?? "", where: "the description" },
-    { cite: "blurb" as const, text: company?.blurb ?? "", where: "the company blurb" },
-  ].filter((f) => f.text);
+    { cite: "title" as const, text: strip(role?.title ?? ""), where: "the title" },
+    { cite: "excerpt" as const, text: strip(role?.excerpt ?? ""), where: "the description" },
+    { cite: "blurb" as const, text: strip(company?.blurb ?? ""), where: "the company blurb" },
+  ].filter((f) => f.text.trim());
 }
 
 function phraseFor(why: string, hitWords: string[]): string {

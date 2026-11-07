@@ -56,7 +56,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     intake: {
       targets: ["product", "engineering"],
       places: ["Atlanta", "New York", "Remote"],
-      why: "A co-op or new grad role on a small team where I build the product and talk to users.",
+      why: "A co-op or new grad role building product for small teams in health tech or fintech, close to the people who use it.",
     },
     volume: 90,
     cadence: "daily",

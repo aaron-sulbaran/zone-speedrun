@@ -57,6 +57,10 @@ describe("matchText", () => {
     }
     expect(remoteFitsUs("Remote - Venice, Italy", ["Los Angeles", "Remote"])).toBe(false);
     expect(placeMatches("San Francisco", "Union Square, New York City")).toBe(false);
+    for (const bad of ["Baton Rouge LA", "Venice Italy"]) expect(placeMatches("Los Angeles", bad), bad).toBe(false);
+    expect(placeMatches("Los Angeles", "Venice Beach, CA")).toBe(true);
+    expect(placeMatches("San Francisco", "New York (Union Square)")).toBe(false);
+    expect(placeMatches("San Francisco", "Union Square, San Francisco")).toBe(true);
   });
 
   it("lets Georgia the state fit a US visitor", () => {
@@ -67,6 +71,14 @@ describe("matchText", () => {
 
   it("splits two cities written without a separator", () => {
     expect(shortLocation("New York, NY Menlo Park, CA", "New York")).toBe("New York, NY and 1 more");
+    expect(shortLocation("San Francisco, CA Hybrid", "San Francisco")).toBe("San Francisco, CA Hybrid");
+    expect(shortLocation("Washington, DC Metro Area", "Washington")).toBe("Washington, DC Metro Area");
+  });
+
+  it("drops a pipe tail that is not the company", () => {
+    expect(cleanTitle("Growth PM, Future Platforms | Housing", "EliseAI")).toBe("Growth PM, Future Platforms");
+    expect(cleanTitle("EliseAI | Growth PM", "EliseAI")).toBe("Growth PM");
+    expect(cleanTitle("Software Engineer | Remote", "Acme")).toBe("Software Engineer");
   });
 
   const role = (title: string, seniority: string | null = null) => ({ title, seniority }) as SnapshotRole;

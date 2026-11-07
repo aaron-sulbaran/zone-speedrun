@@ -16,17 +16,24 @@ export function withArticle(title: string): string {
   return `${an ? "an" : "a"} ${title}`;
 }
 
-/** Drops the company tail and remote tags: "New Grad - Quora (Remote)" becomes "New Grad". */
+/**
+ * Drops the company tail, pipe tails and remote tags: "New Grad - Quora (Remote)" becomes "New Grad", and
+ * "Growth PM, Future Platforms | Housing" becomes "Growth PM, Future Platforms".
+ */
 export function cleanTitle(title: string, companyName: string): string {
   const firstWord = companyName.split(/[\s(]/)[0]?.toLowerCase() ?? "";
+  const isCompany = (part: string) => !!firstWord && part.toLowerCase().includes(firstWord);
   let t = title
     .trim()
     .replace(/\s+/g, " ")
     .replace(/\s*\((remote|hybrid|on-?site)\)/gi, "")
     .replace(/\s*[(\[]\s*(req\.?\s*)?#?[A-Z]{0,3}-?\d{3,}\s*[)\]]/gi, "")
     .replace(/\s+#\d{3,}\b/g, "");
-  t = t.replace(/\s+[-\u2013|]\s+(.*)$/, (m, tail: string) =>
-    (firstWord && tail.toLowerCase().includes(firstWord)) || /^(remote|hybrid|on-?site)$/i.test(tail.trim()) ? "" : m,
+  // Between pipes, the title is the first part that is not the company or a work-place tag.
+  const parts = t.split(/\s+\|\s+/);
+  t = parts.find((part) => !isCompany(part) && !/^(remote|hybrid|on-?site)$/i.test(part.trim())) ?? parts[0];
+  t = t.replace(/\s+[-\u2013]\s+(.*)$/, (m, tail: string) =>
+    isCompany(tail) || /^(remote|hybrid|on-?site)$/i.test(tail.trim()) ? "" : m,
   );
   return t.trim();
 }
@@ -39,10 +46,19 @@ export function hits(terms: string[], text: string): string[] {
   });
 }
 
-// "LA" is case-sensitive and never the state code in "Franklin, LA"; Venice only when it is not in another state or country.
-const LOS_ANGELES =
-  /[Ll]os [Aa]ngeles|LOS ANGELES|\bL\.A\.|(?<!,\s*)\bLA\b(?!\s*,\s*(?!CA\b|California\b)[A-Za-z])|[Ss]anta [Mm]onica|SANTA MONICA|[Vv]enice(?!\s*,\s*(?!CA\b|California\b)[A-Za-z])|[Ee]l [Ss]egundo|EL SEGUNDO/;
-const SAN_FRANCISCO = /(?<!south )san francisco|\bsf\b|bay area|union square(?!,?\s*(new york|nyc|manhattan))/i;
+// "LA" is case-sensitive and never a state code after a city ("Franklin, LA", "Baton Rouge LA"); Venice only
+// when no other state or country follows it ("Venice, Italy", "Venice Italy").
+const LOS_ANGELES = new RegExp(
+  [
+    "[Ll]os [Aa]ngeles|LOS ANGELES|\\bL\\.A\\.",
+    "(?<!,\\s*)(?<!\\b(?!(Remote|Hybrid|Onsite|Greater|Downtown)\\b)[A-Z][a-z]+\\s+)\\bLA\\b(?!\\s*,\\s*(?!CA\\b|California\\b)[A-Za-z])",
+    "[Ss]anta [Mm]onica|SANTA MONICA|[Ee]l [Ss]egundo|EL SEGUNDO",
+    "[Vv]enice(?!\\s*,\\s*(?!CA\\b|California\\b)[A-Za-z])(?!\\s+(?!CA\\b|California\\b|Beach\\b|Blvd\\b|Boulevard\\b)[A-Z])",
+  ].join("|"),
+);
+// Union Square counts for San Francisco only when the location does not name New York.
+const SAN_FRANCISCO =
+  /(?<!south )san francisco|\bsf\b|bay area|(?<!(new york|nyc|manhattan).*)union square(?!.*(new york|nyc|manhattan))/i;
 const NEW_YORK = /new york|\bnyc\b|manhattan|brooklyn/i;
 export const PLACE_ALIASES: Record<string, RegExp> = {
   "san francisco": SAN_FRANCISCO, sf: SAN_FRANCISCO, "bay area": SAN_FRANCISCO,
@@ -89,7 +105,8 @@ export function remoteFitsUs(location: string | null, places: string[]): boolean
 
 /** First city, or the one the visitor named, plus "and N more" for multi-city strings. */
 export function shortLocation(location: string, place: string): string {
-  const parts = location.split(/\s*[\u2022;|]\s*|\s+\/\s+|(?<=,\s?[A-Z]{2})\s+(?=[A-Z][a-z])/).map((p) => p.trim()).filter((p) => p && !/^(united states|usa|us|u\.s\.)$/i.test(p));
+  // "New York, NY Menlo Park, CA" is two cities; "San Francisco, CA Hybrid" and "Washington, DC Metro Area" are one.
+  const parts = location.split(/\s*[\u2022;|]\s*|\s+\/\s+|(?<=,\s?[A-Z]{2})\s+(?=[A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s?[A-Z]{2}\b)/).map((p) => p.trim()).filter((p) => p && !/^(united states|usa|us|u\.s\.)$/i.test(p));
   if (parts.length <= 1) return parts[0] ?? location.trim();
   const chosen = parts.find((p) => placeMatches(place, p)) ?? parts[0];
   return `${chosen} and ${parts.length - 1} more`;

@@ -212,10 +212,19 @@ describe.each(["extracted", "sample"] as Mode[])("rankMatches (%s profiles)", (m
     expect(matches.some((m) => /new grad/i.test(m.role?.title ?? "")), matches.map((m) => m.role?.title).join(" | ")).toBe(true);
   });
 
-  it("shows a product-first new grad product roles, the plain Product Manager included", () => {
+  it("leads a product-first new grad with a speedrun product role, and product before engineering", () => {
     const { matches } = run("sam");
-    expect(matches.slice(0, 2).every((m) => m.role?.fn === "product"), matches.map((m) => m.role?.title).join(" | ")).toBe(true);
-    expect(matches.some((m) => m.company.name === "Clair Health" && m.role?.title === "Product Manager")).toBe(true);
+    const titles = matches.map((m) => m.role?.title).join(" | ");
+    expect(matches[0].role?.tier, titles).toBe("speedrun");
+    expect(matches[0].role?.fn, titles).toBe("product");
+    const firstOther = matches.findIndex((m) => m.role?.fn !== "product");
+    expect(matches.slice(firstOther).every((m) => m.role?.fn !== "product"), titles).toBe(true);
+  });
+
+  it("quotes Sam on the domain he names", () => {
+    const own = run("sam").matches.flatMap((m) => m.reasons.filter((r) => ownWords.has(r)));
+    expect(own.length).toBeGreaterThan(0);
+    for (const reason of own) expect(ownWords.get(reason)!.words.some((w) => /^(health|fintech)$/.test(w)), reason.text).toBe(true);
   });
 
   it("writes grammatical skills reasons", () => {
@@ -323,6 +332,25 @@ describe("rankMatches promotion, levels and ordering", () => {
     const { matches } = rankMatches(profile, remoteEngineer, { companies: [], roles: [plain, named] });
     expect(matches[0].role?.id).toBe(named.id);
     expect(matches[0].score - matches[1].score).toBeLessThanOrEqual(4);
+  });
+
+  it("does not quote a visitor on the word software alone", () => {
+    const listing = role({ title: "Software Engineer", excerpt: "We build software for clinics." });
+    const intake: Intake = { ...remoteEngineer, why: "Robotics, autonomy and hardware-software integration" };
+    const { matches } = rankMatches({ ...base, skills: [] }, intake, { companies: [], roles: [listing] });
+    expect(matches[0].reasons.some((r) => ownWords.has(r))).toBe(false);
+  });
+
+  it("gives hardware titles the penalty for a software visitor, even when they say engineer", () => {
+    const profile: Profile = { ...base, seniority: "new_grad", skills: ["TypeScript", "React"], locations: ["Austin", "Remote"] };
+    const intake: Intake = { targets: ["engineering"], places: ["Austin", "Remote"], why: "A full-stack new grad role" };
+    const titles = rankMatches(profile, intake, corpus).matches.map((m) => m.role?.title ?? "");
+    for (const title of titles) expect(/^(systems|mechanical|electrical) engineer/i.test(title.trim()), titles.join(" | ")).toBe(false);
+    const systems = role({ title: "Systems Engineer I" });
+    const web = role({ title: "Web Engineer" });
+    const weak = rankMatches(profile, remoteEngineer, { companies: [], roles: [systems, web] }).matches;
+    expect(weak[0].role?.id).toBe(web.id);
+    expect(weak[0].score - weak[1].score).toBeGreaterThanOrEqual(7);
   });
 
   it("needs a skill or a domain word before quoting the visitor", () => {

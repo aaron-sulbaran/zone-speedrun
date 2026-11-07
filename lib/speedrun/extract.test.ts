@@ -200,8 +200,25 @@ describe("extractProfile", () => {
       expect(founderScore(`Ana\n${text}`), text).toBeGreaterThanOrEqual(0.6);
     }
     expect(extractProfile("Ana\nFounder, Acme (YC S24)\n- Raised $1.5M pre-seed", intake).founderSignal.evidence).toContain("Raised $1.5M pre-seed");
+    expect(founderScore("Ana\nAcme | Founder | 2021 to 2023\nRaised a $2M seed round")).toBeGreaterThanOrEqual(0.6);
     expect(founderScore("Ana\nFounder, Robotics Club")).toBeLessThan(0.3);
     expect(founderScore("Ana\nFounder side project: Quietcoach")).toBeLessThan(0.3);
+  });
+
+  it("keeps student groups away from the founder routes", () => {
+    for (const text of [
+      "Founder & President, Longhorn Robotics Team\nRaised $8k in sponsorships",
+      "Founder, HackUT (student hackathon)\nRaised $20k from sponsors",
+      "Founder, Women in CS Mentorship Program\nRaised $3k",
+      "Founded the Startup Club at UT\nRaised $4k from sponsors",
+      "Founded the Startup Club at UT\nBrought YC founders to campus",
+      "Co-founded a student startup club",
+      "Founded a Business Club",
+      "Founded a student organization for first-generation engineers",
+    ]) {
+      expect(founderScore(`Ana\n${text}`), text).toBeLessThan(0.6);
+    }
+    for (const text of ["Co-founded a student startup club", "Founded a Business Club"]) expect(founderScore(`Ana\n${text}`), text).toBe(0);
   });
 
   it("reads a company founded with a team as a company", () => {
@@ -214,11 +231,19 @@ describe("extractProfile", () => {
     for (const why of ["A new grad role; I was an intern at Acme last summer", "Looking for a new grad role after two internships", "New grad SWE, three internships behind me"]) {
       expect(extractProfile(student, { ...intake, why }).seniority, why).toBe("new_grad");
     }
-    for (const why of ["A summer internship", "I'd love to be an intern", "Open to internships"]) {
+    for (const why of [
+      "A summer internship", "I'd love to be an intern", "Open to internships",
+      "After junior year I want an internship", "Summer after sophomore year: software internship",
+      "Looking for a summer internship program", "Applying to your internship program for summer 2027",
+      "I want mentorship and an internship", "Looking to be mentored in an internship",
+    ]) {
       expect(extractProfile(student, { ...intake, why }).seniority, why).toBe("intern");
     }
     const staff = "Ana\nEXPERIENCE\nStaff Software Engineer, Acme, 2018 to present\n";
-    for (const why of ["Taught interns", "Working with interns", "I want to help interns grow", "Ran the intern program", "Built the intern onboarding"]) {
+    for (const why of [
+      "Taught interns", "Working with interns", "I want to help interns grow", "Ran the intern program", "Built the intern onboarding",
+      "Mentor new grads on a small team", "A team that hires early career engineers",
+    ]) {
       expect(extractProfile(staff, { ...intake, why }).seniority, why).toBe("senior");
     }
   });
@@ -227,6 +252,12 @@ describe("extractProfile", () => {
     const text = "Ana\nPROJECTS\nRustling\n- A package manager written in Rust. Used by about four hundred people across three teams at school every single day";
     expect(extractProfile(text, intake).shipped).toEqual(["Rustling (A package manager written in Rust)"]);
     const ravi = extractProfile(PEOPLE.ravi.resumeText, PEOPLE.ravi.intake).shipped;
-    expect(ravi).toContain("Docsmith (An assistant that answers questions over a company handbook)");
+    expect(ravi).toContain("Docsmith (An assistant that answers questions over a company handbook, with citations back to the source paragraph)");
+    const transit = "Ana\nPROJECTS\nNext Shuttle\n- A campus app that predicts shuttle arrivals using GTFS realtime feeds and Postgres. Used daily";
+    expect(extractProfile(transit, intake).shipped[0]).toMatch(/GTFS realtime feeds and Postgres\)$/);
+    const long = `Ana\nPROJECTS\nLongish\n- ${"word ".repeat(60)}end.`;
+    const [item] = extractProfile(long, intake).shipped;
+    expect(item.length).toBeLessThanOrEqual("Longish ()".length + 140);
+    expect(item).toMatch(/word\)$/);
   });
 });
