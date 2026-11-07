@@ -32,7 +32,7 @@ describe("handleBrief", () => {
   });
 
   it("400 bad_input for a bad address, an unknown person, or no body", async () => {
-    for (const body of [{ email: "nope", personKey: "sam", connected: true, roleIds: [] }, { email: "a@b.co", personKey: "you", connected: true, roleIds: [] }, { email: "a@b.co", personKey: "sam", connected: true }, { ...BODY, roleIds: ["1", "2", "3", "4", "5", "6", "7"] }, null, "x"]) {
+    for (const body of [{ email: "nope", personKey: "sam", connected: true, roleIds: [] }, { email: "a@example.com", personKey: "you", connected: true, roleIds: [] }, { email: "a@example.com", personKey: "sam", connected: true }, { ...BODY, roleIds: ["1", "2", "3", "4", "5", "6", "7"] }, null, "x"]) {
       const out = await handleBrief(body, deps());
       expect(out).toEqual({ status: 400, body: { error: "bad_input" } });
     }
