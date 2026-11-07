@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BotIdClient } from "botid/client";
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
 import { Opener } from "@/components/speedrun/act1/Opener";
@@ -11,6 +12,12 @@ import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
 import { liveFlags } from "@/lib/speedrun/guard";
 import { getSnapshot } from "@/lib/speedrun/snapshot";
+
+// BotID rides along only on this page, and only on the two requests that spend money or send mail.
+const BOT_PROTECTED = [
+  { path: "/speedrun/api/read", method: "POST" },
+  { path: "/speedrun/api/brief", method: "POST" },
+];
 
 const SHARE_CARD = { url: "/opengraph-image", width: 1200, height: 630, alt: siteContent.meta.title };
 
@@ -60,6 +67,7 @@ export default function SpeedrunPage() {
         data-speedrun=""
         className={`focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >
+        <BotIdClient protect={BOT_PROTECTED} />
         <SrZone targetId="act-2" />
         <SpeedrunDemo live={liveFlags()} stats={stats} />
         <Decisions />
