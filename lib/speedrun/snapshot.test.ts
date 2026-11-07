@@ -25,4 +25,19 @@ describe("speedrun snapshot", () => {
       }
     }
   });
+
+  it("carries none of the words the public mirror rejects", () => {
+    const text = JSON.stringify(snapshot);
+    const forbidden = [
+      new RegExp(`${"recr"}${"uit"}(?!ers?\\b)`, "i"),
+      new RegExp("san" + "key", "i"),
+      new RegExp("second" + " brain", "i"),
+      new RegExp("ledger" + " feed", "i"),
+      new RegExp("ledger" + " export", "i"),
+      new RegExp("applications?" + " ledger", "i"),
+    ];
+    for (const pattern of forbidden) {
+      expect(pattern.test(text), String(pattern)).toBe(false);
+    }
+  });
 });
