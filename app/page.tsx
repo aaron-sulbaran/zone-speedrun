@@ -67,6 +67,7 @@ export default function SpeedrunPage() {
         data-speedrun=""
         className={`focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >
+        {/* An inline script: /speedrun must be entered by a full page load, never a next/link, or it never runs. */}
         <BotIdClient protect={BOT_PROTECTED} />
         <SrZone targetId="act-2" />
         <SpeedrunDemo live={liveFlags()} stats={stats} />
