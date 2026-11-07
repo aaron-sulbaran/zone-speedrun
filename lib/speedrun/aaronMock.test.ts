@@ -58,6 +58,7 @@ describe("AARON_MOCK", () => {
     expect(rows[0].row.furthest).toBe("offer");
     expect(rows[1].track).toBe("coop");
     expect(rows[2].track).toBe("fulltime");
+    expect(new Set(rows.map((r) => r.track)).size).toBe(3);
   });
 });
 

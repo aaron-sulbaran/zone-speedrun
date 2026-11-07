@@ -6,7 +6,7 @@ import { FlowReveal } from "./FlowReveal";
 
 // The shared flow chart. "aaron" reads the site's tokens (the --flow-* set);
 // "speedrun" reads the --sr-* tokens, so it only looks right inside [data-speedrun].
-// Both orientations are rendered and CSS shows one: columns across from md up,
+// Both orientations are rendered and CSS shows one: columns across from lg up,
 // rows stacked top to bottom below it, so there is no sideways scroll on phones.
 
 const WIDE = { width: 864, height: 340, nodeWidth: 6, gap: 20, maxPerUnit: 14 } satisfies FlowSize;
@@ -85,7 +85,7 @@ function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; titl
       viewBox={view}
       role="img"
       aria-labelledby={titleId}
-      className={vertical ? "mx-auto block h-auto w-full max-w-[26rem] md:hidden" : "hidden h-auto w-full md:block"}
+      className={vertical ? "mx-auto block h-auto w-full max-w-[26rem] lg:hidden" : "hidden h-auto w-full lg:block"}
     >
       <title id={titleId}>{title}</title>
       <g transform={vertical ? undefined : `translate(${WIDE_LEFT} ${WIDE_TOP})`}>
@@ -128,6 +128,7 @@ function CountsTable({ data }: { data: FlowData }) {
   return (
     <div className="sr-only">
       <table>
+        <caption>{speedrunCopy.flow.tableCaptions.stages}</caption>
         <thead>
           <tr>
             <th scope="col">{head.stage}</th>
@@ -153,6 +154,7 @@ function CountsTable({ data }: { data: FlowData }) {
         </tbody>
       </table>
       <table>
+        <caption>{speedrunCopy.flow.tableCaptions.tracks}</caption>
         <thead>
           <tr>
             <th scope="col">{head.track}</th>

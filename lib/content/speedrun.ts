@@ -184,6 +184,7 @@ export const speedrunCopy = {
     },
     exits: { rejected: "Rejected", noreply: "No reply", open: "Still open" },
     tableHead: { stage: "Stage", reached: "Reached", track: "Track", count: "Applications" },
+    tableCaptions: { stages: "Applications by stage reached and how they ended", tracks: "Applications by track" },
   },
   people: {
     maya: {

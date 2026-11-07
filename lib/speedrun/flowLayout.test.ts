@@ -38,17 +38,33 @@ describe("layoutFlow", () => {
     expect(layoutFlow({ nodes: [], links: [] }, size)).toEqual({ nodes: [], links: [] });
   });
 
-  it("conserves flow: a node's extent is the sum of its link widths on each side, and slots stay inside it", () => {
+  it("conserves flow and keeps every ribbon end inside its node, in both orientations", () => {
     for (const orientation of ["horizontal", "vertical"] as const) {
-      const laid = layoutFlow(data, { ...size, ...(orientation === "vertical" ? tall : {}) });
-      const extent = (n: (typeof laid.nodes)[number]) => (orientation === "vertical" ? n.w : n.h);
+      const vertical = orientation === "vertical";
+      const laid = layoutFlow(data, { ...size, ...(vertical ? tall : {}) });
+      const byId = new Map(laid.nodes.map((n) => [n.id, n]));
+      const extent = (n: (typeof laid.nodes)[number]) => (vertical ? n.w : n.h);
+      const start = (n: (typeof laid.nodes)[number]) => (vertical ? n.x : n.y);
       for (const node of laid.nodes) {
-        const incoming = laid.links.filter((l) => l.target === node.id).reduce((s, l) => s + l.width, 0);
-        const outgoing = laid.links.filter((l) => l.source === node.id).reduce((s, l) => s + l.width, 0);
-        const slack = 0.1 * laid.links.length;
-        if (incoming > 0) expect(Math.abs(extent(node) - incoming)).toBeLessThan(slack);
-        if (outgoing > 0) expect(Math.abs(extent(node) - outgoing)).toBeLessThan(slack);
-        expect(Math.max(incoming, outgoing)).toBeLessThanOrEqual(extent(node) + slack);
+        const incoming = laid.links.filter((l) => l.target === node.id);
+        const outgoing = laid.links.filter((l) => l.source === node.id);
+        const sum = (links: typeof incoming) => links.reduce((s, l) => s + l.width, 0);
+        if (incoming.length) expect(Math.abs(extent(node) - sum(incoming))).toBeLessThanOrEqual(0.01 * incoming.length + 0.01);
+        if (outgoing.length) expect(Math.abs(extent(node) - sum(outgoing))).toBeLessThanOrEqual(0.01 * outgoing.length + 0.01);
+      }
+      for (const link of laid.links) {
+        const numbers = (link.path.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+        expect(numbers).toHaveLength(8);
+        // Points are "x y" horizontally and "cross main" (so x y) vertically: the cross axis is y or x.
+        const crossAt = (pair: number) => numbers[pair * 2 + (vertical ? 0 : 1)];
+        const ends = [
+          { center: crossAt(0), node: byId.get(link.source)! },
+          { center: crossAt(3), node: byId.get(link.target)! },
+        ];
+        for (const { center, node } of ends) {
+          expect(center - link.width / 2).toBeGreaterThanOrEqual(start(node) - 0.01);
+          expect(center + link.width / 2).toBeLessThanOrEqual(start(node) + extent(node) + 0.01);
+        }
       }
     }
   });
