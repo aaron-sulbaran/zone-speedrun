@@ -25,20 +25,3 @@ export function handleMatch(raw: unknown): MatchOutcome {
   const profile = PEOPLE[personKey].profile;
   return { status: 200, body: { profile, result: rankMatches(profile, intake, getSnapshot()) } };
 }
-
-// A minimal fixed-window limiter per address. Nothing is stored beyond counters.
-export function createWindowLimiter(limit: number, windowMs: number) {
-  const hits = new Map<string, { count: number; resetAt: number }>();
-  return {
-    allow(key: string, now: number): boolean {
-      const entry = hits.get(key);
-      if (!entry || now >= entry.resetAt) {
-        if (hits.size > 5000) hits.clear();
-        hits.set(key, { count: 1, resetAt: now + windowMs });
-        return true;
-      }
-      entry.count += 1;
-      return entry.count <= limit;
-    },
-  };
-}

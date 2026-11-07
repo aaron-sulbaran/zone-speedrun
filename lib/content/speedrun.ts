@@ -73,7 +73,7 @@ export const speedrunCopy = {
         uploadLabel: "Upload a resume",
         uploadTypes: "PDF or .txt, up to 4 MB",
         uploadNotice:
-          "Your file is read once to build your board, sent to the AI model without being stored, and never saved here.",
+          "Your browser reads the file. Only its text is sent, once, to the AI model to build your board, and nothing is saved.",
         uploadErrors: {
           bad_input: "That file type did not work. Use a PDF or a .txt file.",
           too_large: "That file is too big or too long. Try a PDF or .txt under 4 MB.",
@@ -82,6 +82,7 @@ export const speedrunCopy = {
           slow_down: "That is a lot of reads for now. Give it a few minutes, or borrow a sample person.",
           live_off: "Reading your own resume is off right now. Borrow a sample person instead.",
           bot: "That request looked automated, so it was blocked. Borrow a sample person instead.",
+          internal: "Something went wrong on my side. Try again in a minute, or borrow a sample person.",
           network: "Something went wrong reading that file. Try again, or borrow a sample person.",
         },
         peopleLabel: "Sample people",

@@ -115,11 +115,20 @@ describe("demoReducer pickPerson", () => {
     expect(state.profile).toBe(PEOPLE.lena.profile);
   });
 
-  it("returns to the join step when an upload fails, and ignores a stray failure", () => {
+  it("returns to the join step with the error when an upload fails, and ignores a stray failure", () => {
     const building = demoReducer(initialDemoState(LIVE), { type: "uploaded" });
-    expect(demoReducer(building, { type: "uploadFailed" }).step).toBe("join");
+    const failed = demoReducer(building, { type: "uploadFailed", error: "unreadable" });
+    expect(failed.step).toBe("join");
+    expect(failed.uploadError).toBe("unreadable");
     const sample = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" });
-    expect(demoReducer(sample, { type: "uploadFailed" })).toBe(sample);
+    expect(demoReducer(sample, { type: "uploadFailed", error: "network" })).toBe(sample);
+  });
+
+  it("clears the upload error on the next upload, pick and reset", () => {
+    const failed = demoReducer(demoReducer(initialDemoState(LIVE), { type: "uploaded" }), { type: "uploadFailed", error: "bot" });
+    expect(demoReducer(failed, { type: "uploaded" }).uploadError).toBeNull();
+    expect(demoReducer(failed, { type: "pickPerson", key: "sam" }).uploadError).toBeNull();
+    expect(demoReducer(failed, { type: "reset" }).uploadError).toBeNull();
   });
 });
 

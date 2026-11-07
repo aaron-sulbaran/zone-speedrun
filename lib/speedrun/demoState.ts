@@ -2,6 +2,8 @@ import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import type { BoardCard, InboxEvent, Intake, PersonKey, Profile } from "./types";
 
+export type UploadErrorKey = "bad_input" | "too_large" | "unreadable" | "slow_down" | "live_off" | "bot" | "internal" | "network";
+
 export type Live = { reading: boolean; email: boolean };
 
 export type DemoState = {
@@ -20,6 +22,8 @@ export type DemoState = {
   boardOrder: BoardCard[];
   hidden: BoardCard[];
   live: Live;
+  /** Why the last upload failed; cleared by the next pick, upload or reset. */
+  uploadError: UploadErrorKey | null;
 };
 
 export type DemoAction =
@@ -30,7 +34,7 @@ export type DemoAction =
   | { type: "back" }
   | { type: "pickPerson"; key: PersonKey }
   | { type: "uploaded" }
-  | { type: "uploadFailed" }
+  | { type: "uploadFailed"; error: UploadErrorKey }
   | { type: "built"; profile: Profile; result: MatchResult }
   | { type: "addEvents"; events: InboxEvent[] }
   | { type: "moveCard"; card: BoardCard; to: number }
@@ -56,6 +60,7 @@ export function initialDemoState(live: Live): DemoState {
     boardOrder: [...DEFAULT_BOARD_ORDER],
     hidden: [],
     live,
+    uploadError: null,
   };
 }
 
@@ -89,13 +94,14 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         result: null,
         boardOrder: [...person.boardOrder],
         hidden: [],
+        uploadError: null,
       };
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [] };
+      return { ...state, step: "building", personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], uploadError: null };
     case "uploadFailed":
-      return state.step === "building" && state.personKey === null ? { ...state, step: "join" } : state;
+      return state.step === "building" && state.personKey === null ? { ...state, step: "join", uploadError: action.error } : state;
     case "built":
       return { ...state, step: "ready", profile: action.profile, result: action.result };
     case "addEvents":

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWindowLimiter, handleMatch } from "./matchHandler";
+import { handleMatch } from "./matchHandler";
 import { PEOPLE } from "./people";
 
 describe("handleMatch", () => {
@@ -25,15 +25,5 @@ describe("handleMatch", () => {
     expect(handleMatch({ intake: { targets: ["wizard"], places: [], why: "" }, personKey: "dev" }).status).toBe(400);
     expect(handleMatch(null).status).toBe(400);
     expect(handleMatch({ intake: { targets: [], places: [], why: "x".repeat(2000) }, personKey: "dev" }).status).toBe(400);
-  });
-});
-
-describe("createWindowLimiter", () => {
-  it("allows 30 a minute per address and resets after the window", () => {
-    const limiter = createWindowLimiter(30, 60_000);
-    for (let i = 0; i < 30; i++) expect(limiter.allow("1.1.1.1", 1000)).toBe(true);
-    expect(limiter.allow("1.1.1.1", 2000)).toBe(false);
-    expect(limiter.allow("2.2.2.2", 2000)).toBe(true);
-    expect(limiter.allow("1.1.1.1", 62_000)).toBe(true);
   });
 });

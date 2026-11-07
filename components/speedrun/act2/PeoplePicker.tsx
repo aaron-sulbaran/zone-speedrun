@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
-import type { UploadErrorKey } from "@/lib/speedrun/readClient";
+import type { UploadErrorKey } from "@/lib/speedrun/demoState";
 import { PERSON_KEYS, type PersonKey } from "@/lib/speedrun/types";
 
 const FROSTED = "rounded-full bg-sr-hud px-4 py-2 text-sm font-semibold backdrop-blur transition-colors duration-200 ease-sr hover:bg-sr-strong disabled:opacity-40 motion-reduce:transition-none";
@@ -28,6 +28,12 @@ export function PeoplePicker({
 }) {
   const copy = speedrunCopy.join;
   const group = useRef<HTMLDivElement>(null);
+  const alertRef = useRef<HTMLParagraphElement>(null);
+
+  // A failed upload sends the visitor back here; the message takes focus so it is read out.
+  useEffect(() => {
+    if (uploadError) alertRef.current?.focus();
+  }, [uploadError]);
 
   const onArrows = (event: KeyboardEvent) => {
     const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
@@ -59,7 +65,7 @@ export function PeoplePicker({
           <span className="ml-3 text-xs text-sr-ink2">{copy.steps.resume.uploadTypes}</span>
           <p className="mt-2 text-xs leading-snug text-sr-ink2">{copy.steps.resume.uploadNotice}</p>
           {uploadError && (
-            <p role="alert" className="mt-2 text-sm font-semibold text-sr-ink">
+            <p ref={alertRef} tabIndex={-1} role="alert" className="mt-2 text-sm font-semibold text-sr-ink focus:outline-none">
               {copy.steps.resume.uploadErrors[uploadError]}
             </p>
           )}

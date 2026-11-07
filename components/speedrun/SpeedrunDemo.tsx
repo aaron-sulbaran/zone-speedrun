@@ -4,7 +4,7 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { composeBuildLog } from "@/lib/speedrun/buildLog";
 import { demoReducer, initialDemoState, MAX_PLACES, type Live } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion } from "@/lib/speedrun/motion";
-import { postResume, type UploadErrorKey } from "@/lib/speedrun/readClient";
+import { postResume } from "@/lib/speedrun/readClient";
 import type { MatchResult } from "@/lib/speedrun/match";
 import type { Intake, Profile } from "@/lib/speedrun/types";
 import { BuildLog } from "./act2/BuildLog";
@@ -32,7 +32,6 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   const [attempt, setAttempt] = useState(0);
   const [loggedFor, setLoggedFor] = useState<MatchResult | null>(null);
   const [skippedLog, setSkippedLog] = useState(false);
-  const [uploadError, setUploadError] = useState<UploadErrorKey | null>(null);
   const { step, personKey, intake, profile, result } = state;
   // A failure belongs to one build (person and attempt), so a new build starts clean.
   const buildKey = `${personKey}:${attempt}`;
@@ -55,15 +54,13 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
 
   // An upload skips the sample fetch: the read route answers with the profile and the ranked matches.
   const readUpload = async (file: File) => {
-    setUploadError(null);
     dispatch({ type: "uploaded" });
     const outcome = await postResume(file, state.answers);
     if (outcome.ok) {
       dispatch({ type: "built", profile: outcome.profile, result: outcome.result });
       return;
     }
-    setUploadError(outcome.error);
-    dispatch({ type: "uploadFailed" });
+    dispatch({ type: "uploadFailed", error: outcome.error });
   };
 
   const retry = () => {
@@ -74,7 +71,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
     <div data-demo="" data-step={step}>
       <Hero stats={stats} showCtas={step === "join"} onSkip={() => dispatch({ type: "pickPerson", key: "sam" })} />
       <div className="px-6 pb-24">
-        {step === "join" && <JoinCard state={state} dispatch={dispatch} onUpload={readUpload} uploadError={uploadError} />}
+        {step === "join" && <JoinCard state={state} dispatch={dispatch} onUpload={readUpload} />}
         {step === "building" && <BuildPlaceholder step="building" failed={failed} onRetry={retry} />}
         {/* Reduced motion keeps the finished log above the matches, so the answers stay readable. */}
         {step === "ready" && result && (!logDone || prefersReducedMotion()) && (
