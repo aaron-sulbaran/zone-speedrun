@@ -365,8 +365,53 @@ export const speedrunCopy = {
       "You're getting this because you asked for it on aaronsulbaran.com/speedrun, a concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",
     logoAlt: "speedrun",
   },
-  decisions: {},
-  close: {},
+  decisions: {
+    eyebrow: "Product decisions",
+    heading: "what I decided, and why.",
+    cards: [
+      {
+        title: "The brief comes first.",
+        body: "Nobody opens a dashboard every morning. A short brief that only says what changed is the reason to come back, and the board is where it lands.",
+      },
+      {
+        title: "The board arranges itself.",
+        body: "It starts from who you are: depth for five applications, triage for five hundred. Rearranging is there for people who want it, never required.",
+      },
+      {
+        title: "AI suggests. You decide.",
+        body: "Matches come with reasons you can check, and nothing applies on your behalf. Apply better to fewer.",
+      },
+      {
+        title: "Your inbox is read-only.",
+        body: "It reads confirmations, invites and rejections to build your board. It never sends as you, and it never keeps the raw email.",
+      },
+      {
+        title: "Intros stay human.",
+        body: "The system tees up a warm intro when a founder's role fits your pipeline. The talent team still makes the call and the introduction.",
+      },
+      {
+        title: "Founders get routed, not buried.",
+        body: "When a resume reads like a founder's, the right next step is speedrun or the alpha fellowship, not another job list.",
+      },
+    ],
+    measureHeading: "What I'd measure",
+    metrics: [
+      { label: "Signup completion", line: "More people finish joining when joining pays off on day one." },
+      { label: "Day-7 return", line: "The brief's job. Your pages already count returning visitors." },
+      { label: "Intros requested and accepted", line: "The network's real product." },
+      { label: "Offers", line: "The only number that matters to the person." },
+    ],
+  },
+  close: {
+    eyebrow: "Built by Aaron Sulbaran",
+    body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read, with an AI model on top only when switched on. The inbox and the people are made up; the decisions are mine.",
+    // The LinkedIn address is read from the site's own socials, so it lives in one place.
+    links: [
+      { key: "site", label: "My site", href: "/" },
+      { key: "quick", label: "The 30-second version", href: "/quick" },
+      { key: "linkedin", label: "LinkedIn", href: null },
+    ],
+  },
   flow: {
     lanes: { jobs: "Job search", founder: "Founder lane" },
     stages: {

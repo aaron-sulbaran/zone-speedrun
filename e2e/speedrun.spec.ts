@@ -129,3 +129,37 @@ test.describe("act 2 join card", () => {
     await expect(page.locator("[data-demo]")).toHaveAttribute("data-step", "ready", { timeout: 10_000 });
   });
 });
+
+for (const key of ["sam", "maya"] as const) {
+  test(`no horizontal scroll at 390 after picking ${key}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/speedrun");
+    const card = page.locator("#join");
+    await card.scrollIntoViewIfNeeded();
+    for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
+    await card.locator(`[data-person="${key}"]`).click();
+    await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
+    await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
+    await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
+    await expect(page.locator("[data-brief]")).toBeAttached({ timeout: 20_000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+}
+
+test("the decisions and the close are on the page", async ({ page }) => {
+  await page.goto("/speedrun");
+  const section = page.locator("[data-decisions]");
+  await section.scrollIntoViewIfNeeded();
+  await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
+  await expect(section.locator("[data-decision-card]")).toHaveCount(6);
+  const links = page.locator("[data-close] a");
+  await expect(links.nth(0)).toHaveAttribute("href", "/");
+  await expect(links.nth(1)).toHaveAttribute("href", "/quick");
+  await expect(links.nth(2)).toHaveAttribute("href", "https://www.linkedin.com/in/aaron-sulbaran/");
+  await expect(links.nth(2)).toHaveAttribute("target", "_blank");
+});
+
+test("the sitemap leaves /speedrun out", async ({ request }) => {
+  const body = await (await request.get("/sitemap.xml")).text();
+  expect(body).not.toContain("speedrun");
+});

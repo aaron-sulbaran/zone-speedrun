@@ -93,8 +93,6 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
             <Matches result={result} focusHeading={skippedLog} />
             <Board state={state} dispatch={dispatch} />
             <BriefPreview state={state} />
-            {/* Slot for the decisions. */}
-            <div data-slot="decisions" />
           </div>
         )}
       </div>

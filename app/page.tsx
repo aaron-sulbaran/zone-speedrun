@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
 import { Opener } from "@/components/speedrun/act1/Opener";
+import { Close } from "@/components/speedrun/act2/Close";
+import { Decisions } from "@/components/speedrun/act2/Decisions";
 import { SpeedrunDemo } from "@/components/speedrun/SpeedrunDemo";
 import { Shift } from "@/components/speedrun/Shift";
 import { SrZone } from "@/components/speedrun/SrZone";
@@ -60,6 +62,8 @@ export default function SpeedrunPage() {
       >
         <SrZone targetId="act-2" />
         <SpeedrunDemo live={liveFlags()} stats={stats} />
+        <Decisions />
+        <Close />
         <Affiliation variant="pinned" />
       </section>
     </main>
