@@ -5,8 +5,14 @@ import { speedrunCopy } from "@/lib/content";
 import { isTypingTarget, pushClick, pushKey } from "@/lib/speedrun/egg";
 import { prefersReducedMotion, SR_EASE, SR_STEP_MS } from "@/lib/speedrun/motion";
 
-// The one speedrun logo on Act 2 sits in the join card.
-const LOGO = "#join img[src$='speedrun-logo.svg']";
+// The speedrun logo carries this marker (it sits in the join card).
+const LOGO = "[data-egg-logo]";
+
+// True while any part of Act 2 is on screen; measured at keydown, so it is never a frame late.
+function act2InView() {
+  const rect = document.getElementById("act-2")?.getBoundingClientRect();
+  return !!rect && rect.top < window.innerHeight && rect.bottom > 0;
+}
 
 // A framed placeholder, closed and unreachable until "sux" is typed or the logo is clicked five times.
 // Aaron picks the meme later; no image ships here.
@@ -37,6 +43,10 @@ export function Egg() {
         buffer = "";
         return;
       }
+      if (!act2InView()) {
+        buffer = "";
+        return;
+      }
       const step = pushKey(buffer, event.key);
       buffer = step.buffer;
       if (step.matched) reveal();
@@ -61,11 +71,12 @@ export function Egg() {
     <dialog
       ref={dialogRef}
       aria-label={copy.label}
+      aria-describedby="sr-egg-message"
       data-egg=""
       onClose={() => returnFocusRef.current?.focus()}
-      className="m-auto w-[min(92vw,22rem)] rounded-3xl border border-sr-soft bg-sr-surface p-8 text-center text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-sr-ink/40"
+      className="m-auto w-[min(92vw,22rem)] rounded-3xl border border-sr-soft bg-sr-surface p-8 text-center text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-[color-mix(in_srgb,var(--sr-ink)_40%,transparent)]"
     >
-      <p className="font-srcond text-2xl uppercase leading-tight tracking-wide">
+      <p id="sr-egg-message" className="text-2xl font-medium leading-tight">
         {copy.line1}
         <br />
         {copy.line2}

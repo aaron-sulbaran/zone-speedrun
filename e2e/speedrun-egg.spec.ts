@@ -56,3 +56,22 @@ test("typing sux inside the paste box does not open it", async ({ page }) => {
   await expect(paste).toHaveValue("sux");
   await expect(page.locator("[data-egg]")).toBeHidden();
 });
+
+test("typing sux at the top of the page (Act 1) does not open it", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.keyboard.type("sux");
+  await expect(page.locator("[data-egg]")).toBeHidden();
+});
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("the placeholder appears with no animation", async ({ page }) => {
+    await page.goto("/speedrun");
+    await page.locator("#join").scrollIntoViewIfNeeded();
+    await page.keyboard.type("sux");
+    const dialog = page.locator("[data-egg]");
+    await expect(dialog).toBeVisible();
+    expect(await dialog.evaluate((el) => el.getAnimations().length)).toBe(0);
+  });
+});
