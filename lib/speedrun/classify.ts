@@ -7,18 +7,37 @@ const APPLICATION_CONTEXT =
   /\b(your application|your candidacy|you applied|applied for|applying|the [\w ,&'-]{2,40} (role|position)|this (role|position))\b|^role:/m;
 
 const OFFER =
-  /pleased to offer|would like to offer you|offer letter|extend (you )?an offer|offer of employment|\b(attach\w*|attached is|here is|here's|sending( you)?|sharing) your (formal |written |official )?offer\b|\bsign (your|the) offer\b|\byour offer (is attached|details|package)\b/;
+  /offer letter|extend (you )?an offer|offer of employment|\b(attach\w*|attached is|here is|here's|sending( you)?) your (formal |written |official )?offer\b|\bsign (your|the) offer\b|\byour offer (is attached|package)\b/;
+// "We'd like to offer you an interview" offers a meeting, not a job.
+const NOT_A_MEETING = "(?! (?:you )?(?:an? |the |your )?(?:[\\w-]+ ){0,2}?(?:interview|screen|call|chat|meeting|onsite|on-site|conversation|times?|slot)s?\\b)";
+const OFFER_OPENING = new RegExp(`(?:pleased to offer|would like to offer you)${NOT_A_MEETING}`);
+// Warmer openings count only from a hiring sender and only for a job, so "happy to offer you a free trial" stays other.
+const WARM_OFFER_OPENING = new RegExp(
+  `\\b(?:(?:'d|would) (?:like|love)|excited|thrilled|delighted|happy|glad) to offer you${NOT_A_MEETING} (?:a |an |the )?(?:[\\w,&'()-]+ ){0,6}?(?:role|position|job|internship|co-?op|place)\\b|\\b(?:make|making) you an offer\\b`,
+);
 // Read in the original case, so "an offer for the Software Engineer position" counts.
 const OFFER_FOR_ROLE = /\boffer for the [A-Z][\w ,&'()-]{2,60} (role|position)\b/;
-// "Your offer" and an e-signature count with the terms beside them, not in a "how to weigh your offer" newsletter.
-const YOUR_OFFER = /(?<!(negotiat\w*|evaluat\w*|compar\w*|weigh\w*|about|before you accept) )\byour offer\b|docusign[\s\S]*\boffer\b|\boffer\b[\s\S]*docusign/;
-const OFFER_TERMS = /\b(position|role|start date|salary|equity|compensation|sign|signed|signing|signature)\b/;
+// "Your offer", the offer details and an e-signature count only from a hiring sender, with the terms beside them,
+// so a "how does your offer compare" newsletter, a shop's "your offer of 20% off" and a realtor's "accepted your offer" stay other.
+const YOUR_OFFER = /(?<!(negotiat\w*|evaluat\w*|compar\w*|weigh\w*|about|before you accept|sharing|accepted) )\byour offer\b(?! (compares?|stacks?|deadline)\b)|\boffer details\b/;
+const OFFER_TERMS = /\b(start date|salary|equity|compensation|signed|signing|signature)\b/;
+const DOCUSIGN_OFFER = /docusign[\s\S]*\boffer\b|\boffer\b[\s\S]*docusign/;
+// Deals and newsletters: by the sender's name or mailbox, or by the words of a promotion.
+const MARKETING_SENDER = /\b(news|newsletters?|weekly|daily|digest|bulletin|letters|offers|deals|promos?|marketing|rewards)\b/i;
+const OFFER_MARKETING = /special offer|limited[- ]time|promo code|coupon|pre-?approved|\bapr\b|redeem/;
 // The negation is tied to the offer phrase itself, so "not able to make the start date" stays an offer.
 const NEGATED_OFFER =
   /\b(not|unable|can'?t|cannot|won'?t)\s+(be\s+)?(able\s+)?(in a position\s+)?(to\s+)?((extend|extending|make|making)\s+(you\s+)?an offer|(offer|offering)\s+you\s+(the|a)\s+(position|role|job))/;
-// An offer that went to someone else, or was taken back, is a no for the reader.
-const OFFER_ELSEWHERE =
-  /\b(offer|offered|offering)\b[^.!?\n]{0,40}?\bto (another|a different|other|one of the other|a more \w+|an internal) (candidates?|applicants?|finalists?|person)\b|\boffer\b[^.!?\n]{0,40}?\bto someone else\b|\b(rescind\w*|retract\w*) (your|the|our) offer\b/;
+// An offer whose recipient is not the reader is a no: "an offer to a candidate whose...", "offered the role to someone else",
+// "offered to and accepted by another candidate", "another candidate has accepted our offer".
+const OFFER_ELSEWHERE = [
+  /\b(offer|offered|offering)\b[^.!?\n]{0,40}?\bto (another|a different|other|one of the other|a more \w+|an internal) (candidates?|applicants?|finalists?|person)\b/,
+  /\b(?:(?:an|the|our|this|their) offers?(?: of employment)?|offers|offer(?:ed|ing)? (?:the|this|that|our) (?:role|position|job|spot|opening)|offered)\b(?:(?!\byou\b)[^.!?\n]){0,20}? to (?:and accepted by )?(?:someone|somebody|another\b|other\b|one of\b|(?:a|an|the)(?: [\w-]+){0,3} (?:candidate|applicant|finalist|person|individual)\b(?!s))/,
+  /\b(?:another|other|a different|the other|one of the other) (?:[\w-]+ ){0,2}?(?:candidates?|applicants?|finalists?|person)\b (?:has |have )?(?:already )?(?:accepted|taken|signed)\b[^.!?\n]{0,20}?\boffer\b|\bsomeone else (?:has )?(?:accepted|taken)\b/,
+];
+// "If we don't hear back by Friday, we may extend the offer to another candidate" warns inside a real offer.
+const HEDGE = /\b(if|unless|otherwise)\b|\b(may|might|could)( have to| need to| choose to| decide to)? (extend|make|offer|give|move)\b/;
+const RESCINDED = /\b(rescind\w*|retract\w*) (your|the|our) offer\b/;
 const REJECTIONS: RegExp[] = [
   /regret to inform|not (be )?moving forward|will not be proceeding/,
   /(decided not to|won'?t be|will not be|not) (be )?(move|moving|go|going|proceed|proceeding) forward/,
@@ -59,8 +78,11 @@ const MARKETING = /\b(webinar|live class|online course|masterclass|bootcamp|regi
 const MOCK_INTERVIEW = /\bmock interviews?\b/g;
 // Moving a meeting, not moving the reader: "move your interview to Friday" counts, "move you past the phone screen" does not.
 const RESCHEDULE =
-  /(reschedul\w*|postpone|delay)\b.{0,25}\b(interview|screen|call)\b|\b(push|move|shift|bump) (our|your|the|this|my|tomorrow's|today's)\b(?:(?!\b(past|beyond|forward|ahead)\b).){0,25}\b(interview|screen|call)\b|another time|different time/;
+  /(reschedul\w*|postpone|delay)\b.{0,25}\b(interview|screen|call)\b|\b(push|move|shift|bump)( (back|up|out))? (our|your|the|this|my|tomorrow's|today's)\b(?:(?!\b(past|beyond|forward|ahead)\b).){0,25}\b(interview|screen|call)\b|another time|different time/;
 const SCREEN = /phone screen|intro call|recruiter call|quick call|screening call/;
+// "A 30-minute call", "a quick chat" or "a call about the role" is a screen from a hiring sender with a role in view.
+const SCREEN_CALL =
+  /\b(?:\d+[- ]?(?:minute|min)s?|quick|short|brief|introductory|initial)\s+(?:phone |video |zoom )?(?:call|chat|conversation)\b|\b(?:call|chat|conversation) about (?:the|this|our|your) (?:[\w,&'-]+ ){0,4}?(?:role|position|opportunity|opening)\b/;
 // Person to person only, so "excited to introduce you to our new flavors" stays marketing.
 const INTRO_PHRASE = /\bintroduc(e|ing) you two\b|\byou two\b|introduction:|warm intro|intro:/i;
 const INTRO_NAMED = /\bmeet [A-Z][a-z]+|\bconnect you with [A-Z][a-z]+|\bintroduc(e|ing) you to [A-Z][a-z]+/;
@@ -160,7 +182,8 @@ function senderIsPerson(display: string, local: string, domain: string): boolean
 }
 
 function companyFromText(email: InboxEmail): string | null {
-  const name = "[A-Z][\\w&'-]*(?:\\s+[A-Z][\\w&'-]*){0,2}";
+  // A standalone "&" joins words, so "Harbor & Pine" stays whole.
+  const name = "[A-Z][\\w&'-]*(?:\\s+(?:&\\s+)?[A-Z][\\w&'-]*){0,2}";
   const patterns = [
     new RegExp(`\\b(${name}) (?:has |have )?invited you`, "g"),
     new RegExp(`\\binvited by (${name})`, "g"),
@@ -207,13 +230,21 @@ function roleFrom(email: InboxEmail): string | null {
   return subject ? subject[1].trim() : null;
 }
 
-function asksForAssessment(text: string): boolean {
+/** True when a sentence holds the thing `find` locates with no condition ("if ..., we'll", "once we ...") before it. */
+function saidOutright(text: string, find: (sentence: string) => number): boolean {
   return text.split(SENTENCES).some((sentence) => {
-    const assessment = sentence.search(ASSESSMENT);
-    if (assessment < 0 || !ASSESSMENT_ASK.test(sentence)) return false;
+    const at = find(sentence);
+    if (at < 0) return false;
     const conditional = sentence.search(CONDITIONAL);
-    return conditional < 0 || conditional > assessment;
+    return conditional < 0 || conditional > at;
   });
+}
+
+const asksForAssessment = (text: string) => saidOutright(text, (sentence) => (ASSESSMENT_ASK.test(sentence) ? sentence.search(ASSESSMENT) : -1));
+const asksForCall = (text: string) => saidOutright(text, (sentence) => sentence.search(SCREEN_CALL));
+
+function offerWentElsewhere(text: string): boolean {
+  return RESCINDED.test(text) || text.split(SENTENCES).some((sentence) => OFFER_ELSEWHERE.some((pattern) => pattern.test(sentence)) && !HEDGE.test(sentence));
 }
 
 function kindOf(email: InboxEmail): EventKind {
@@ -226,17 +257,24 @@ function kindOf(email: InboxEmail): EventKind {
   if (CALENDAR_SENDER.test(sender) || CALENDAR_SUBJECT.test(subject) || CALENDAR_BODY.test(text)) return "other";
   if (DIGEST_SENDER.test(sender) && !/your application|applying/.test(subject)) return "other";
 
-  if (NEGATED_OFFER.test(text) || OFFER_ELSEWHERE.test(text)) return "rejection";
-  if (OFFER.test(text) || OFFER_FOR_ROLE.test(original) || (YOUR_OFFER.test(text) && OFFER_TERMS.test(text))) return "offer";
+  if (NEGATED_OFFER.test(text) || offerWentElsewhere(text)) return "rejection";
+  const person = senderIsPerson(display, local, domain);
+  const trusted =
+    (person && !GENERIC_MAIL.test(domain)) || PLATFORMS.test(domain) || HIRING_LOCAL.test(local) || HIRING_LOCAL.test(display);
+  // A person at a company, a hiring tool or a hiring mailbox; never a newsletter or a shop.
+  const hiringSender = trusted && !MARKETING_SENDER.test(`${display} ${local}`);
+  const hiringOffer =
+    hiringSender &&
+    !MARKETING.test(text) &&
+    !OFFER_MARKETING.test(text) &&
+    (WARM_OFFER_OPENING.test(text) || (YOUR_OFFER.test(text) && OFFER_TERMS.test(text)) || DOCUSIGN_OFFER.test(text));
+  if (OFFER.test(text) || OFFER_OPENING.test(text) || OFFER_FOR_ROLE.test(original) || hiringOffer) return "offer";
   if (REJECTIONS.some((pattern) => pattern.test(text))) return "rejection";
   if (/\bunfortunately\b/.test(text) && JOB_CONTEXT.test(text) && !RESCHEDULE.test(text) && !/cannot respond|can't respond|unable to respond|high volume/.test(text)) return "rejection";
-  const person = senderIsPerson(display, local, domain);
   const hasContext = APPLICATION_CONTEXT.test(text) || VENDORS.test(domain);
   if (ASSESSMENT.test(text) && hasContext && asksForAssessment(text)) return "assessment";
   if (APPLIED.test(subject)) return "applied";
   if (ASSESSMENT.test(text) && hasContext) return "assessment";
-  const trusted =
-    (person && !GENERIC_MAIL.test(domain)) || PLATFORMS.test(domain) || HIRING_LOCAL.test(local) || HIRING_LOCAL.test(display);
   const interviewText = text.replace(MOCK_INTERVIEW, "");
   const logistics = YOUR_INTERVIEW.test(interviewText) && LOGISTICS.test(interviewText) && !MARKETING.test(interviewText);
   const interviewContext = INTERVIEW_CONTEXT.test(interviewText) || ROLE_NAMED.test(original) || trusted || logistics;
@@ -252,6 +290,7 @@ function kindOf(email: InboxEmail): EventKind {
     (namedWriter && INTRO_FIRST_PERSON.test(original))
   )
     return "intro";
+  if (hiringSender && JOB_CONTEXT.test(text) && asksForCall(text)) return "screen";
   if (APPLIED.test(text)) return "applied";
   return "other";
 }

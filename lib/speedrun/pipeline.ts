@@ -11,6 +11,8 @@ function daysBetween(from: string, to: string): number {
 }
 
 const companyKey = (company: string) => company.toLowerCase().replace(/[^a-z0-9]+/g, "");
+// board.ts gives every pasted email an id that starts "pasted-"; sample ids start with the person's key.
+const fromPaste = (event: InboxEvent) => event.emailId.startsWith("pasted-");
 const roleKey = (role: string | null) => (role ?? "").toLowerCase().trim();
 
 type Group = { company: string; role: string | null; events: InboxEvent[] };
@@ -58,10 +60,12 @@ function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
   const sorted = events
     .filter((event) => ROW_KINDS.has(event.kind))
     .sort((a, b) => a.date.localeCompare(b.date));
-  const folded = foldedKeys(sorted);
+  // Folding stays within one source, so a pasted "Cobalt" never joins the sample's "Cobalt Meadow".
+  const pasted = foldedKeys(sorted.filter(fromPaste));
+  const sample = foldedKeys(sorted.filter((event) => !fromPaste(event)));
   for (const event of sorted) {
     const own = companyKey(event.company);
-    const key = folded.get(own) ?? own;
+    const key = (fromPaste(event) ? pasted : sample).get(own) ?? own;
     const groups = byCompany.get(key) ?? [];
     byCompany.set(key, groups);
     let target: Group | undefined;

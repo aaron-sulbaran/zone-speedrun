@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readPaste } from "./board";
 import { classifyEmail } from "./classify";
 import { buildPipeline } from "./pipeline";
 import type { InboxEmail, InboxEvent } from "./types";
@@ -110,5 +111,40 @@ describe("buildPipeline", () => {
   it("does not fold names that share letters but not a word", () => {
     const pipeline = buildPipeline([event("applied", "2026-10-01", "Nova", null), event("applied", "2026-10-02", "Novarise", null)], "2026-11-01");
     expect(pipeline.rows).toHaveLength(2);
+  });
+
+  describe("folding stays within one source", () => {
+    const sample = [
+      { ...event("applied", "2026-10-01", "Cobalt Meadow", null), emailId: "sam-0001" },
+      { ...event("rejection", "2026-10-20", "Cobalt Meadow", null), emailId: "sam-0002" },
+    ];
+    const paste = (from: string, subject: string): InboxEvent => {
+      const outcome = readPaste(`From: ${from}\nSubject: ${subject}\n\nWe received your application.`, []);
+      if (outcome.kind !== "added") throw new Error(`paste was ${outcome.kind}`);
+      return outcome.event;
+    };
+
+    it("keeps a pasted short name off the sample row it starts", () => {
+      const pasted = paste("Cobalt <no-reply@hire.lever.co>", "Thank you for applying to Cobalt");
+      expect(pasted.company).toBe("Cobalt");
+      const rows = buildPipeline([...sample, pasted], "2026-11-07").rows;
+      expect(rows.map((row) => row.company).sort()).toEqual(["Cobalt", "Cobalt Meadow"]);
+      expect(rows.find((row) => row.company === "Cobalt Meadow")?.exit).toBe("rejected");
+    });
+
+    it("still folds two pasted names into one row", () => {
+      const short = paste("Halden <no-reply@hire.lever.co>", "Thank you for applying to Halden");
+      const long = { ...paste("Halden Robotics <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Halden Robotics"), kind: "interview" as const };
+      const rows = buildPipeline([...sample, short, long], "2026-11-07").rows;
+      expect(rows.map((row) => row.company).sort()).toEqual(["Cobalt Meadow", "Halden"]);
+      expect(rows.find((row) => row.company === "Halden")?.furthest).toBe("interview");
+    });
+
+    it("still joins a pasted email to a sample row with the same name", () => {
+      const pasted = { ...paste("Cobalt Meadow <no-reply@hire.lever.co>", "Thank you for applying to Cobalt Meadow"), kind: "screen" as const };
+      const rows = buildPipeline([...sample, pasted], "2026-11-07").rows;
+      expect(rows).toHaveLength(1);
+      expect(rows[0].furthest).toBe("screen");
+    });
   });
 });
