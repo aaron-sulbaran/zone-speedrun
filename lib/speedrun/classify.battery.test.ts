@@ -6,46 +6,51 @@ import type { EventKind, InboxEmail } from "./types";
 // A regression battery for the inbox reader: one realistic, made-up email per
 // row. Columns: label, expected kind, expected company ("" when it does not
 // matter), from, subject, body. Add a row for every real-world miss.
-const hr = "Acme Careers <careers@acme.com>";
+// Every sender is made up. Companies, people, shops and newsletters live on the
+// reserved .example host (gmail.example stands in for a friend's webmail); only
+// hiring platforms keep their real no-reply hosts, and the Acme country-domain
+// rows keep .co.uk and .com.au because those are what they test.
+const hr = "Acme Careers <careers@acme.example>";
+const tw = "Tidewell Careers <careers@tidewell.example>";
 const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["battery applied:greenhouse", "applied", "Acme", "Acme <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Acme", "Hi Sam,\nThank you for applying to Acme! Your application has been received and we will review it shortly.\n\nBest,\nThe Acme Team"],
   ["battery applied:lever", "applied", "Acme", "Acme <no-reply@hire.lever.co>", "Thank you for your application to Acme", "Hi Sam, thanks for your interest in the Software Engineer role at Acme. We've received your application and will be in touch."],
   ["battery applied:workday", "applied", "Acme", "Acme Careers <acme@myworkday.com>", "Application confirmation", "Thank you for applying for Software Engineer, New Grad. We have successfully received your submission."],
   ["battery assessment:codesignal", "assessment", "Acme", "CodeSignal <noreply@codesignal.com>", "Acme invited you to a General Coding Assessment", "Acme has invited you to take a coding assessment on CodeSignal. Please complete it within 7 days."],
   ["battery assessment:hackerrank", "assessment", "Acme", "HackerRank <support@hackerrank.com>", "Acme | Online test invitation", "You have been invited by Acme to attempt an online coding test. Test duration: 90 minutes."],
-  ["battery interview:sched", "interview", "Acme", "Priya Shah <priya.shah@acme.com>", "Next steps with Acme", "Hi Sam, the team enjoyed your phone screen and would like to move you to the onsite. Please use this link to pick a time for your interviews."],
+  ["battery interview:sched", "interview", "Acme", "Priya Shah <priya.shah@acme.example>", "Next steps with Acme", "Hi Sam, the team enjoyed your phone screen and would like to move you to the onsite. Please use this link to pick a time for your interviews."],
   ["battery interview:ashby", "interview", "Acme", "Acme Hiring Team <no-reply@ashbyhq.com>", "Schedule your interview with Acme", "Hi Sam, please select a time for your technical interview with our engineering team."],
-  ["battery interview:reschedule", "interview", "Acme", "Acme Talent <talent@acme.com>", "Rescheduling your interview", "Hi Sam, unfortunately our interviewer is out sick tomorrow. Could we move your interview to Thursday?"],
-  ["battery offer:plain", "offer", "Acme", "Acme Hiring <hiring@acme.com>", "Your offer from Acme", "Hi Sam, we're thrilled to extend you an offer to join Acme as a Product Engineer. Details attached."],
-  ["battery offer:verbal", "offer", "Acme", "Priya Shah <priya.shah@acme.com>", "Great news", "Hi Sam, congratulations! We would like to offer you the Product Engineer role. Let's find a time to go over the details."],
-  ["battery rejection:regret", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Your application to Acme", "Hi Sam, thank you for applying. We regret to inform you that we have decided to pursue other candidates for this role."],
-  ["battery rejection:unable-extend", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Update on your Acme application", "Hi Sam, thank you for interviewing with us. At this time we are not able to extend an offer, but we enjoyed meeting you."],
-  ["battery rejection:filled", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Software Engineer position", "Thank you for your interest. The position has been filled and we will not be proceeding with your application."],
-  ["battery rejection:other-cands", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Regarding your application", "After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our needs."],
-  ["battery intro:introduce", "intro", "", "Jordan Lee <jordan@gmail.com>", "Sam <> Priya (Acme)", "Hi both, I wanted to introduce you two. Priya is building Acme and is hiring a founding engineer. I'll let you take it from here."],
-  ["battery intro:intro-colon", "intro", "", "Jordan Lee <jordan@gmail.com>", "Intro: Sam / Priya", "Priya, meet Sam. Sam, meet Priya."],
-  ["battery other:calendar-interview", "other", "", "Google Calendar <calendar-notification@google.com>", "Invitation: Interview with Acme @ Tue Nov 10, 2026 2pm - 3pm (CST) (sam@example.com)", "You have been invited to the following event. Join with Google Meet."],
-  ["battery other:calendar-generic", "other", "", "Google Calendar <calendar-notification@google.com>", "Invitation: Dentist @ Wed Nov 11, 2026 9am", "You have been invited to the following event."],
-  ["battery other:newsletter-unfortunately", "other", "", "Weeknight Table <news@weeknighttable.com>", "Holiday box update", "Unfortunately our holiday box sold out. Here are three dinners you can make with pantry staples."],
-  ["battery other:newsletter-interview", "other", "", "The Commuter <letters@thecommuter.news>", "Our interview with a transit planner", "This week we sat down for an interview about why buses bunch."],
+  ["battery interview:reschedule", "interview", "Acme", "Acme Talent <talent@acme.example>", "Rescheduling your interview", "Hi Sam, unfortunately our interviewer is out sick tomorrow. Could we move your interview to Thursday?"],
+  ["battery offer:plain", "offer", "Acme", "Acme Hiring <hiring@acme.example>", "Your offer from Acme", "Hi Sam, we're thrilled to extend you an offer to join Acme as a Product Engineer. Details attached."],
+  ["battery offer:verbal", "offer", "Acme", "Priya Shah <priya.shah@acme.example>", "Great news", "Hi Sam, congratulations! We would like to offer you the Product Engineer role. Let's find a time to go over the details."],
+  ["battery rejection:regret", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Your application to Acme", "Hi Sam, thank you for applying. We regret to inform you that we have decided to pursue other candidates for this role."],
+  ["battery rejection:unable-extend", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Update on your Acme application", "Hi Sam, thank you for interviewing with us. At this time we are not able to extend an offer, but we enjoyed meeting you."],
+  ["battery rejection:filled", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Software Engineer position", "Thank you for your interest. The position has been filled and we will not be proceeding with your application."],
+  ["battery rejection:other-cands", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Regarding your application", "After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our needs."],
+  ["battery intro:introduce", "intro", "", "Jordan Lee <jordan.lee@gmail.example>", "Sam <> Priya (Acme)", "Hi both, I wanted to introduce you two. Priya is building Acme and is hiring a founding engineer. I'll let you take it from here."],
+  ["battery intro:intro-colon", "intro", "", "Jordan Lee <jordan.lee@gmail.example>", "Intro: Sam / Priya", "Priya, meet Sam. Sam, meet Priya."],
+  ["battery other:calendar-interview", "other", "", "Team Calendar <invites@calendar.example>", "Invitation: Interview with Acme @ Tue Nov 10, 2026 2pm - 3pm (CST) (sam@example.com)", "You have been invited to the following event. Join the video call from the event page."],
+  ["battery other:calendar-generic", "other", "", "Team Calendar <invites@calendar.example>", "Invitation: Dentist @ Wed Nov 11, 2026 9am", "You have been invited to the following event."],
+  ["battery other:newsletter-unfortunately", "other", "", "Weeknight Table <news@weeknighttable.example>", "Holiday box update", "Unfortunately our holiday box sold out. Here are three dinners you can make with pantry staples."],
+  ["battery other:newsletter-interview", "other", "", "The Commuter <letters@thecommuter.example>", "Our interview with a transit planner", "This week we sat down for an interview about why buses bunch."],
   ["battery other:newsletter-assessment", "other", "", "Craft Notes <craft@notes.example>", "How to run a product assessment", "A framework for honest product reviews."],
   ["battery other:jobboard-digest", "other", "", "LinkedIn <jobs-noreply@linkedin.com>", "30 new jobs for Software Engineer", "Apply now: Software Engineer at Acme. Your application could be next. Easy Apply."],
-  ["battery X offer+not-able-to-make", "offer", "Acme", "Acme Hiring <hiring@acme.com>", "Your offer from Acme", "We are pleased to offer you the Product Engineer position. If you are not able to make the January 5 start date, let us know."],
-  ["battery X offer+cannot-offer-reloc", "offer", "Acme", "Acme Hiring <hiring@acme.com>", "Offer letter", "We are pleased to offer you the role. We cannot offer relocation support, but the base salary is attached."],
-  ["battery X won't be extending", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Your Acme application", "Thank you for interviewing. We won't be extending an offer at this time."],
-  ["battery X curly can't extend", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Your Acme application", "Thank you for interviewing. We can’t extend an offer at this time."],
-  ["battery X decided not to move fwd", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Thank you for applying to Acme", "After careful review, we have decided not to move forward with your candidacy."],
-  ["battery X won't be moving fwd", "rejection", "Acme", "Acme Careers <careers@acme.com>", "Your application to Acme", "We won't be moving forward with your application."],
-  ["battery X marketing introduce you", "other", "", "Frost Boxes <hi@frostboxes.com>", "Meet the winter box", "We're excited to introduce you to our new winter flavors."],
-  ["battery X newsletter final round", "other", "", "Sports Daily <daily@sportsdaily.com>", "Final round tonight", "The final round tees off at 2pm."],
-  ["battery X newsletter onsite", "other", "", "Design Weekly <hi@designweekly.com>", "Join our onsite workshop", "Our onsite workshop is in Austin this month."],
-  ["battery X interview push role", "interview", "Acme", "Acme Talent <talent@acme.com>", "Interview time", "Unfortunately our interviewer is out sick. Can we push the interview for the role to Friday?"],
-  ["battery X single-name person", "interview", "Acme", "Priya <priya@acme.com>", "Final round", "Looking forward to your final round."],
-  ["battery X person mid initial", "interview", "Acme", "Priya K. Shah <priya@acme.com>", "Final round", "Looking forward to your final round."],
+  ["battery X offer+not-able-to-make", "offer", "Acme", "Acme Hiring <hiring@acme.example>", "Your offer from Acme", "We are pleased to offer you the Product Engineer position. If you are not able to make the January 5 start date, let us know."],
+  ["battery X offer+cannot-offer-reloc", "offer", "Acme", "Acme Hiring <hiring@acme.example>", "Offer letter", "We are pleased to offer you the role. We cannot offer relocation support, but the base salary is attached."],
+  ["battery X won't be extending", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Your Acme application", "Thank you for interviewing. We won't be extending an offer at this time."],
+  ["battery X curly can't extend", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Your Acme application", "Thank you for interviewing. We can’t extend an offer at this time."],
+  ["battery X decided not to move fwd", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Thank you for applying to Acme", "After careful review, we have decided not to move forward with your candidacy."],
+  ["battery X won't be moving fwd", "rejection", "Acme", "Acme Careers <careers@acme.example>", "Your application to Acme", "We won't be moving forward with your application."],
+  ["battery X marketing introduce you", "other", "", "Frost Boxes <hi@frostboxes.example>", "Meet the winter box", "We're excited to introduce you to our new winter flavors."],
+  ["battery X newsletter final round", "other", "", "Fairway Nightly <daily@fairwaynightly.example>", "Final round tonight", "The final round tees off at 2pm."],
+  ["battery X newsletter onsite", "other", "", "Gridline Notes <hi@gridlinenotes.example>", "Join our onsite workshop", "Our onsite workshop is in Austin this month."],
+  ["battery X interview push role", "interview", "Acme", "Acme Talent <talent@acme.example>", "Interview time", "Unfortunately our interviewer is out sick. Can we push the interview for the role to Friday?"],
+  ["battery X single-name person", "interview", "Acme", "Priya <priya@acme.example>", "Final round", "Looking forward to your final round."],
+  ["battery X person mid initial", "interview", "Acme", "Priya K. Shah <priya@acme.example>", "Final round", "Looking forward to your final round."],
   ["battery X linkedin easy apply", "applied", "Acme", "LinkedIn <jobs-noreply@linkedin.com>", "Sam, your application was sent to Acme", "Your application was sent to Acme. Software Engineer."],
   ["battery X ccTLD", "interview", "Acme", "Acme Talent <talent@acme.co.uk>", "Interview invitation", "We would like to invite you to an interview for the role."],
   ["battery X ccTLD person", "interview", "Acme", "Priya Shah <priya@acme.co.uk>", "Final round", "Looking forward to your final round."],
-  ["battery X confirm+assessment", "assessment", "Acme", "Acme Careers <careers@acme.com>", "Thank you for applying to Acme", "Next step: please complete the HackerRank assessment within 5 days."],
+  ["battery X confirm+assessment", "assessment", "Acme", "Acme Careers <careers@acme.example>", "Thank you for applying to Acme", "Next step: please complete the HackerRank assessment within 5 days."],
   ["round3 F1 start date caveat", "offer", "Acme", hr, "Your offer from Acme", "We are pleased to offer you the Product Engineer position. If you are not able to make the January 5 start date, let us know."],
   ["round3 F1 no relocation", "offer", "Acme", hr, "Offer letter", "We are pleased to offer you the role. We cannot offer relocation support."],
   ["round3 F1 travel plans", "offer", "Acme", hr, "Offer letter", "We are pleased to offer you the role. Please do not make any travel plans until you sign."],
@@ -62,15 +67,15 @@ const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["round3 F1 decided not to extend", "rejection", "Acme", hr, "Update on your application", "After careful consideration, we have decided not to extend an offer."],
   ["round3 F1 not in a position to extend", "rejection", "Acme", hr, "Update on your application", "We are not in a position to extend an offer at this time."],
   ["round3 F1 won't be able to offer you", "rejection", "Acme", hr, "Update on your application", "We won't be able to offer you the position."],
-  ["round3 F2 transit interview", "other", "", "Metro Weekly <news@metroweekly.com>", "This week", "Our interview with a transit planner is up."],
-  ["round3 F2 sports final round", "other", "", "Court Report <news@courtreport.com>", "Final round tonight", "Final round tonight at eight."],
-  ["round3 F2 onsite workshop", "other", "", "Maker Space <hi@makerspace.org>", "Join our onsite workshop", "Join our onsite workshop on Saturday."],
-  ["round3 F2 interview about her role", "other", "", "Metro Weekly <news@metroweekly.com>", "This week", "Read our interview with the mayor about her role in the transit plan."],
-  ["round3 F2 nail your interview", "other", "", "Career Weekly <news@careerweekly.com>", "Nail your interview", "Five tips to prepare for your interview."],
-  ["round3 F2 final round with role", "interview", "Acme", "Priya Shah <priya@acme.com>", "Final round", "Congrats on reaching the final round for the Product Engineer role. Please share your availability."],
-  ["round3 F2 onsite invite", "interview", "Acme", "Acme Talent <talent@acme.com>", "Onsite", "We would like to invite you to an onsite interview."],
-  ["round3 F2 your final round interview", "interview", "Acme", "Priya Shah <priya@acme.com>", "Your onsite", "Looking forward to your final round interview."],
-  ["round3 F2 onsite schedule", "interview", "Acme", "Priya Shah <priya@acme.com>", "Your onsite schedule", "Here is your onsite schedule for Thursday. You will meet four engineers."],
+  ["round3 F2 transit interview", "other", "", "Busline Bulletin <news@buslinebulletin.example>", "This week", "Our interview with a transit planner is up."],
+  ["round3 F2 sports final round", "other", "", "Baseline Courtside <news@baselinecourtside.example>", "Final round tonight", "Final round tonight at eight."],
+  ["round3 F2 onsite workshop", "other", "", "Solder Loft <hi@solderloft.example>", "Join our onsite workshop", "Join our onsite workshop on Saturday."],
+  ["round3 F2 interview about her role", "other", "", "Busline Bulletin <news@buslinebulletin.example>", "This week", "Read our interview with the mayor about her role in the transit plan."],
+  ["round3 F2 nail your interview", "other", "", "Ladder Letters <news@ladderletters.example>", "Nail your interview", "Five tips to prepare for your interview."],
+  ["round3 F2 final round with role", "interview", "Acme", "Priya Shah <priya@acme.example>", "Final round", "Congrats on reaching the final round for the Product Engineer role. Please share your availability."],
+  ["round3 F2 onsite invite", "interview", "Acme", "Acme Talent <talent@acme.example>", "Onsite", "We would like to invite you to an onsite interview."],
+  ["round3 F2 your final round interview", "interview", "Acme", "Priya Shah <priya@acme.example>", "Your onsite", "Looking forward to your final round interview."],
+  ["round3 F2 onsite schedule", "interview", "Acme", "Priya Shah <priya@acme.example>", "Your onsite schedule", "Here is your onsite schedule for Thursday. You will meet four engineers."],
   ["round3 F4 decided not to move forward", "rejection", "Acme", hr, "Thank you for applying", "We have decided not to move forward with your candidacy."],
   ["round3 F4 won't be moving forward", "rejection", "Acme", hr, "Update", "We won't be moving forward with your application."],
   ["round3 F4 not to proceed", "rejection", "Acme", hr, "Thank you for applying to Acme", "We have decided not to proceed with your application."],
@@ -84,21 +89,21 @@ const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["round3 F6 hackerrank by", "assessment", "Acme", "HackerRank <support@hackerrank.com>", "Acme | Online test invitation", "You have been invited by Acme to attempt an online coding test."],
   ["round3 F6 hackerrank has invited", "assessment", "Acme", "HackerRank <support@hackerrank.com>", "Coding test", "Acme has invited you to take a HackerRank test for the role."],
   ["round3 F6 greenhouse vendor display", "applied", "Acme", "Greenhouse <no-reply@greenhouse.io>", "Thanks for applying to Acme", "We received your application."],
-  ["round3 F6 single name person", "screen", "Acme", "Priya <priya@acme.com>", "Phone screen", "Can we set up a phone screen?"],
+  ["round3 F6 single name person", "screen", "Acme", "Priya <priya@acme.example>", "Phone screen", "Can we set up a phone screen?"],
   ["round3 F6 single name co.uk", "screen", "Acme", "Priya <priya@acme.co.uk>", "Phone screen", "Can we set up a phone screen for the role?"],
   ["round3 F6 company co.uk", "interview", "Acme", "Acme Talent <talent@acme.co.uk>", "Interview invitation", "We would like to invite you to an interview for the role."],
-  ["round3 F6 single-word company display", "applied", "Acme", "Acme <jobs@acme.com>", "Thanks for applying to Acme", "We got it."],
+  ["round3 F6 single-word company display", "applied", "Acme", "Acme <jobs@acme.example>", "Thanks for applying to Acme", "We got it."],
   ["round3 F6 single-word company, local=company", "applied", "Acme", "Acme <acme@myworkday.com>", "Thanks for applying to Acme", "We got it."],
   ["round3 F6 com.au", "screen", "Acme", "Priya Shah <priya@acme.com.au>", "Phone screen", "Can we set up a phone screen for the role?"],
-  ["round3 F7 winter flavors", "other", "", "Frost Boxes <hi@frostboxes.com>", "Winter", "We're excited to introduce you to our new winter flavors."],
+  ["round3 F7 winter flavors", "other", "", "Frost Boxes <hi@frostboxes.example>", "Winter", "We're excited to introduce you to our new winter flavors."],
   ["round3 F7 product name intro", "other", "", "Pixelbox <team@pixelbox.example>", "Something new", "We're excited to introduce you to Pixelbox Calendar."],
-  ["round3 F7 come meet santa", "other", "", "Toy Barn <hi@toybarn.com>", "Holiday hours", "Come meet Santa this Saturday at our downtown store."],
-  ["round3 F7 support connect", "other", "", "Acme Support <support@acmebank.com>", "Your ticket", "We can connect you with a specialist if you reply to this email."],
-  ["round3 F7 real intro", "intro", "", "Jo Lin <jo@friend.org>", "Meet Sam", "I would like to introduce you to Sam, a founder in your area."],
-  ["round3 F7 intro you two", "intro", "", "Jordan Lee <jordan@gmail.com>", "Sam <> Priya (Acme)", "Hi both, I wanted to introduce you two."],
-  ["round3 F7 meet priya", "intro", "", "Jo Lin <jo@friend.org>", "Hello", "I think you should meet Priya, she runs a small studio."],
-  ["round3 F8 push the interview", "interview", "Acme", "Priya Shah <priya@acme.com>", "Schedule", "Unfortunately our interviewer is out sick. Can we push the interview for the role to Friday?"],
-  ["round3 F8 another time", "interview", "Acme", "Acme Talent <talent@acme.com>", "Your interview", "Unfortunately the panel is unavailable. Could we find another time for your interview for the role?"],
+  ["round3 F7 come meet santa", "other", "", "Whirligig Toyshop <hi@whirligigtoys.example>", "Holiday hours", "Come meet Santa this Saturday at our downtown store."],
+  ["round3 F7 support connect", "other", "", "Acme Support <support@acmebank.example>", "Your ticket", "We can connect you with a specialist if you reply to this email."],
+  ["round3 F7 real intro", "intro", "", "Jo Lin <jo@jolin.example>", "Meet Sam", "I would like to introduce you to Sam, a founder in your area."],
+  ["round3 F7 intro you two", "intro", "", "Jordan Lee <jordan.lee@gmail.example>", "Sam <> Priya (Acme)", "Hi both, I wanted to introduce you two."],
+  ["round3 F7 meet priya", "intro", "", "Jo Lin <jo@jolin.example>", "Hello", "I think you should meet Priya, she runs a small studio."],
+  ["round3 F8 push the interview", "interview", "Acme", "Priya Shah <priya@acme.example>", "Schedule", "Unfortunately our interviewer is out sick. Can we push the interview for the role to Friday?"],
+  ["round3 F8 another time", "interview", "Acme", "Acme Talent <talent@acme.example>", "Your interview", "Unfortunately the panel is unavailable. Could we find another time for your interview for the role?"],
   ["round3 F8 rejection after interview, different direction", "rejection", "Acme", hr, "Your application to Acme", "Thank you for taking the time to interview with us. Unfortunately, we have decided to move in a different direction for this role."],
   ["round3 F8 rejection after interview, a candidate", "rejection", "Acme", hr, "Your application to Acme", "Thank you for interviewing for the Product Engineer role. Unfortunately, we have decided to move forward with a candidate whose experience more closely matches our needs."],
   ["round3 F8 rejection after interview, moved", "rejection", "Acme", hr, "Your application to Acme", "Thanks for your interview last week. Unfortunately the role has been removed from our plans this quarter."],
@@ -111,8 +116,69 @@ const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["contractions better choice", "offer", "Acme", hr, "Update from Acme", "We are pleased to offer you the role. You can't make a better choice!"],
   ["contractions signing bonus", "offer", "Acme", hr, "Update from Acme", "We would like to offer you the position. We are not offering a signing bonus for this level."],
   ["oos high volume applied", "applied", "Acme", "Acme <no-reply@greenhouse.io>", "Thank you for applying to Acme", "We received your application. Unfortunately, due to the high volume of applications, we cannot respond to every candidate individually."],
-  ["oos middle initial", "screen", "Acme", "Priya K. Shah <priya@acme.com>", "Phone screen", "Can we set up a phone screen for the role?"],
+  ["oos middle initial", "screen", "Acme", "Priya K. Shah <priya@acme.example>", "Phone screen", "Can we set up a phone screen for the role?"],
   ["oos unable plus candidate", "rejection", "Acme", hr, "Your application to Acme", "Thank you for interviewing. We are unable to extend an offer, and we have decided to move forward with a candidate whose experience fits."],
+  // Round 4, fresh probe: realistic made-up mail end to end.
+  ["fresh G1 greenhouse confirmation", "applied", "Brindle Labs", "Brindle Labs <no-reply@us.greenhouse-mail.io>", "Thank you for your application to Brindle Labs", "Hi Sam,\n\nThanks for your interest in Brindle Labs! We wanted to let you know we received your application for Software Engineer, Platform, and we are delighted that you would consider joining our team.\n\nOur team will review your application and will be in touch if your qualifications match our needs for the role. If you are not selected for this position, keep an eye on our jobs page as we're growing and adding openings.\n\nRegards,\nBrindle Labs"],
+  ["fresh G2 lever confirmation", "applied", "Quillpoint", "Quillpoint <no-reply@hire.lever.co>", "Quillpoint: thanks for applying!", "Hi Sam,\n\nThank you for applying to the Product Engineer (New Grad) position at Quillpoint. We've received your application and our team will review it shortly. We'll reach out if there's a fit.\n\nBest,\nThe Quillpoint Team"],
+  ["fresh G3 ashby confirmation", "applied", "Copperline", "Copperline <no-reply@ashbyhq.com>", "Thanks for applying to Copperline", "Hi Sam,\n\nThanks so much for your interest in the Frontend Engineer role at Copperline. This email confirms we've received your application. We review every application carefully and will get back to you within two weeks.\n\nCopperline Talent"],
+  ["fresh G4 codesignal assessment", "assessment", "Tidewell", "CodeSignal <noreply@codesignal.com>", "Tidewell has invited you to take a Coding Assessment", "Hi Sam,\n\nTidewell has invited you to complete the General Coding Assessment as the next step in your application for Software Engineer Intern. The assessment takes 70 minutes. Please complete it by November 14, 2026.\n\nGood luck!\nThe CodeSignal Team"],
+  ["fresh G5 take-home from hiring mailbox", "assessment", "Harrow & Vale", "Harrow & Vale Hiring <hiring@harrowvale.example>", "Next step: take-home exercise", "Hi Sam,\n\nThanks for chatting with us last week. As a next step in your application, we'd like you to complete a short take-home exercise. You'll have 72 hours from when you open the link.\n\nBest,\nHarrow & Vale Hiring"],
+  ["fresh G6 phone screen ask", "screen", "Marrowbyte", "Nadia Okafor <nadia.okafor@marrowbyte.example>", "Marrowbyte <> Sam", "Hi Sam,\n\nI'm a recruiter at Marrowbyte and came across your application for our Data Engineer role. Would you be open to a 30 minute phone screen this week? Here's my calendar link to grab a time that works.\n\nThanks,\nNadia"],
+  ["fresh G7 scheduling mailbox onsite", "interview", "Quillpoint", "Quillpoint Scheduling <scheduling@quillpoint.example>", "Action required: schedule your virtual onsite with Quillpoint", "Hi Sam,\n\nCongratulations on moving forward! We'd like to invite you to a virtual onsite for the Product Engineer position. It will include four 45 minute interviews with members of the team. Please select your availability using the link below.\n\nQuillpoint Scheduling"],
+  ["fresh G8 interview confirmation details", "interview", "Copperline", "Theo Brandt <theo@copperline.example>", "Interview confirmation: Tuesday 11/17", "Hi Sam,\n\nConfirming your technical interview on Tuesday, November 17 at 1pm CT with two engineers from the platform team. The video link is in the calendar invite. Let me know if anything comes up.\n\nTheo"],
+  ["fresh G9 rejection after applying", "rejection", "Brindle Labs", "Brindle Labs <no-reply@us.greenhouse-mail.io>", "Your application to Brindle Labs", "Hi Sam,\n\nThank you for your interest in Brindle Labs and for taking the time to apply for the Software Engineer, Platform role. After reviewing your application, we have decided to pursue other candidates whose experience more closely aligns with our current needs.\n\nWe wish you the best in your search.\n\nBrindle Labs"],
+  ["fresh G10 rejection after onsite", "rejection", "Quillpoint", "Ines Carvalho <ines.carvalho@quillpoint.example>", "Quillpoint follow-up", "Hi Sam,\n\nThank you again for spending time with the team last week. Everyone enjoyed meeting you. Unfortunately, we've decided not to move forward with an offer at this time. It was a close call, and we would welcome an application from you in the future.\n\nAll the best,\nInes"],
+  ["fresh G11 rejection, keep on file", "rejection", "Tidewell", "Tidewell Talent <talent@tidewell.example>", "Update on your Tidewell application", "Hi Sam,\n\nThank you for applying for the Software Engineer Intern position. We received many strong applications and, after careful review, we will not be moving forward with yours at this time. We'll keep your resume on file for future openings.\n\nTidewell Talent"],
+  ["fresh G12 offer email", "offer", "Copperline", "Theo Brandt <theo@copperline.example>", "Offer from Copperline", "Hi Sam,\n\nI'm so happy to share that we'd love to have you join Copperline as a Frontend Engineer! Your offer letter is attached, including base salary, equity and benefits. Please review it and let me know if you have any questions. We'd ask for a decision by November 20.\n\nTheo"],
+  ["fresh G13 warm intro from a friend", "intro", "", "Wes Hartigan <wes.hartigan@gmail.example>", "Intro: Sam <> Nadia (Marrowbyte)", "Hi Nadia, meet Sam, a new grad I worked with at a hackathon who is looking at data roles. Sam, Nadia leads engineering hiring at Marrowbyte. I'll let you two take it from here.\n\nWes"],
+  ["fresh G14 newsletter, career advice", "other", "", "The Early Shift <hello@theearlyshift.example>", "5 questions to ask at the end of every interview", "This week: the five questions hiring managers wish more candidates asked, plus a template for a thank-you note after your final round. Read time: 4 minutes."],
+  ["fresh G15 newsletter, product marketing", "other", "", "Lumen Notes <team@lumennotes.example>", "New in Lumen: meet Focus Mode", "We're excited to introduce Focus Mode, a quieter way to write. Meet the new sidebar, schedule distraction-free blocks, and assess your writing streaks at a glance."],
+  // Round 4, F1: a mailbox name after the company keeps only the words that spell the domain.
+  ["round4 F1 talent acquisition mailbox", "interview", "Tidewell", "Tidewell Talent Acquisition <ta@tidewell.example>", "Your onsite", "We'd like to invite you to an onsite interview. Please share your availability."],
+  ["round4 F1 university programs mailbox", "assessment", "Harrow & Vale", "Harrow & Vale University Programs <campus@harrowvale.example>", "Next step: take-home exercise", "As a next step in your application, we'd like you to complete a short take-home exercise."],
+  ["round4 F1 display that does not spell the domain", "applied", "Fernhollow Health", "Fernhollow Health Careers <jobs@fhh.example>", "Thanks for applying to Fernhollow Health", "We received your application."],
+  // F2: an assessment beats a confirmation subject only when the email asks for it now.
+  ["round4 F2 confirmation mentions a possible assessment", "applied", "Tidewell", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "Hi Sam,\nThanks for applying! We've received your application.\n\nNext steps: our team reviews every application. If your background is a match, you'll receive an invitation to complete an online assessment.\n\nTidewell"],
+  ["round4 F2 confirmation describes the process", "applied", "Tidewell", "Tidewell <no-reply@hire.lever.co>", "Thanks for applying to Tidewell", "We received your application for Software Engineer Intern. The next step in our process is usually a short coding assessment, which we send to shortlisted candidates."],
+  ["round4 F2 link sits in another sentence", "applied", "Tidewell", "Tidewell <no-reply@hire.lever.co>", "Thanks for applying to Tidewell", "We received your application. You can track its status with the link below. If there is a match, the next step may be a short coding assessment."],
+  ["round4 F2 confirmation asks now, link", "assessment", "Tidewell", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "We've received your application. Next step: please complete the HackerRank assessment within 5 days using the link below."],
+  ["round4 F2 confirmation asks now, date", "assessment", "Tidewell", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "We've received your application. As a next step, complete the online assessment by November 14."],
+  ["round4 F2 confirmation asks now, click", "assessment", "Tidewell", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "We've received your application. Click the button below to start your coding assessment."],
+  // F3: "for the <Role> role" is read in its original case, so an untrusted company sender still counts.
+  ["round4 F3 no-reply final round for the role", "interview", "Tidewell", "Tidewell <no-reply@tidewell.example>", "Your final round", "Congrats on reaching the final round for the Software Engineer role. Your schedule is attached."],
+  ["round4 F3 scheduling tool onsite", "interview", "Tidewell", "Tidewell <scheduling@goodtime.io>", "Pick times for your onsite", "Please pick times for your onsite for the Software Engineer role at Tidewell."],
+  ["round4 F3 newsletter role in lower case", "other", "", "Busline Bulletin <news@buslinebulletin.example>", "Final round", "The final round of the bus redesign is out, and our planner explains her role."],
+  // F4: intros from friends' personal addresses.
+  ["round4 F4 pair subject, webmail handle", "intro", "", "Jordan Lee <jl.builds@gmail.example>", "Sam <> Priya (Brindle Labs)", "Priya, meet Sam. Sam, meet Priya. Over to you both!"],
+  ["round4 F4 webmail meet, no pair subject", "intro", "", "Jordan Lee <jl.builds@gmail.example>", "Someone you should know", "Priya, meet Sam. Sam, meet Priya."],
+  ["round4 F4 pair subject, name handle", "intro", "", "Jordan Lee <jordan.lee@gmail.example>", "Sam <> Priya (Brindle Labs)", "Priya, meet Sam. Sam, meet Priya. Over to you both!"],
+  ["round4 F4 pair subject, vanity domain", "intro", "", "Maya Torres <hi@mayatorres.example>", "Sam <> Priya", "Priya, meet Sam. Sam, meet Priya."],
+  ["round4 F4 first person intro, vanity domain", "intro", "", "Maya Torres <hi@mayatorres.example>", "Intro to Priya at Brindle Labs", "Hi Sam, I'd love to introduce you to Priya. She runs engineering at Brindle Labs and is hiring."],
+  ["round4 F4 pair subject from a newsletter", "other", "", "Gridline Notes <news@gridlinenotes.example>", "Design <> Engineering: closing the gap", "Five habits of teams that ship."],
+  // F6: post-interview rejections without "unfortunately".
+  ["round4 F6 not be offering you a position", "rejection", "Tidewell", tw, "Your Tidewell interview", "Thank you for interviewing with us. After much deliberation, we will not be offering you a position at this time."],
+  ["round4 F6 go in a different direction", "rejection", "Tidewell", tw, "Following up", "Thanks for taking the time to interview with the team. We've decided to go in a different direction for this role."],
+  ["round4 F6 won't be able to move forward", "rejection", "Tidewell", tw, "Following up", "Thank you for interviewing with Tidewell. We won't be able to move forward with your candidacy."],
+  ["round4 F6 have not been selected", "rejection", "Tidewell", tw, "Your Tidewell application", "Thank you for your interest in the Software Engineer position. After careful review, you have not been selected to move forward in the process."],
+  ["round4 F6 chosen another candidate", "rejection", "Tidewell", tw, "Following up", "Thank you for interviewing with us. We have chosen another candidate for the role."],
+  ["round4 F6 will not be able to proceed", "rejection", "Tidewell", tw, "Your Tidewell application", "We will not be able to proceed with your application at this time."],
+  ["round4 F6 decided not to pursue", "rejection", "Tidewell", tw, "Your Tidewell application", "After reviewing your application, we have decided not to pursue your candidacy further."],
+  ["round4 F6 unfortunately, different direction", "rejection", "Tidewell", tw, "Following up", "Thanks for interviewing with the team. Unfortunately, we've decided to go in a different direction for this role."],
+  ["round4 F6 unfortunately, not offering", "rejection", "Tidewell", tw, "Following up", "Thank you for interviewing. Unfortunately, we will not be offering you a position."],
+  ["round4 F6 if not selected stays applied", "applied", "Tidewell", tw, "Thank you for applying to Tidewell", "We received your application. If you have not been selected within four weeks, the role may have closed."],
+  ["round4 F6 reschedule a phone screen", "screen", "Tidewell", "Nadia Okafor <nadia@tidewell.example>", "Rescheduling our call", "Hi Sam, unfortunately something came up. Could we reschedule our phone screen for the Data Engineer role to Thursday?"],
+  ["round4 F6 greenhouse person display", "interview", "Tidewell", "Priya Shah <no-reply@us.greenhouse-mail.io>", "Next steps with Tidewell", "Hi Sam, the team enjoyed your phone screen and would like to move you to the onsite interviews. Please share your availability."],
+  ["round4 F6 workable confirmation", "applied", "Brindle Labs", "Brindle Labs <noreply@candidates.workablemail.com>", "Thanks for applying to Brindle Labs", "Your application for the Data Analyst job was submitted."],
+  ["round4 F6 smartrecruiters person display", "interview", "Copperline", "Ines Carvalho <no-reply@smartrecruiters.com>", "Interview with Copperline", "Please pick a time for your interview for the Frontend Engineer role."],
+  ["round4 F6 icims person display", "interview", "Marrowbyte", "Theo Brandt <no-reply@talent.icims.com>", "Next steps with Marrowbyte", "Please share your availability for a final round."],
+  ["round4 F6 jobvite person display", "screen", "Quillpoint", "Nadia Okafor <notifications@jobvite.com>", "Phone screen with Quillpoint", "Can we set up a phone screen this week?"],
+  ["round4 F6 modernloop person display", "interview", "Tidewell", "Wes Hartigan <scheduling@modernloop.io>", "Your onsite with Tidewell", "Please confirm the times for your onsite for the Product Engineer role."],
+  // Newsletters that talk about interviews, and calendar invitations by shape.
+  ["round4 newsletter candidate words", "other", "", "The Early Shift <hello@theearlyshift.example>", "Interview season", "Every candidate should prepare three stories before an interview. Plus: how to follow up on an application."],
+  ["round4 newsletter mock interview", "other", "", "Prepwell <team@prepwell.example>", "Ace the next one", "Schedule a mock interview with a coach this week and get 20 percent off."],
+  ["round4 calendar shape, any tool", "other", "", "Slotwise <invites@slotwise.example>", "Invitation: Interview with Acme @ Tue Nov 10, 2026 2pm - 3pm (CST)", "You have been invited to the following event."],
+  ["round4 calendar company name is not a calendar", "applied", "Calendarly", "Calendarly Careers <jobs@calendarly.example>", "Thanks for applying to Calendarly", "We received your application."],
 ];
 
 function mail(id: string, from: string, subject: string, body: string, date: string): InboxEmail {
@@ -132,7 +198,7 @@ describe("classifier battery", () => {
     const events = [
       mail("a", "Acme <no-reply@greenhouse.io>", "Thank you for applying to Acme", "Your application has been received.", "2026-10-01T10:00:00.000Z"),
       mail("b", "CodeSignal <noreply@codesignal.com>", "Acme invited you to a General Coding Assessment", "Acme has invited you to take a coding assessment on CodeSignal.", "2026-10-05T10:00:00.000Z"),
-      mail("c", "Priya Shah <priya@acme.com>", "Next steps", "Can we set up a phone screen this week?", "2026-10-10T10:00:00.000Z"),
+      mail("c", "Priya Shah <priya@acme.example>", "Next steps", "Can we set up a phone screen this week?", "2026-10-10T10:00:00.000Z"),
       mail("d", "HackerRank <support@hackerrank.com>", "Acme | Online test invitation", "You have been invited by Acme to attempt an online coding test.", "2026-10-12T10:00:00.000Z"),
     ].map(classifyEmail);
     const rows = buildPipeline(events, "2026-11-01").rows;
@@ -142,13 +208,25 @@ describe("classifier battery", () => {
 
   it("keeps a three email interview sequence on the jobs lane", () => {
     const events = [
-      mail("a", "Acme Careers <careers@acme.com>", "Thanks for applying for the Product Engineer role at Acme", "We received your application.", "2026-10-01T10:00:00.000Z"),
-      mail("b", "Acme Talent <talent@acme.com>", "Interview with Acme", "We would like to invite you to interview with our co-founder.", "2026-10-10T10:00:00.000Z"),
-      mail("c", "Priya Shah <priya@acme.com>", "Your onsite", "Looking forward to your final round interview.", "2026-10-15T10:00:00.000Z"),
+      mail("a", "Acme Careers <careers@acme.example>", "Thanks for applying for the Product Engineer role at Acme", "We received your application.", "2026-10-01T10:00:00.000Z"),
+      mail("b", "Acme Talent <talent@acme.example>", "Interview with Acme", "We would like to invite you to interview with our co-founder.", "2026-10-10T10:00:00.000Z"),
+      mail("c", "Priya Shah <priya@acme.example>", "Your onsite", "Looking forward to your final round interview.", "2026-10-15T10:00:00.000Z"),
     ].map(classifyEmail);
     const rows = buildPipeline(events, "2026-11-07").rows;
     expect(rows).toHaveLength(1);
     expect(rows[0].furthest).toBe("interview");
     expect(rows[0].lane).toBe("jobs");
+  });
+
+  it("folds a person writing through a hiring tool into the company's row", () => {
+    const events = [
+      mail("a", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "We received your application.", "2026-10-01T10:00:00.000Z"),
+      mail("b", "Priya Shah <no-reply@us.greenhouse-mail.io>", "Next steps with Tidewell", "The team would like to move you to the onsite interviews. Please share your availability.", "2026-10-09T10:00:00.000Z"),
+      mail("c", "Tidewell Scheduling <scheduling@tidewell.example>", "Your onsite", "Here is your onsite schedule. Please confirm your availability.", "2026-10-11T10:00:00.000Z"),
+    ].map(classifyEmail);
+    const rows = buildPipeline(events, "2026-11-01").rows;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].company).toBe("Tidewell");
+    expect(rows[0].furthest).toBe("interview");
   });
 });

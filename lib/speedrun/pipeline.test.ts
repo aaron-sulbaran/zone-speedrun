@@ -50,9 +50,9 @@ describe("buildPipeline", () => {
   it("folds a three email Acme sequence into one row that reached interview", () => {
     const mail = (id: string, from: string, subject: string, body: string, date: string): InboxEmail => ({ id, from, subject, body, date });
     const events = [
-      mail("1", "Acme Careers <jobs@acme.com>", "Thanks for applying for the Product Engineer role at Acme", "We received it.", "2026-10-01T10:00:00.000Z"),
-      mail("2", "Acme Hiring <hiring@acme.com>", "Interview invitation", "We would like to invite you to an interview with our co-founder.", "2026-10-08T10:00:00.000Z"),
-      mail("3", "Priya Shah <priya@acme.com>", "Final round", "Final round scheduling for the Product Engineer role.", "2026-10-15T10:00:00.000Z"),
+      mail("1", "Acme Careers <jobs@acme.example>", "Thanks for applying for the Product Engineer role at Acme", "We received it.", "2026-10-01T10:00:00.000Z"),
+      mail("2", "Acme Hiring <hiring@acme.example>", "Interview invitation", "We would like to invite you to an interview with our co-founder.", "2026-10-08T10:00:00.000Z"),
+      mail("3", "Priya Shah <priya@acme.example>", "Final round", "Final round scheduling for the Product Engineer role.", "2026-10-15T10:00:00.000Z"),
     ].map(classifyEmail);
     const pipeline = buildPipeline(events, "2026-11-01");
     expect(pipeline.rows).toHaveLength(1);
@@ -66,11 +66,25 @@ describe("buildPipeline", () => {
     const events = [
       mail("1", "Greenhouse <no-reply@greenhouse.io>", "Thanks for applying to Acme", "We received your application.", "2026-10-20T10:00:00.000Z"),
       mail("2", "CodeSignal <no-reply@codesignal.com>", "Your CodeSignal assessment", "Acme invited you to take a CodeSignal assessment.", "2026-10-22T10:00:00.000Z"),
-      mail("3", "Priya <priya@acme.com>", "Phone screen", "Can we set up a phone screen?", "2026-10-25T10:00:00.000Z"),
+      mail("3", "Priya <priya@acme.example>", "Phone screen", "Can we set up a phone screen?", "2026-10-25T10:00:00.000Z"),
     ].map(classifyEmail);
     const pipeline = buildPipeline(events, "2026-11-01");
     expect(pipeline.rows).toHaveLength(1);
     expect(pipeline.rows[0].furthest).toBe("screen");
     expect(pipeline.rows[0].company).toBe("Acme");
+  });
+
+  it("keeps a mailbox named after the company on that company's one row", () => {
+    const mail = (id: string, from: string, subject: string, body: string, date: string): InboxEmail => ({ id, from, subject, body, date });
+    const events = [
+      mail("1", "Tidewell <no-reply@us.greenhouse-mail.io>", "Thank you for applying to Tidewell", "We received your application.", "2026-10-01T10:00:00.000Z"),
+      mail("2", "Tidewell Talent Acquisition <ta@tidewell.example>", "Your onsite", "We'd like to invite you to an onsite interview. Please share your availability.", "2026-10-12T10:00:00.000Z"),
+      mail("3", "Nadia Okafor <nadia@tidewell.example>", "Following up", "Thank you for interviewing with us. We have chosen another candidate for the role.", "2026-10-20T10:00:00.000Z"),
+    ].map(classifyEmail);
+    const pipeline = buildPipeline(events, "2026-11-01");
+    expect(pipeline.rows).toHaveLength(1);
+    expect(pipeline.rows[0].company).toBe("Tidewell");
+    expect(pipeline.rows[0].furthest).toBe("interview");
+    expect(pipeline.rows[0].exit).toBe("rejected");
   });
 });
