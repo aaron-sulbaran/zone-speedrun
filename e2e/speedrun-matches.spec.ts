@@ -1,6 +1,7 @@
 import { speedrunCopy } from "../lib/content";
 import { PEOPLE } from "../lib/speedrun/people";
-import { test, expect, type Page } from "./support/fixtures";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
 
 async function joinAs(page: Page, key: "sam" | "dev") {
   await page.goto("/speedrun");
