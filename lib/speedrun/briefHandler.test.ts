@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleBrief, MAX_BODY_BYTES, readCappedJson, sendWithResend, type BriefDeps } from "./briefHandler";
+import { handleBrief, readBriefBody, sendWithResend, type BriefDeps } from "./briefHandler";
+import { BODY_CAPS } from "./guard";
 import { createLimiter } from "./guard";
 import { getSnapshot } from "./snapshot";
 
@@ -80,7 +81,7 @@ describe("handleBrief", () => {
 
   it("keeps a full request under the body cap", () => {
     const body = JSON.stringify({ email: `${"a".repeat(240)}@example.com`, personKey: "sam", connected: true, roleIds: Array(6).fill("e1e241c5-bba0-67c9-13ed-8770b02ec398") });
-    expect(new TextEncoder().encode(body).byteLength).toBeLessThan(MAX_BODY_BYTES);
+    expect(new TextEncoder().encode(body).byteLength).toBeLessThan(BODY_CAPS.brief);
   });
 
   it("502 send_failed when the sender says no", async () => {
@@ -106,22 +107,26 @@ describe("handleBrief", () => {
   });
 });
 
-describe("readCappedJson", () => {
+describe("readBriefBody", () => {
   const post = (body: string, headers: Record<string, string> = {}) => new Request("http://x/", { method: "POST", body, headers });
 
   it("parses a small body", async () => {
-    expect(await readCappedJson(post('{"a":1}'))).toEqual({ body: { a: 1 } });
+    expect(await readBriefBody(post('{"a":1}'))).toEqual({ body: { a: 1 } });
   });
 
   it("refuses a declared length over the cap without reading", async () => {
-    expect(await readCappedJson(post("{}", { "content-length": String(MAX_BODY_BYTES + 1) }))).toEqual({ tooLarge: true });
+    expect(await readBriefBody(post("{}", { "content-length": String(BODY_CAPS.brief + 1) }))).toEqual({ tooLarge: true });
+  });
+
+  it("treats a body that is not JSON as a body the schema will refuse", async () => {
+    expect(await readBriefBody(post("nope"))).toEqual({ body: null });
   });
 
   it("stops reading a body over the cap even with no content-length", async () => {
-    const big = "x".repeat(MAX_BODY_BYTES * 4);
+    const big = "x".repeat(BODY_CAPS.brief * 4);
     const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(big)); c.close(); } });
     const request = new Request("http://x/", { method: "POST", body: stream, duplex: "half" } as RequestInit);
-    expect(await readCappedJson(request)).toEqual({ tooLarge: true });
+    expect(await readBriefBody(request)).toEqual({ tooLarge: true });
   });
 });
 

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { renderBriefEmail } from "./brief";
 import { MAX_ROLE_IDS, sampleBrief } from "./briefSample";
-import type { LimitVerdict } from "./guard";
+import { BODY_CAPS, BodyTooLargeError, readCappedJson, type LimitVerdict } from "./guard";
 import { PEOPLE } from "./people";
 import { PERSON_KEYS } from "./types";
 
@@ -78,35 +78,11 @@ export async function sendWithResend(
   }
 }
 
-export const MAX_BODY_BYTES = 1024;
-
-/** Reads at most MAX_BODY_BYTES, so a missing content-length cannot make the server buffer a huge body. */
-export async function readCappedJson(request: Request): Promise<{ body: unknown } | { tooLarge: true }> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return { tooLarge: true };
-  const reader = request.body?.getReader();
-  if (!reader) return { body: null };
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_BODY_BYTES) {
-      await reader.cancel();
-      return { tooLarge: true };
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let at = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, at);
-    at += chunk.byteLength;
-  }
+/** The guard's capped reader, mapped to the brief route's two outcomes: too big, or a body the schema will refuse. */
+export async function readBriefBody(request: Request): Promise<{ body: unknown } | { tooLarge: true }> {
   try {
-    return { body: JSON.parse(new TextDecoder().decode(bytes)) };
-  } catch {
-    return { body: null };
+    return { body: await readCappedJson(request, BODY_CAPS.brief) };
+  } catch (error) {
+    return error instanceof BodyTooLargeError ? { tooLarge: true } : { body: null };
   }
 }

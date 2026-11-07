@@ -1,6 +1,7 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BodyTooLargeError, handleRead, MAX_BODY_BYTES, MAX_TEXT_CHARS, type ReadDeps, type ReadInput } from "./readHandler";
+import { BodyTooLargeError, handleRead, MAX_TEXT_CHARS, type ReadDeps, type ReadInput } from "./readHandler";
+import { BODY_CAPS } from "./guard";
 
 const INTAKE = { targets: ["engineering"], places: [], why: "" };
 const RESUME =
@@ -45,7 +46,7 @@ describe("handleRead", () => {
 
   it("413 too_large for long text, a big declared length, and a body past the byte cap", async () => {
     const longText = await handleRead(input({ text: "a".repeat(MAX_TEXT_CHARS + 1), intake: INTAKE }), deps());
-    const declared = await handleRead(input(ok, MAX_BODY_BYTES + 1), deps());
+    const declared = await handleRead(input(ok, BODY_CAPS.read + 1), deps());
     const capped = await handleRead({ contentLength: null, json: async () => { throw new BodyTooLargeError("x"); } }, deps());
     for (const out of [longText, declared, capped]) expect(out).toEqual({ status: 413, body: { error: "too_large" } });
   });

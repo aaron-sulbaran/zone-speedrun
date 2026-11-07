@@ -1,14 +1,13 @@
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { RERANK_POOL, readResume, rerank } from "./ai";
-import { BodyTooLargeError, type LimitVerdict } from "./guard";
+import { BODY_CAPS, BodyTooLargeError, type LimitVerdict } from "./guard";
 import { rankMatches, type MatchResult } from "./match";
 import { getSnapshot } from "./snapshot";
 import { FNS, type Profile } from "./types";
 
 // The browser reads the file (PDF text included); this route only ever sees text.
 export const MAX_TEXT_CHARS = 20_000;
-export const MAX_BODY_BYTES = 96 * 1024;
 const SHOWN = 6;
 
 const bodySchema = z.object({
@@ -53,7 +52,7 @@ export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<Read
   if (await deps.isBot()) return fail(403, "bot");
   const verdict = deps.allow();
   if (!verdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: verdict.retryAfterMs } };
-  if (input.contentLength !== null && input.contentLength > MAX_BODY_BYTES) return fail(413, "too_large");
+  if (input.contentLength !== null && input.contentLength > BODY_CAPS.read) return fail(413, "too_large");
 
   let raw: unknown;
   try {

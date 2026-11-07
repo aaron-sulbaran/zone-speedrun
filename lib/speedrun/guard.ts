@@ -54,6 +54,16 @@ export function createLimiter(opts: LimiterOptions): Limiter {
   return Object.assign(limit, { size: () => windows.size });
 }
 
+/** Each route's body cap in bytes, in one place. */
+export const BODY_CAPS = {
+  /** An intake and a person key: a few hundred bytes. */
+  match: 16 * 1024,
+  /** Resume text up to 20,000 characters, with room for escapes. */
+  read: 96 * 1024,
+  /** An address, a person key and a few role ids. */
+  brief: 1024,
+} as const;
+
 export class BodyTooLargeError extends Error {}
 
 /** Reads at most `max` bytes, so a missing content-length cannot make the server buffer a huge body. */

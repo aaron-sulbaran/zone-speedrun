@@ -166,7 +166,7 @@ function match(name: string, withRole = true): Match {
 const result: MatchResult = {
   matches: [match("Alpha"), match("Beta"), match("Gamma", false)],
   routes: [],
-  narrowing: { companies: 3, roles: 2, afterFilters: 3, shown: 3 },
+  narrowing: { companies: 3, roles: 2, speedrunRoles: 1, afterFilters: 3, shown: 3 },
 };
 const profile = { ...validProfile, source: "model" } as Profile;
 

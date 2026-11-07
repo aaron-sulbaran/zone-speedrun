@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
-import { handleBrief, readCappedJson, sendWithResend } from "@/lib/speedrun/briefHandler";
+import { handleBrief, readBriefBody, sendWithResend } from "@/lib/speedrun/briefHandler";
 import { createLimiter, liveFlags } from "@/lib/speedrun/guard";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   // With the switch off nothing is read from the request at all.
   let body: unknown = null;
   if (live) {
-    const read = await readCappedJson(request);
+    const read = await readBriefBody(request);
     if ("tooLarge" in read) {
       console.error("[speedrun] brief failed: too_large");
       return NextResponse.json({ error: "too_large" }, { status: 413 });
