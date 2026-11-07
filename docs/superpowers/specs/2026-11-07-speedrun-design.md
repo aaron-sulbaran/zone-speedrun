@@ -70,7 +70,7 @@ Their warm paper, black text, white cards, frosted controls; lowercase headlines
 Five sample resumes, each with a sample inbox at a different volume (all made up; no real people or employers in negative events):
 - **Maya**, software engineer, sophomore, summer 2027 internships, about 5 applications (depth: quiet unless something moves).
 - **Ravi**, AI engineer, new grad, about 60 applications, wants an applied AI team.
-- **Sam**, product engineer, senior in ECE, co-op or new grad, about 90 applications, two founder intros (closest to Aaron, whose real fall total is 84).
+- **Sam**, product engineer, senior in ECE, co-op or new grad, about 90 applications, three founder intros (closest to Aaron, whose real fall total is 84).
 - **Lena**, product designer, two years in, about 40 applications, portfolio-led.
 - **Dev**, founder-heavy, laid off from a big-tech infra team, has built two side companies, applying to accelerators and a few founding roles, about 500 touches (triage), routed to speedrun and alpha.
 
