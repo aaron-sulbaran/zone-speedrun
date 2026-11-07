@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useState } from "react";
+import { composeBuildLog } from "@/lib/speedrun/buildLog";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import type { MatchResult } from "@/lib/speedrun/match";
 import type { Profile } from "@/lib/speedrun/types";
+import { BuildLog } from "./act2/BuildLog";
 import { BuildPlaceholder } from "./act2/BuildPlaceholder";
 import { Hero, type DemoStats } from "./act2/Hero";
 import { JoinCard } from "./act2/JoinCard";
+import { Matches } from "./act2/Matches";
 
 async function fetchMatches(intake: unknown, personKey: string, signal: AbortSignal) {
   const response = await fetch("/speedrun/api/match", {
@@ -23,7 +26,10 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   const [state, dispatch] = useReducer(demoReducer, live, initialDemoState);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const { step, personKey, intake } = state;
+  const [loggedFor, setLoggedFor] = useState<MatchResult | null>(null);
+  const { step, personKey, intake, profile, result } = state;
+  const lines = useMemo(() => (profile && result ? composeBuildLog(intake, profile, result) : []), [intake, profile, result]);
+  const logDone = result !== null && loggedFor === result;
 
   useEffect(() => {
     if (step !== "building" || !personKey) return;
@@ -47,7 +53,18 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
     <div data-demo="" data-step={step}>
       <Hero stats={stats} onSkip={() => dispatch({ type: "pickPerson", key: "sam" })} />
       <div className="px-6 pb-24">
-        {step === "join" ? <JoinCard state={state} dispatch={dispatch} /> : <BuildPlaceholder step={step} failed={failed} onRetry={retry} />}
+        {step === "join" && <JoinCard state={state} dispatch={dispatch} />}
+        {step === "building" && <BuildPlaceholder step="building" failed={failed} onRetry={retry} />}
+        {step === "ready" && result && !logDone && <BuildLog lines={lines} onDone={() => setLoggedFor(result)} />}
+        {step === "ready" && result && logDone && (
+          <div className="space-y-16">
+            <Matches result={result} />
+            {/* Slots for the board, the morning brief and the decisions. */}
+            <div data-slot="board" />
+            <div data-slot="brief" />
+            <div data-slot="decisions" />
+          </div>
+        )}
       </div>
     </div>
   );
