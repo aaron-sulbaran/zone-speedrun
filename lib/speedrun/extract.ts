@@ -48,9 +48,14 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 // A club, chapter or team the person founded is not a company. A team they grew inside one is fine.
+// The group has to be what they founded: "founded a startup with a team" and "co-founded Acme with my team" are companies.
 const GROUP_NEAR =
-  /\b(founded|founder of|co-?founded|started)\s+(the\s+|a\s+|our\s+|my\s+)?([\w'-]+\s+){0,3}(club|chapter|society|association|fraternity|sorority|team)\b/i;
+  /\b(founded|founder of|co-?founded|started)\s+(the\s+|a\s+|our\s+|my\s+)?((?!(with|and|for|from|alongside|startup|company|business)\b)[\w'-]+\s+){0,3}(club|chapter|society|association|fraternity|sorority|team)\b/i;
+const GROUP_WORD = /\b(club|chapter|society|association|fraternity|sorority)\b/i;
 const FOUNDER_STRONG = /\b(co-?founded|co-?founders?|solo founder|founded)\b/gi;
+// A founder title line: "Founder & CEO, Acme", "Founder, Acme (YC S24)", "CEO and Founder, Acme", "Acme | Founder".
+const FOUNDER_TITLE =
+  /(^|[,|@\u2013-]\s*)founder(\s*(&|and|\/)\s*(ceo|cto|coo|president))?\s*([,|@(\u2013-]|\bat\b|$)|^(ceo|cto|coo|president)\s*(&|and|\/|,)\s*founder\b/i;
 const FOUNDER_FUNDING =
   /\braised\b[^.]{0,40}(\$\s?\d[\d.,]*\s?(m|k|b|million|billion)\b|seed|pre-seed|round|funding|capital|investors?|angels?|series [a-c]|million)/gi;
 const NOT_FUNDING = /food bank|food drive|blood drive|toy drive|charity|donat|fundrais|nonprofit|scholarship/i;
@@ -84,6 +89,9 @@ function sections(text: string): Map<string, string[]> {
   return map;
 }
 
+/** Up to the first full stop or semicolon, so "$1.5M" and "Next.js" stay whole. */
+const firstSentence = (line: string): string => (line.split(/(?<=[a-z0-9)])[.;](\s|$)/i)[0] ?? "").trim();
+
 function founderSignal(text: string): Profile["founderSignal"] {
   let foundingHits = 0;
   let otherHits = 0;
@@ -96,12 +104,13 @@ function founderSignal(text: string): Profile["founderSignal"] {
     const groupLine = GROUP_NEAR.test(line);
     const funding = NOT_FUNDING.test(line) ? 0 : count(line, FOUNDER_FUNDING);
     const program = count(line.replace(HARDWARE_ACCEL, " "), FOUNDER_PROGRAM);
-    const founding = groupLine ? 0 : count(line, FOUNDER_STRONG);
+    const titled = FOUNDER_TITLE.test(line) && !GROUP_WORD.test(line) ? 1 : 0;
+    const founding = groupLine ? 0 : count(line, FOUNDER_STRONG) || titled;
     const lineStrong = founding + funding + program;
     foundingHits += founding;
     otherHits += funding + program;
     if (!groupLine) weak += count(line, FOUNDER_WEAK);
-    if (lineStrong > 0 && evidence.length < 3) evidence.push(line.split(/[.;]/)[0].trim());
+    if (lineStrong > 0 && evidence.length < 3) evidence.push(firstSentence(line));
   }
   const strong = Math.min(0.9, Math.min(0.7, foundingHits * 0.35) + Math.min(0.6, otherHits * 0.25));
   const score = Math.min(1, strong + Math.min(0.3, weak * 0.08));
@@ -112,20 +121,32 @@ const TITLE_LINE =
   /^(senior|sr\.?|staff|principal|lead)\s+(software|engineer|developer|designer|product|data|machine|ml|ai|research|manager|analyst|scientist|architect|frontend|backend|full)/i;
 
 const MANAGING = /(mentor|manag|supervis|hir(e|ing)|train|lead|led|coach|oversaw|onboard|teach|advis)\w*\W+(\w+\W+){0,3}$/i;
+const PAST_BEFORE = /\b(was|were|been|after|previous(ly)?|past|prior|former|completed|finished|did)\b[^,;.]*$/i;
+const PAST_AFTER = /^[^,;.]*\b(behind me|last (summer|year|fall|spring|winter)|ago)\b/i;
+const INTERN_THING = /^\s*(program|onboarding|class|cohort|team|mentor|coordinator|events?|hiring|manager)\b/i;
 
-/** An intern role they want ("intern role", "internship"), not interns they mentor or manage. */
+/**
+ * An intern role they want ("intern role", "internship", "open to internships"), not interns they work
+ * with ("taught interns", "ran the intern program") or internships behind them ("after two internships").
+ */
 function seeksIntern(text: string): boolean {
-  for (const m of text.matchAll(/\binterns?(hips?)?\b/gi)) {
-    const before = text.slice(Math.max(0, (m.index ?? 0) - 30), m.index);
-    if (!MANAGING.test(before)) return true;
+  for (const m of text.matchAll(/\b(interns?|internships?)\b/gi)) {
+    const at = m.index ?? 0;
+    const before = text.slice(Math.max(0, at - 40), at);
+    const after = text.slice(at + m[0].length, at + m[0].length + 40);
+    if (m[0].toLowerCase() === "interns") continue;
+    if (MANAGING.test(before) || PAST_BEFORE.test(before) || PAST_AFTER.test(after)) continue;
+    if (/\bthe\s+$/i.test(before) || INTERN_THING.test(after)) continue;
+    return true;
   }
   return false;
 }
 
 function pickSeniority(text: string, parts: Map<string, string[]>, intake: Intake): Profile["seniority"] {
   const lookingFor = `${text.split("\n").filter((line) => LOOKING.test(line.trim())).join(" ")} ${intake.why}`;
-  if (seeksIntern(lookingFor)) return "intern";
+  // New grad wording first: "a new grad role after two internships" is a new grad.
   if (/new grad|new graduate|early career/i.test(lookingFor)) return "new_grad";
+  if (seeksIntern(lookingFor)) return "intern";
   // Seniority needs job-title context: a title line in the experience section with dates.
   const titles = (parts.get("EXPERIENCE") ?? []).filter((l) => !l.startsWith("-") && /\b(19|20)\d\d\b|present/i.test(l));
   if (titles.some((l) => TITLE_LINE.test(l))) return "senior";
@@ -173,6 +194,19 @@ function headlineFrom(parts: Map<string, string[]>): string {
   return title ? title.split(",")[0].trim() : "";
 }
 
+const CLAUSE_START = /^(and|with|to|for|that|which|so|but|while|using|by)$/i;
+
+/** The first sentence of a bullet, whole up to 12 words; longer, cut at the first clause break after the noun phrase. */
+function whatItDoes(bullet: string): string {
+  const words = firstSentence(bullet).split(/\s+/).filter(Boolean);
+  if (words.length <= 12) return words.join(" ");
+  let cut = 12;
+  for (let i = 5; i <= 12; i++) {
+    if (words[i - 1]?.endsWith(",") || CLAUSE_START.test(words[i] ?? "")) { cut = i; break; }
+  }
+  return words.slice(0, cut).join(" ").replace(/,$/, "");
+}
+
 /** Project names with the first clause of their bullet, so matching can use what the thing does. */
 function shippedFrom(parts: Map<string, string[]>): string[] {
   const lines = [...(parts.get("PROJECTS") ?? []), ...(parts.get("FOUNDER WORK") ?? []), ...(parts.get("SELECTED WORK") ?? [])];
@@ -182,7 +216,7 @@ function shippedFrom(parts: Map<string, string[]>): string[] {
     const name = line.replace(/^Founder side project:\s*/i, "").split(/[,:]/)[0].trim();
     if (!name || name.length > 40 || /^(open source|wrote|spoke)/i.test(name)) return;
     const bullet = lines[i + 1]?.startsWith("-") ? lines[i + 1].replace(/^-\s*/, "") : "";
-    const description = bullet.split(/[.;]/)[0].trim().slice(0, 70).replace(/\s+\S*$/, (m) => (bullet.length > 70 ? "" : m));
+    const description = whatItDoes(bullet);
     items.push(description ? `${name} (${description})` : name);
   });
   return items.slice(0, 4);

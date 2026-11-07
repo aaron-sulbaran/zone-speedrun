@@ -190,4 +190,43 @@ describe("extractProfile", () => {
     expect(city("ana@example.com | Seattle, Washington")).toEqual(["Seattle"]);
     expect(city("San Francisco Bay Area | ana@example.com")).toEqual(["San Francisco"]);
   });
+
+  it("counts a founder title line with a funding line as a founder", () => {
+    for (const text of [
+      "Founder & CEO, Acme AI (YC W25)\nRaised a $3M seed round",
+      "Founder, Acme (YC S24)\n- Raised $1.5M pre-seed",
+      "CEO and Founder, Acme\nRaised $4M seed from a16z",
+    ]) {
+      expect(founderScore(`Ana\n${text}`), text).toBeGreaterThanOrEqual(0.6);
+    }
+    expect(extractProfile("Ana\nFounder, Acme (YC S24)\n- Raised $1.5M pre-seed", intake).founderSignal.evidence).toContain("Raised $1.5M pre-seed");
+    expect(founderScore("Ana\nFounder, Robotics Club")).toBeLessThan(0.3);
+    expect(founderScore("Ana\nFounder side project: Quietcoach")).toBeLessThan(0.3);
+  });
+
+  it("reads a company founded with a team as a company", () => {
+    expect(founderScore("Ana\nFounded a startup with a team of four engineers")).toBeGreaterThan(0);
+    expect(founderScore("Ana\nCo-founded Acme with my team from school")).toBeGreaterThan(0);
+  });
+
+  it("reads new grad wording before intern wording, and interns someone works with as nothing", () => {
+    const student = "Ana\nEDUCATION\nUT Austin, BS CS 2026";
+    for (const why of ["A new grad role; I was an intern at Acme last summer", "Looking for a new grad role after two internships", "New grad SWE, three internships behind me"]) {
+      expect(extractProfile(student, { ...intake, why }).seniority, why).toBe("new_grad");
+    }
+    for (const why of ["A summer internship", "I'd love to be an intern", "Open to internships"]) {
+      expect(extractProfile(student, { ...intake, why }).seniority, why).toBe("intern");
+    }
+    const staff = "Ana\nEXPERIENCE\nStaff Software Engineer, Acme, 2018 to present\n";
+    for (const why of ["Taught interns", "Working with interns", "I want to help interns grow", "Ran the intern program", "Built the intern onboarding"]) {
+      expect(extractProfile(staff, { ...intake, why }).seniority, why).toBe("senior");
+    }
+  });
+
+  it("keeps the key words of what a project does", () => {
+    const text = "Ana\nPROJECTS\nRustling\n- A package manager written in Rust. Used by about four hundred people across three teams at school every single day";
+    expect(extractProfile(text, intake).shipped).toEqual(["Rustling (A package manager written in Rust)"]);
+    const ravi = extractProfile(PEOPLE.ravi.resumeText, PEOPLE.ravi.intake).shipped;
+    expect(ravi).toContain("Docsmith (An assistant that answers questions over a company handbook)");
+  });
 });

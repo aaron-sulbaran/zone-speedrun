@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cleanTitle, placeMatches, remoteFitsUs, shortLocation, withArticle } from "./matchText";
+import type { SnapshotRole } from "./snapshot";
+import { cleanTitle, levelOf, placeMatches, remoteFitsUs, shortLocation, titleFits, withArticle } from "./matchText";
 
 describe("matchText", () => {
   it("picks the right article", () => {
@@ -45,5 +46,44 @@ describe("matchText", () => {
     expect(placeMatches("Austin", "Austin, TX")).toBe(true);
     expect(placeMatches("Dublin", "Dublin, CA")).toBe(false);
     expect(placeMatches("Rome", "Jerome, AZ")).toBe(false);
+  });
+
+  it("reads Los Angeles, never Louisiana or Venice, Italy", () => {
+    for (const ok of ["Los Angeles, CA", "LA, CA", "LA", "L.A.", "Remote (LA)", "LA / Remote", "Santa Monica, CA", "Venice, CA"]) {
+      expect(placeMatches("Los Angeles", ok), ok).toBe(true);
+    }
+    for (const bad of ["Franklin, LA", "Lafayette, LA", "La Jolla, CA", "Remote - Venice, Italy"]) {
+      expect(placeMatches("Los Angeles", bad), bad).toBe(false);
+    }
+    expect(remoteFitsUs("Remote - Venice, Italy", ["Los Angeles", "Remote"])).toBe(false);
+    expect(placeMatches("San Francisco", "Union Square, New York City")).toBe(false);
+  });
+
+  it("lets Georgia the state fit a US visitor", () => {
+    expect(remoteFitsUs("Savannah, Georgia", ["Remote"])).toBe(true);
+    expect(remoteFitsUs("Remote - Georgia", ["Remote"])).toBe(true);
+    expect(remoteFitsUs("Tbilisi, Georgia (Remote)", ["Remote"])).toBe(false);
+  });
+
+  it("splits two cities written without a separator", () => {
+    expect(shortLocation("New York, NY Menlo Park, CA", "New York")).toBe("New York, NY and 1 more");
+  });
+
+  const role = (title: string, seniority: string | null = null) => ({ title, seniority }) as SnapshotRole;
+
+  it("reads a plain product manager as open to new grads, and any other manager as senior", () => {
+    expect(levelOf(role("Product Manager"))).toBe(2);
+    expect(levelOf(role("Associate Product Manager"))).toBe(1);
+    for (const title of ["Senior Product Manager", "Group Product Manager", "Staff Product Manager", "Engineering Manager", "Director, Product"]) {
+      expect(levelOf(role(title)), title).toBe(3);
+    }
+    expect(levelOf(role("Software Engineer, Payments Group"))).toBe(2);
+  });
+
+  it("counts Member of Technical Staff and tech lead titles as engineering", () => {
+    for (const title of ["Member of Technical Staff", "Founding Member of Technical Staff", "Member of Technical Staff - Android", "Technical Lead"]) {
+      expect(titleFits(role(title), "engineering"), title).toBe(true);
+    }
+    expect(titleFits(role("Growth PM, Future Platforms"), "product")).toBe(true);
   });
 });

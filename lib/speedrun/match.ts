@@ -1,5 +1,8 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { AI_WORDS, aiStrength, cleanTitle, escapeRegex, placeMatches, remoteFitsUs, shortLocation, withArticle } from "./matchText";
+import {
+  AI_WORDS, aiStrength, cleanTitle, dayOf, escapeRegex, levelOf, namesLevel, placeMatches, remoteFitsUs,
+  shortLocation, titleFits, withArticle,
+} from "./matchText";
 import { ownWords, personalReasons } from "./matchOwn";
 import type { Snapshot, SnapshotCompany, SnapshotRole } from "./snapshot";
 import type { Fn, Intake, Profile } from "./types";
@@ -43,45 +46,13 @@ const ROUTES: FounderRoute[] = [
 const copy = speedrunCopy.matches;
 const SPEEDRUN_BOOST = 5;
 const TIER_BOOST = 12;
+const LEVEL_BOOST = 1.5;
+// A speedrun card moves up into the top three only from this close, and never past a better tier.
+const PROMOTE_WINDOW = 2;
 
-const SENIOR_TITLE = /\b(senior|sr\.?|staff|principal|lead|manager|director|head|vp|chief|founding)\b/i;
-const NEW_GRAD_TITLE = /new grad|early career|graduate|associate|\b2027\b/i;
 const ALLOWED_LEVELS: Record<Profile["seniority"], number[]> = {
   intern: [0], new_grad: [1, 2], junior: [1, 2], mid: [1, 2, 3], senior: [2, 3, 4],
 };
-
-function dayOf(postedAt: string): number {
-  const t = Date.parse(postedAt.length === 10 ? `${postedAt}T00:00:00Z` : postedAt);
-  return Number.isNaN(t) ? 0 : t;
-}
-
-function levelOf(role: SnapshotRole): number {
-  switch (role.seniority) {
-    case "intern": return 0;
-    case "junior": return 1;
-    case "senior": return 3;
-    case "staff":
-    case "founding":
-    case "exec": return 4;
-    default:
-      if (/intern/i.test(role.title)) return 0;
-      if (NEW_GRAD_TITLE.test(role.title)) return 1;
-      return SENIOR_TITLE.test(role.title) ? 3 : 2;
-  }
-}
-
-function titleFits(role: SnapshotRole, fn: Fn): boolean {
-  const t = role.title;
-  switch (fn) {
-    case "design": return /design/i.test(t);
-    case "founder": return /founding/i.test(t);
-    case "product": return /product/i.test(t);
-    case "operations": return /operations|\bops\b/i.test(t);
-    case "ai": return AI_WORDS.test(t);
-    case "data": return /data|analytics|analyst/i.test(t);
-    case "engineering": return /engineer|developer/i.test(t);
-  }
-}
 
 function roleHasFn(role: SnapshotRole, company: SnapshotCompany | undefined, fn: Fn): boolean {
   switch (fn) {
@@ -116,10 +87,10 @@ function placeFit(places: string[], remoteOk: boolean, role: SnapshotRole): Plac
 }
 
 
-type Scored = { role: SnapshotRole; company: SnapshotCompany | undefined; score: number; reasons: Reason[]; tier: number };
+type Scored = { role: SnapshotRole; company: SnapshotCompany | undefined; score: number; reasons: Reason[]; tier: number; fits: boolean };
 type Ctx = { profile: Profile; intake: Intake; newest: number; hardwareSkills: boolean };
 
-const SOFTWARE_TITLE = /software|backend|back-end|frontend|front-end|full.?stack|mobile|\bios\b|android|platform|infrastructure|\bml\b|machine learning|\bai\b|\bweb\b|cloud|devops|\bsre\b|\bapi\b/i;
+const SOFTWARE_TITLE = /member of technical staff|\bmts\b|software|backend|back-end|frontend|front-end|full.?stack|mobile|\bios\b|android|platform|infrastructure|\bml\b|machine learning|\bai\b|\bweb\b|cloud|devops|\bsre\b|\bapi\b/i;
 const WEAK_SOFTWARE_TITLE = /developer|\bdata\b|engineer/i;
 const HARDWARE_TITLE = /mechanical|electrical|hardware|systems? engineer|naval|manufactur|embedded|firmware|avionics|propulsion|structur|\bgnc\b|power systems|civil|chemical|\brf\b|thermal|aerospace|test engineer|field engineer|mission/i;
 const HARDWARE_SKILL = /firmware|embedded|fpga|pcb|\bcad\b|verilog|vhdl|circuit|mechanical|electrical|solidworks|robotics|\bplc\b/i;
@@ -159,6 +130,8 @@ function scoreRole(
     score += 2;
     reasons.push({ text: copy.reasons.earlyCareer, cites: ["title"] });
   }
+  // A title that names the visitor's own level ("New Grad", "Intern") edges out one that only allows it.
+  if (namesLevel(role, profile.seniority)) score += LEVEL_BOOST;
   if (place) {
     score += place.kind === "city" ? 1.5 : 1;
     reasons.push({ text: place.kind === "city" ? copy.reasons.city(place.location, place.place) : copy.reasons.remote, cites: ["location"] });
@@ -170,7 +143,7 @@ function scoreRole(
   // The first target outranks every bonus.
   // Strong evidence only: the title names the function (for AI, the title or the description does).
   const tier = fnIndex === 0 && (fn === "ai" ? ai !== "blurb" : fits) ? 1 : 0;
-  return { role, company, score, reasons, tier };
+  return { role, company, score, reasons, tier, fits };
 }
 
 const COMPANY_FNS: Record<Fn, string[]> = {
@@ -205,11 +178,27 @@ function toMatch(scored: Scored): Match {
   };
 }
 
+const rank = (s: Scored) => s.score + TIER_BOOST * s.tier;
+
 function better(a: Scored, b: Scored): boolean {
-  const ra = a.score + TIER_BOOST * a.tier, rb = b.score + TIER_BOOST * b.tier;
-  if (ra !== rb) return ra > rb;
+  if (rank(a) !== rank(b)) return rank(a) > rank(b);
   const da = dayOf(a.role.postedAt), db = dayOf(b.role.postedAt);
   return da !== db ? da > db : a.role.id < b.role.id;
+}
+
+/** The same own-words line never repeats on more than two cards, in rank order; a dropped line takes its points with it. */
+function capOwnWords(cards: { score: number; reasons: Reason[] }[], seen: Map<string, number>): void {
+  for (const card of cards) {
+    card.reasons = card.reasons.filter((reason) => {
+      const own = ownWords.get(reason);
+      if (own === undefined) return true;
+      const n = (seen.get(reason.text) ?? 0) + 1;
+      seen.set(reason.text, n);
+      if (n <= 2) return true;
+      card.score -= own.points;
+      return false;
+    });
+  }
 }
 
 export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, limit = 6): MatchResult {
@@ -244,9 +233,11 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
     if (!prior || better(scored, prior)) best.set(key, scored);
   }
 
-  const matches = [...best.values()]
-    .sort((a, b) => (better(a, b) ? -1 : 1))
-    .map(toMatch);
+  const byRank = (a: Scored, b: Scored) => (better(a, b) ? -1 : 1);
+  const ranked = [...best.values()].sort(byRank);
+  const seen = new Map<string, number>();
+  capOwnWords(ranked, seen);
+  ranked.sort(byRank);
 
   // Companies with no role that passed the filters still show up, after every
   // role-backed match, when what they build lines up with what was asked for.
@@ -269,29 +260,20 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
     }
   }
   companyMatches.sort((a, b) => b.score - a.score || a.company.name.localeCompare(b.company.name));
+  capOwnWords(companyMatches, seen);
 
-  const shown = [...matches, ...companyMatches].slice(0, limit);
-  // At least one speedrun card in the top three whenever a speedrun role fits.
-  const promoted = matches.find((m) => m.role?.tier === "speedrun");
-  if (limit >= 3 && promoted && !shown.slice(0, 3).includes(promoted)) {
-    const at = shown.indexOf(promoted);
-    if (at >= 0) shown.splice(at, 1);
-    shown.splice(2, 0, promoted);
-    shown.length = Math.min(shown.length, limit);
-  }
-  // The same own-words line never repeats on more than two cards; a dropped line takes its points with it.
-  const seen = new Map<string, number>();
-  for (const match of shown) {
-    match.reasons = match.reasons.filter((reason) => {
-      const points = ownWords.get(reason);
-      if (points === undefined) return true;
-      const n = (seen.get(reason.text) ?? 0) + 1;
-      seen.set(reason.text, n);
-      if (n <= 2) return true;
-      match.score = Math.round((match.score - points) * 100) / 100;
-      return false;
-    });
-  }
+  // A warm intro to a speedrun founder is the network's whole promise, so a speedrun card that fits about
+  // as well as the third card takes its place. It never jumps a card that fits the first target better,
+  // or one whose title names what was asked for when its own title does not.
+  const third = ranked[2];
+  const fit = (s: Scored) => 2 * s.tier + Number(s.fits);
+  const promoted = limit >= 3 && third
+    ? ranked.slice(3).find((s) => s.role.tier === "speedrun" && fit(s) >= fit(third) && rank(third) - rank(s) <= PROMOTE_WINDOW)
+    : undefined;
+  const top = promoted && !ranked.slice(0, 3).some((s) => s.role.tier === "speedrun")
+    ? [...ranked.slice(0, 2), promoted, ...ranked.slice(2).filter((s) => s !== promoted)]
+    : ranked;
+  const shown = [...top.slice(0, limit).map(toMatch), ...companyMatches].slice(0, limit);
   return {
     matches: shown,
     routes: profile.founderSignal.score >= 0.6 ? ROUTES : [],

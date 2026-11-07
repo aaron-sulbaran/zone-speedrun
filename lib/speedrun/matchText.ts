@@ -1,4 +1,5 @@
 import type { SnapshotCompany, SnapshotRole } from "./snapshot";
+import type { Fn, Profile } from "./types";
 
 // Small text helpers for the matcher: articles, title cleanup, place and AI tests.
 
@@ -38,10 +39,15 @@ export function hits(terms: string[], text: string): string[] {
   });
 }
 
+// "LA" is case-sensitive and never the state code in "Franklin, LA"; Venice only when it is not in another state or country.
+const LOS_ANGELES =
+  /[Ll]os [Aa]ngeles|LOS ANGELES|\bL\.A\.|(?<!,\s*)\bLA\b(?!\s*,\s*(?!CA\b|California\b)[A-Za-z])|[Ss]anta [Mm]onica|SANTA MONICA|[Vv]enice(?!\s*,\s*(?!CA\b|California\b)[A-Za-z])|[Ee]l [Ss]egundo|EL SEGUNDO/;
+const SAN_FRANCISCO = /(?<!south )san francisco|\bsf\b|bay area|union square(?!,?\s*(new york|nyc|manhattan))/i;
+const NEW_YORK = /new york|\bnyc\b|manhattan|brooklyn/i;
 export const PLACE_ALIASES: Record<string, RegExp> = {
-  "san francisco": /(?<!south )san francisco|\bsf\b|bay area|union square/i,
-  "new york": /new york|\bnyc\b|manhattan|brooklyn/i,
-  "los angeles": /los angeles|\bla\b|santa monica|venice|el segundo/i,
+  "san francisco": SAN_FRANCISCO, sf: SAN_FRANCISCO, "bay area": SAN_FRANCISCO,
+  "new york": NEW_YORK, nyc: NEW_YORK, "new york city": NEW_YORK,
+  "los angeles": LOS_ANGELES, la: LOS_ANGELES, "l.a.": LOS_ANGELES,
   london: /(?<!new )\blondon\b/i,
   dublin: /\bdublin\b(?!,?\s*(ca\b|california|oh\b|ohio))/i,
 };
@@ -75,6 +81,7 @@ export function remoteFitsUs(location: string | null, places: string[]): boolean
     /\b(united states|usa|u\.s\.|north america)\b/i.test(loc) ||
     /\bUS\b/.test(loc) ||
     STATE_NAMES.test(loc) ||
+    (/\bgeorgia\b/i.test(loc) && !/tbilisi|batumi|kutaisi|caucasus|europe/i.test(loc)) ||
     STATE_CODES.test(loc) ||
     US_CITIES.test(loc)
   );
@@ -82,7 +89,7 @@ export function remoteFitsUs(location: string | null, places: string[]): boolean
 
 /** First city, or the one the visitor named, plus "and N more" for multi-city strings. */
 export function shortLocation(location: string, place: string): string {
-  const parts = location.split(/\s*[\u2022;|]\s*|\s+\/\s+/).map((p) => p.trim()).filter((p) => p && !/^(united states|usa|us|u\.s\.)$/i.test(p));
+  const parts = location.split(/\s*[\u2022;|]\s*|\s+\/\s+|(?<=,\s?[A-Z]{2})\s+(?=[A-Z][a-z])/).map((p) => p.trim()).filter((p) => p && !/^(united states|usa|us|u\.s\.)$/i.test(p));
   if (parts.length <= 1) return parts[0] ?? location.trim();
   const chosen = parts.find((p) => placeMatches(place, p)) ?? parts[0];
   return `${chosen} and ${parts.length - 1} more`;
@@ -97,3 +104,55 @@ export function aiStrength(role: SnapshotRole, company: SnapshotCompany | undefi
   return AI_WORDS.test(strip(company?.blurb ?? "")) ? "blurb" : null;
 }
 
+
+export function dayOf(postedAt: string): number {
+  const t = Date.parse(postedAt.length === 10 ? `${postedAt}T00:00:00Z` : postedAt);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+// A plain "Product Manager" or "Associate Product Manager" is not senior; any other manager is.
+const SENIOR_TITLE = /\b(senior|sr\.?|staff|principal|lead|director|head|vp|chief|founding)\b/i;
+const MANAGER = /\bmanager\b/i;
+const PRODUCT_MANAGER = /(?<!group )\bproduct manager\b/i;
+const NEW_GRAD_TITLE = /new grad|early career|graduate|associate|\b2027\b/i;
+
+/** 0 intern, 1 new grad or junior, 2 unlabeled, 3 senior, 4 staff, founding or exec. */
+export function levelOf(role: SnapshotRole): number {
+  switch (role.seniority) {
+    case "intern": return 0;
+    case "junior": return 1;
+    case "senior": return 3;
+    case "staff":
+    case "founding":
+    case "exec": return 4;
+    default:
+      if (/intern/i.test(role.title)) return 0;
+      if (NEW_GRAD_TITLE.test(role.title)) return 1;
+      if (SENIOR_TITLE.test(role.title)) return 3;
+      return MANAGER.test(role.title) && !PRODUCT_MANAGER.test(role.title) ? 3 : 2;
+  }
+}
+
+export const MTS_TITLE = /member of technical staff|\bmts\b|\btech(nical)? lead\b/i;
+
+export function titleFits(role: SnapshotRole, fn: Fn): boolean {
+  const t = role.title;
+  switch (fn) {
+    case "design": return /design/i.test(t);
+    case "founder": return /founding/i.test(t);
+    case "product": return /product|\bPM\b/i.test(t);
+    case "operations": return /operations|\bops\b/i.test(t);
+    case "ai": return AI_WORDS.test(t);
+    case "data": return /data|analytics|analyst/i.test(t);
+    case "engineering": return /engineer|developer/i.test(t) || MTS_TITLE.test(t);
+  }
+}
+
+const LEVEL_TITLE: Partial<Record<Profile["seniority"], RegExp>> = {
+  intern: /\bintern(ship)?s?\b/i,
+  new_grad: /new grad|new graduate|early career|university grad|recent grad/i,
+  junior: /\bjunior\b|\bjr\b|entry.level|early career/i,
+};
+/** The title names the visitor's own level: "New Grad" for a new grad, "Intern" for an intern. */
+export const namesLevel = (role: SnapshotRole, seniority: Profile["seniority"]): boolean =>
+  LEVEL_TITLE[seniority]?.test(role.title) ?? false;

@@ -1,11 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { extractProfile } from "./extract";
 import { rankMatches } from "./match";
+import { ownWords } from "./matchOwn";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
-import type { PersonKey } from "./types";
+import type { SnapshotRole } from "./snapshot";
+import type { Intake, PersonKey, Profile } from "./types";
 
 const corpus = getSnapshot();
+
+// Everyday words an own-words line must never rest on.
+const EVERYDAY = new Set(
+  "company companies new built build team teams work product products users user customers people answers answer time things thing make use used help real small good great role job grow growth learn".split(" "),
+);
 
 type Mode = "extracted" | "sample";
 
@@ -183,14 +190,32 @@ describe.each(["extracted", "sample"] as Mode[])("rankMatches (%s profiles)", (m
     }
   });
 
-  it("never quotes a shipped item on the strength of ship or shipping", () => {
+  it("never quotes a shipped item on the strength of ship or shipping, or on an everyday word", () => {
     for (const key of Object.keys(PEOPLE) as PersonKey[]) {
       for (const match of run(key, 100).matches) {
         for (const reason of match.reasons) {
-          if (reason.text.startsWith("Your work on")) expect(reason.text).not.toMatch(/mentions ship/i);
+          if (reason.text.startsWith("Your work on")) {
+            expect(reason.text).not.toMatch(/mentions ship/i);
+            const cited = reason.text.match(/mentions (\S+)\.$/)?.[1] ?? "";
+            expect(EVERYDAY.has(cited.toLowerCase()), `${key}: ${reason.text}`).toBe(false);
+          }
+          const own = ownWords.get(reason);
+          if (!own) continue;
+          for (const word of own.words) expect(EVERYDAY.has(word), `${key}: ${word} in ${reason.text}`).toBe(false);
         }
       }
     }
+  });
+
+  it("sees a role labeled for a new grad in Ravi's six when one fits", () => {
+    const { matches } = run("ravi");
+    expect(matches.some((m) => /new grad/i.test(m.role?.title ?? "")), matches.map((m) => m.role?.title).join(" | ")).toBe(true);
+  });
+
+  it("shows a product-first new grad product roles, the plain Product Manager included", () => {
+    const { matches } = run("sam");
+    expect(matches.slice(0, 2).every((m) => m.role?.fn === "product"), matches.map((m) => m.role?.title).join(" | ")).toBe(true);
+    expect(matches.some((m) => m.company.name === "Clair Health" && m.role?.title === "Product Manager")).toBe(true);
   });
 
   it("writes grammatical skills reasons", () => {
@@ -223,5 +248,87 @@ describe.each(["extracted", "sample"] as Mode[])("rankMatches (%s profiles)", (m
         expect(text).not.toMatch(/You said/);
       }
     }
+  });
+});
+
+describe("rankMatches promotion, levels and ordering", () => {
+  const NEWEST = "2026-11-01";
+  let next = 0;
+  const role = (over: Partial<SnapshotRole>): SnapshotRole => ({
+    id: `r${(next += 1)}`, company: `Co ${next}`, companySlug: null, title: "Software Engineer", location: "Remote", workplace: "Remote",
+    fn: "engineering", seniority: null, tier: "a16z", cohort: null, compMin: null, compMax: null, compPeriod: null,
+    postedAt: NEWEST, url: "https://example.com/job", excerpt: "", ...over,
+  });
+  const base: Profile = { ...PEOPLE.ravi.profile, functions: ["engineering"], seniority: "mid", skills: ["Python", "Go"], shipped: [], locations: ["Remote"], remoteOk: true };
+  const remoteEngineer: Intake = { targets: ["engineering"], places: ["Remote"], why: "" };
+
+  it("moves a speedrun role that fits about as well into the top three", () => {
+    const close = [1, 2, 3].map(() => role({ title: "Software Engineer, Python and Go" }));
+    const speedrun = role({ title: "Software Engineer", tier: "speedrun" });
+    const { matches } = rankMatches(base, remoteEngineer, { companies: [], roles: [...close, speedrun] });
+    expect(matches.map((m) => m.role?.id).indexOf(speedrun.id)).toBe(2);
+  });
+
+  it("does not promote past a clearly better fit or a title that names what was asked for", () => {
+    // Three points behind: out of the window.
+    const far = [1, 2, 3].map(() => role({ title: "Software Engineer, Python and Go", seniority: "junior" }));
+    const speedrun = role({ title: "Software Engineer", tier: "speedrun" });
+    expect(rankMatches(base, remoteEngineer, { companies: [], roles: [...far, speedrun] }).matches.map((m) => m.role?.id).indexOf(speedrun.id)).toBe(3);
+    // A point behind, but its title does not say engineering and the third card's does.
+    const platform = [1, 2, 3].map(() => role({ title: "Platform Engineer" }));
+    const manager = role({ title: "IT, Security, and Compliance Manager", tier: "speedrun" });
+    const intake: Intake = { targets: ["data", "engineering"], places: ["Remote"], why: "" };
+    const { matches } = rankMatches({ ...base, skills: [] }, intake, { companies: [], roles: [...platform, manager] });
+    expect(matches.map((m) => m.role?.id).indexOf(manager.id)).toBe(3);
+  });
+
+  it("keeps an engineering-first new grad in Los Angeles on engineering roles at the top", () => {
+    const profile: Profile = { ...base, seniority: "new_grad", skills: ["TypeScript", "React"], locations: ["Los Angeles", "Remote"] };
+    const intake: Intake = { targets: ["engineering", "design"], places: ["Los Angeles", "Remote"], why: "" };
+    const engineeringTop = (roles: SnapshotRole[]) => {
+      const top = rankMatches(profile, intake, { companies: corpus.companies, roles }).matches.slice(0, 3);
+      for (const m of top) expect(m.reasons[0].text, m.role?.title).toMatch(/^You asked for engineering/);
+      expect(top.some((m) => /designer/i.test(m.role?.title ?? ""))).toBe(false);
+    };
+    engineeringTop(corpus.roles);
+    // Only design roles left at speedrun companies: none of them may jump an engineering card.
+    engineeringTop(corpus.roles.filter((r) => !(r.tier === "speedrun" && r.fn !== "design")));
+    const louisiana = rankMatches(profile, intake, corpus, 100).matches.filter((m) => /, LA\b/.test(m.role?.location ?? ""));
+    expect(louisiana).toEqual([]);
+  });
+
+  it("keeps Member of Technical Staff roles in the engineering tier", () => {
+    const profile: Profile = { ...base, seniority: "senior", locations: ["San Francisco"] };
+    const intake: Intake = { targets: ["engineering"], places: ["San Francisco"], why: "" };
+    const staff = rankMatches(profile, intake, corpus, 200).matches.filter((m) => /member of technical staff/i.test(m.role?.title ?? ""));
+    expect(staff.length).toBeGreaterThan(0);
+    for (const m of staff) expect(m.reasons[0].cites, m.role?.title).toContain("title");
+  });
+
+  it("orders cards by what they show once a repeated own-words line is dropped", () => {
+    const old = "2026-09-02";
+    const rust = [1, 2, 3].map((n) => role({ id: `rust-${n}`, title: "Backend Engineer", excerpt: "We write Rust compilers.", postedAt: old }));
+    const plain = role({ id: "plain", title: "Backend Engineer", excerpt: "We write services." });
+    const why: Intake = { ...remoteEngineer, why: "Rust compilers" };
+    const { matches } = rankMatches({ ...base, skills: [] }, why, { companies: [], roles: [...rust, plain] });
+    expect(matches.map((m) => m.role?.id)).toEqual([rust[0].id, rust[1].id, plain.id, rust[2].id]);
+    expect(matches[3].reasons.some((r) => r.text.startsWith("You wrote"))).toBe(false);
+    expect(matches[3].score).toBeLessThan(matches[2].score);
+  });
+
+  it("gives a title that names the visitor's level a modest edge", () => {
+    const profile: Profile = { ...base, seniority: "new_grad" };
+    const plain = role({ title: "Software Engineer" });
+    const named = role({ title: "Software Engineer, New Grad" });
+    const { matches } = rankMatches(profile, remoteEngineer, { companies: [], roles: [plain, named] });
+    expect(matches[0].role?.id).toBe(named.id);
+    expect(matches[0].score - matches[1].score).toBeLessThanOrEqual(4);
+  });
+
+  it("needs a skill or a domain word before quoting the visitor", () => {
+    const listing = role({ title: "Software Engineer", excerpt: "A new company where the team builds product for users." });
+    const intake: Intake = { ...remoteEngineer, why: "A new company where the team builds product for users" };
+    const { matches } = rankMatches({ ...base, skills: [], shipped: ["Helper (answers questions for a company team)"] }, intake, { companies: [], roles: [listing] });
+    expect(matches[0].reasons.some((r) => ownWords.has(r)), matches[0].reasons.map((r) => r.text).join(" / ")).toBe(false);
   });
 });
