@@ -1,3 +1,4 @@
+import { APICallError } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { rerank, readResume } from "./ai";
@@ -87,6 +88,17 @@ describe("readResume", () => {
     await readResume({ text: RESUME, intake }, { model: throwingModel });
     expect(log.mock.calls[0][0]).toBe("[speedrun] read fell back: model");
     expect(JSON.stringify(log.mock.calls)).not.toContain("Lovelace");
+  });
+
+  it("sends the resume to the model exactly once, even on a retryable error", async () => {
+    const retryable = new MockLanguageModelV4({
+      doGenerate: async () => {
+        throw new APICallError({ message: "busy", url: "https://gateway.example", requestBodyValues: {}, statusCode: 503, isRetryable: true });
+      },
+    });
+    const out = await readResume({ text: RESUME, intake }, { model: retryable });
+    expect(out.mode).toBe("rules");
+    expect(retryable.doGenerateCalls).toHaveLength(1);
   });
 
   it("logs the error name and status, never its message", async () => {

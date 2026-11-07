@@ -8,11 +8,23 @@ type LimiterOptions = { windowMs: number; max: number; dailyMax: number };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_TRACKED_KEYS = 5000;
 
-export function createLimiter(opts: LimiterOptions): (key: string, now: number) => LimitVerdict {
+const SWEEP_EVERY_MS = 60_000;
+
+export type Limiter = ((key: string, now: number) => LimitVerdict) & { size: () => number };
+
+export function createLimiter(opts: LimiterOptions): Limiter {
   const windows = new Map<string, { count: number; resetAt: number }>();
   const daily = { count: 0, resetAt: 0 };
+  let nextSweepAt = 0;
 
-  return (key, now) => {
+  // Keys are raw addresses or digests of them: drop each one as its window ends, not only when it returns.
+  const sweep = (now: number) => {
+    for (const [key, entry] of windows) if (now >= entry.resetAt) windows.delete(key);
+    nextSweepAt = now + SWEEP_EVERY_MS;
+  };
+
+  const limit = (key: string, now: number): LimitVerdict => {
+    if (now >= nextSweepAt) sweep(now);
     if (now >= daily.resetAt) {
       daily.count = 0;
       daily.resetAt = now + DAY_MS;
@@ -23,7 +35,11 @@ export function createLimiter(opts: LimiterOptions): (key: string, now: number) 
 
     const entry = windows.get(key);
     if (!entry || now >= entry.resetAt) {
-      if (windows.size >= MAX_TRACKED_KEYS) windows.clear();
+      if (windows.size >= MAX_TRACKED_KEYS) {
+        sweep(now);
+        // Still full of live windows: forget the oldest one, never everyone at once.
+        if (windows.size >= MAX_TRACKED_KEYS) windows.delete(windows.keys().next().value as string);
+      }
       windows.set(key, { count: 1, resetAt: now + opts.windowMs });
       daily.count += 1;
       return { ok: true, retryAfterMs: 0 };
@@ -35,6 +51,7 @@ export function createLimiter(opts: LimiterOptions): (key: string, now: number) 
     daily.count += 1;
     return { ok: true, retryAfterMs: 0 };
   };
+  return Object.assign(limit, { size: () => windows.size });
 }
 
 export class BodyTooLargeError extends Error {}

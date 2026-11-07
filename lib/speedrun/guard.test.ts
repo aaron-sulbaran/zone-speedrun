@@ -46,6 +46,24 @@ describe("createLimiter", () => {
   });
 });
 
+describe("createLimiter sweeping", () => {
+  it("drops a key once its window has ended, even if that key never returns", () => {
+    const limit = createLimiter({ windowMs: TEN_MIN, max: 5, dailyMax: 300 });
+    limit("203.0.113.9", 0);
+    limit("digest-of-an-address", 1);
+    expect(limit.size()).toBe(2);
+    limit("someone-else", TEN_MIN + 61_000);
+    expect(limit.size()).toBe(1);
+  });
+
+  it("evicts the oldest keys at the size cap instead of clearing everyone", () => {
+    const limit = createLimiter({ windowMs: TEN_MIN, max: 1, dailyMax: 1_000_000 });
+    for (let i = 0; i < 6000; i += 1) limit(`k${i}`, i);
+    expect(limit.size()).toBeLessThanOrEqual(5000);
+    expect(limit("k5999", 6001).ok).toBe(false);
+  });
+});
+
 describe("liveFlags", () => {
   afterEach(() => vi.unstubAllEnvs());
 

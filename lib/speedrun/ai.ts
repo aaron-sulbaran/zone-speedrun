@@ -94,7 +94,8 @@ export async function readResume(
       prompt: `Targets: ${input.intake.targets.join(", ") || "any"}\nPlaces: ${input.intake.places.join(", ") || "any"}\n<resume>\n${stripTags(input.text)}\n</resume>`,
       output: Output.object({ schema: profileSchema }),
       maxOutputTokens: READ_MAX_OUTPUT_TOKENS,
-      maxRetries: 1,
+      // The resume text goes to the model exactly once; the page's notice says so.
+      maxRetries: 0,
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
       providerOptions: GATEWAY_OPTIONS,
     });
@@ -180,7 +181,7 @@ export async function rerank(
       prompt: `Person: ${profileLine(profile)}\nCandidates:\n${pool.map(candidateLine).join("\n")}`,
       output: Output.object({ schema: rerankSchema }),
       maxOutputTokens: RERANK_MAX_OUTPUT_TOKENS,
-      maxRetries: 1,
+      maxRetries: 0,
       abortSignal: AbortSignal.timeout(TIMEOUT_MS),
       providerOptions: GATEWAY_OPTIONS,
     });

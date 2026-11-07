@@ -73,7 +73,7 @@ export const speedrunCopy = {
         uploadLabel: "Upload a resume",
         uploadTypes: "PDF or .txt, up to 4 MB",
         uploadNotice:
-          "Your browser reads the file. Only its text is sent, once, to the AI model to build your board, and nothing is saved.",
+          "Your browser reads the file. Its text goes once to an AI model with zero data retention to read your resume, and a short summary goes once more to rank your matches. Nothing is saved.",
         uploadErrors: {
           bad_input: "That file type did not work. Use a PDF or a .txt file.",
           too_large: "That file is too big or too long. Try a PDF or .txt under 4 MB.",
