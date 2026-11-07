@@ -12,6 +12,7 @@ import { BriefPreview } from "./act2/BriefPreview";
 import { BuildPlaceholder } from "./act2/BuildPlaceholder";
 import { Hero, type DemoStats } from "./act2/Hero";
 import { Board } from "./act2/Board";
+import { Egg } from "./act2/Egg";
 import { JoinCard } from "./act2/JoinCard";
 import { Matches } from "./act2/Matches";
 
@@ -93,6 +94,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
           </div>
         )}
       </div>
+      <Egg />
     </div>
   );
 }

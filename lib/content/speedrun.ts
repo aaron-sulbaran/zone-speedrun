@@ -429,6 +429,12 @@ export const speedrunCopy = {
       { key: "linkedin", label: "LinkedIn", href: null },
     ],
   },
+  egg: {
+    label: "A hidden meme",
+    line1: "a meme goes here.",
+    line2: "Aaron's picking it.",
+    close: "Close",
+  },
   flow: {
     lanes: { jobs: "Job search", founder: "Founder lane" },
     stages: {
