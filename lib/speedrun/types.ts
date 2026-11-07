@@ -1,4 +1,7 @@
-export type Fn = "engineering" | "ai" | "product" | "design" | "data" | "operations" | "founder";
+export const FNS = ["engineering", "ai", "product", "design", "data", "operations", "founder"] as const;
+export type Fn = (typeof FNS)[number];
+
+export const PERSON_KEYS = ["maya", "ravi", "sam", "lena", "dev"] as const;
 
 export type Intake = { targets: Fn[]; places: string[]; why: string };
 
@@ -58,7 +61,7 @@ export type Pipeline = {
   stats: { applied: number; inProcess: number; intros: number; offers: number };
 };
 
-export type PersonKey = "maya" | "ravi" | "sam" | "lena" | "dev";
+export type PersonKey = (typeof PERSON_KEYS)[number];
 
 export type BoardCard = "today" | "matches" | "pipeline" | "flow" | "intros" | "tools";
 

@@ -2,17 +2,15 @@ import { z } from "zod";
 import { rankMatches, type MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
-import type { Profile } from "./types";
-
-const FUNCTIONS = ["engineering", "ai", "product", "design", "data", "operations", "founder"] as const;
+import { FNS, PERSON_KEYS, type Profile } from "./types";
 
 export const matchBodySchema = z.object({
   intake: z.object({
-    targets: z.array(z.enum(FUNCTIONS)).max(7),
+    targets: z.array(z.enum(FNS)).max(7),
     places: z.array(z.string().max(60)).max(8),
     why: z.string().max(400),
   }),
-  personKey: z.enum(["maya", "ravi", "sam", "lena", "dev"]),
+  personKey: z.enum(PERSON_KEYS),
 });
 
 export type MatchOutcome =

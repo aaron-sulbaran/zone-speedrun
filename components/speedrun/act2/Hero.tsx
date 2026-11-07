@@ -14,7 +14,7 @@ const PRIMARY = "min-w-[220px] rounded-lg bg-sr-ink pb-2 pl-14 pr-3 pt-6 text-ri
 const GHOST = "min-w-[220px] rounded-lg px-6 py-3 text-center font-srcond text-sm uppercase tracking-wider shadow-[inset_0_0_0_2px_var(--sr-ink)]";
 const PRESS = "transition-transform duration-200 ease-sr hover:-translate-y-px active:scale-[.97] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100";
 
-export function Hero({ stats, onSkip }: { stats: DemoStats; onSkip: () => void }) {
+export function Hero({ stats, showCtas, onSkip }: { stats: DemoStats; showCtas: boolean; onSkip: () => void }) {
   const copy = speedrunCopy.hero;
   const startDemo = () => {
     const card = document.getElementById("join");
@@ -41,6 +41,7 @@ export function Hero({ stats, onSkip }: { stats: DemoStats; onSkip: () => void }
         )}
       </h2>
       <p className="mt-6 max-w-2xl text-lg font-semibold leading-snug text-sr-ink2 md:text-xl">{copy.lede}</p>
+      {showCtas && (
       <div className="mt-8 flex flex-wrap gap-3">
         <button type="button" onClick={startDemo} className={`${PRIMARY} ${PRESS}`}>
           {copy.cta}
@@ -49,6 +50,7 @@ export function Hero({ stats, onSkip }: { stats: DemoStats; onSkip: () => void }
           {copy.ctaSecondary}
         </button>
       </div>
+      )}
       <dl className="mt-14 flex flex-wrap gap-x-12 gap-y-6 border-t border-sr-soft pt-6">
         {figures.map(({ label, node }) => (
           <div key={label} className="flex flex-col-reverse">

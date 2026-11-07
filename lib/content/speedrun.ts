@@ -69,6 +69,7 @@ export const speedrunCopy = {
       resume: {
         question: "Bring your resume, or borrow one.",
         helper: "Pick a sample person. Live reading of your own resume turns on soon.",
+        helperLive: "Pick a sample person, or upload your own resume.",
         uploadLabel: "Upload a resume",
         peopleLabel: "Sample people",
       },
@@ -101,6 +102,8 @@ export const speedrunCopy = {
     error: "That did not load.",
     retry: "Try again",
     stepWord: "Step",
+    stepOf: "of",
+    placesFull: "That is the most places the demo takes.",
   },
   build: {
     label: "Building this for you",

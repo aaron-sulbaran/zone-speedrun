@@ -1,11 +1,11 @@
 import { speedrunCopy } from "@/lib/content";
+import { PinnedAffiliation } from "./PinnedAffiliation";
 
 // The not-affiliated line: inline beside the demo signup, pinned on the styled section.
 export function Affiliation({ variant }: { variant: "inline" | "pinned" }) {
-  const base = "font-srcond text-sm text-sr-ink2";
-  const placement = variant === "pinned" ? "sticky bottom-0 z-10 bg-sr-hud px-6 py-3 text-center" : "";
+  if (variant === "pinned") return <PinnedAffiliation />;
   return (
-    <p data-affiliation={variant} className={`${base} ${placement}`.trim()}>
+    <p data-affiliation="inline" className="font-srcond text-sm text-sr-ink2">
       {speedrunCopy.affiliation}
     </p>
   );

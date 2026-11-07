@@ -93,6 +93,31 @@ test.describe("act 2 join card", () => {
     await expect(card.locator('[data-affiliation="inline"]')).toBeVisible();
   });
 
+  test("the whole card works by keyboard alone", async ({ page }) => {
+    await page.goto("/speedrun");
+    const card = page.locator("#join");
+    await card.scrollIntoViewIfNeeded();
+    await card.getByRole("button", { name: speedrunCopy.join.targetLabels.engineering }).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Enter");
+    const heading = (question: string) => card.getByRole("heading", { name: question });
+    await expect(heading(speedrunCopy.join.steps.places.question)).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Space");
+    await page.keyboard.press("Enter");
+    await expect(heading(speedrunCopy.join.steps.why.question)).toBeVisible();
+    await expect(card.getByLabel(speedrunCopy.join.steps.why.inputLabel)).toBeFocused();
+    await page.keyboard.type("Build.");
+    await page.keyboard.press("Enter");
+    await expect(heading(speedrunCopy.join.steps.resume.question)).toBeFocused();
+    await expect(card.getByText(/^Step 4 of 4\./)).toBeAttached();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("ArrowRight");
+    await expect(card.locator('[data-person="maya"]')).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("[data-demo]")).toHaveAttribute("data-step", /^(building|ready)$/);
+  });
+
   test("pick a sample person reaches the board", async ({ page }) => {
     await page.goto("/speedrun");
     const card = page.locator("#join");

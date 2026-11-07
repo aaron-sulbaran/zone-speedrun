@@ -4,7 +4,7 @@ import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
 import { Opener } from "@/components/speedrun/act1/Opener";
 import { SpeedrunDemo } from "@/components/speedrun/SpeedrunDemo";
 import { Shift } from "@/components/speedrun/Shift";
-import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
+import { SrZone } from "@/components/speedrun/SrZone";
 import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
 import { getSnapshot } from "@/lib/speedrun/snapshot";
@@ -69,9 +69,7 @@ export default function SpeedrunPage() {
         data-speedrun=""
         className={`focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >
-        <div className="px-6 pt-12">
-          <SpeedrunLogo className="h-8 w-auto" />
-        </div>
+        <SrZone targetId="act-2" />
         <SpeedrunDemo live={liveFlags()} stats={stats} />
         <Affiliation variant="pinned" />
       </section>

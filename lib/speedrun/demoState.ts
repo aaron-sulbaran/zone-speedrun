@@ -7,7 +7,12 @@ export type Live = { reading: boolean; email: boolean };
 export type DemoState = {
   step: "join" | "building" | "ready";
   joinStep: 0 | 1 | 2 | 3;
+  /** What the visitor typed and picked; never overwritten by a sample person. */
+  answers: Intake;
+  /** What the match uses: the visitor's answers, or the picked person's own when none were given. */
   intake: Intake;
+  inboxConnected: boolean;
+  calendarConnected: boolean;
   personKey: PersonKey | null;
   profile: Profile | null;
   result: MatchResult | null;
@@ -19,6 +24,8 @@ export type DemoState = {
 
 export type DemoAction =
   | { type: "answer"; patch: Partial<Intake> }
+  | { type: "connectInbox"; on: boolean }
+  | { type: "connectCalendar"; on: boolean }
   | { type: "next" }
   | { type: "back" }
   | { type: "pickPerson"; key: PersonKey }
@@ -29,13 +36,18 @@ export type DemoAction =
   | { type: "toggleCard"; card: BoardCard }
   | { type: "reset" };
 
+export const MAX_PLACES = 8;
+
 export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "matches", "pipeline", "flow", "intros", "tools"];
 
 export function initialDemoState(live: Live): DemoState {
   return {
     step: "join",
     joinStep: 0,
+    answers: { targets: [], places: [], why: "" },
     intake: { targets: [], places: [], why: "" },
+    inboxConnected: false,
+    calendarConnected: false,
     personKey: null,
     profile: null,
     result: null,
@@ -52,8 +64,15 @@ function hasAnswers(intake: Intake) {
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
-    case "answer":
-      return { ...state, intake: { ...state.intake, ...action.patch } };
+    case "answer": {
+      const answers = { ...state.answers, ...action.patch };
+      answers.places = answers.places.slice(0, MAX_PLACES);
+      return { ...state, answers, intake: answers };
+    }
+    case "connectInbox":
+      return { ...state, inboxConnected: action.on };
+    case "connectCalendar":
+      return { ...state, calendarConnected: action.on };
     case "next":
       return { ...state, joinStep: Math.min(3, state.joinStep + 1) as DemoState["joinStep"] };
     case "back":
@@ -64,7 +83,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         ...state,
         step: "building",
         personKey: action.key,
-        intake: hasAnswers(state.intake) ? state.intake : person.intake,
+        intake: hasAnswers(state.answers) ? state.answers : person.intake,
         profile: null,
         result: null,
         boardOrder: [...person.boardOrder],

@@ -34,7 +34,8 @@ export function CountUp({ value }: { value: number }) {
 
   return (
     <span ref={ref} className="tabular-nums">
-      {shown.toLocaleString("en-US")}
+      <span aria-hidden="true">{shown.toLocaleString("en-US")}</span>
+      <span className="sr-only">{value.toLocaleString("en-US")}</span>
     </span>
   );
 }

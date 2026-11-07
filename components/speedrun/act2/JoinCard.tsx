@@ -4,13 +4,12 @@ import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent } from "
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { speedrunCopy } from "@/lib/content";
-import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import { MAX_PLACES, type DemoAction, type DemoState } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion, SR_EASE, SR_STEP_MS } from "@/lib/speedrun/motion";
-import type { Fn, PersonKey } from "@/lib/speedrun/types";
+import { FNS, type PersonKey } from "@/lib/speedrun/types";
 import { Chip } from "./Chip";
 import { PeoplePicker } from "./PeoplePicker";
 
-const FUNCTIONS: Fn[] = ["engineering", "ai", "product", "design", "data", "operations", "founder"];
 const STEP_KEYS = ["targets", "places", "why", "resume"] as const;
 const pad = (n: number) => String(n).padStart(2, "0");
 const FROSTED_INPUT = "w-full rounded-2xl bg-sr-hud px-4 py-3 text-base font-semibold text-sr-ink backdrop-blur placeholder:text-sr-sec focus:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
@@ -21,19 +20,22 @@ function toggled<T>(list: T[], item: T) {
 
 export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; dispatch: Dispatch<DemoAction>; onUpload?: (file: File) => void }) {
   const copy = speedrunCopy.join;
-  const { joinStep, intake } = state;
+  const { joinStep } = state;
+  const intake = state.answers;
   const stepKey = STEP_KEYS[joinStep];
   const [selected, setSelected] = useState<PersonKey | null>(null);
   const [typedPlace, setTypedPlace] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
   const whyRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const previous = useRef(joinStep);
 
   useEffect(() => {
     const from = previous.current;
     previous.current = joinStep;
     if (from === joinStep) return;
-    if (joinStep === 2) whyRef.current?.focus({ preventScroll: true });
+    // Focus follows the step: the why input is its first control, otherwise the question.
+    (joinStep === 2 ? whyRef.current : headingRef.current)?.focus({ preventScroll: true });
     if (prefersReducedMotion()) return;
     const rise = joinStep > from ? 16 : -16;
     bodyRef.current?.animate(
@@ -49,7 +51,7 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
   };
   const addTypedPlace = () => {
     const place = typedPlace.trim();
-    if (place && !intake.places.includes(place)) dispatch({ type: "answer", patch: { places: [...intake.places, place] } });
+    if (place && !intake.places.includes(place) && intake.places.length < MAX_PLACES) dispatch({ type: "answer", patch: { places: [...intake.places, place] } });
     setTypedPlace("");
   };
 
@@ -58,7 +60,7 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
     const target = event.target as HTMLElement;
     const person = target.closest("[data-person]");
     if (person) {
-      if (person.getAttribute("aria-pressed") === "true") {
+      if (person.getAttribute("aria-checked") === "true") {
         event.preventDefault();
         proceed();
       }
@@ -71,6 +73,9 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
   };
 
   const placeChips = [...copy.placeChips, ...intake.places.filter((p) => !copy.placeChips.includes(p))];
+  const placesFull = intake.places.length >= MAX_PLACES;
+  const question = copy.steps[stepKey].question;
+  const resumeHelper = state.live.reading ? copy.steps.resume.helperLive : copy.steps.resume.helper;
 
   return (
     <form
@@ -84,9 +89,12 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
       <div className="flex items-center gap-2 px-6 pt-5 sm:gap-3 md:px-8">
         <SpeedrunLogo className="h-4 w-auto" />
         <span className="whitespace-nowrap font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">{copy.label}</span>
-        <span className="ml-auto whitespace-nowrap font-srcond text-[11px] tabular-nums tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest" aria-label={`${copy.stepWord} ${joinStep + 1} / 4`}>
+        <span aria-hidden="true" className="ml-auto whitespace-nowrap font-srcond text-[11px] tabular-nums tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">
           {pad(joinStep + 1)} / 04
         </span>
+        <p className="sr-only" aria-live="polite">
+          {`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} 4. ${question}`}
+        </p>
       </div>
       <div className="mx-6 mt-4 h-1 overflow-hidden rounded-full bg-sr-soft md:mx-8" role="presentation">
         <div
@@ -96,13 +104,14 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
         />
       </div>
       <div ref={bodyRef} className="px-6 pb-6 pt-6 md:px-8">
-        <p className="font-srcond text-sm uppercase tracking-widest text-sr-purple">{pad(joinStep + 1)} &rarr;</p>
-        <h3 className="mt-2 text-2xl font-semibold leading-tight md:text-3xl">{copy.steps[stepKey].question}</h3>
-        {stepKey !== "why" && <p className="mt-1 text-sm text-sr-ink2">{copy.steps[stepKey].helper}</p>}
+        <p aria-hidden="true" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">{pad(joinStep + 1)} &rarr;</p>
+        <h3 ref={headingRef} tabIndex={-1} className="mt-2 text-2xl font-semibold leading-tight focus:outline-none md:text-3xl">{question}</h3>
+        {stepKey === "resume" && <p className="mt-1 text-sm text-sr-ink2">{resumeHelper}</p>}
+        {(stepKey === "targets" || stepKey === "places") && <p className="mt-1 text-sm text-sr-ink2">{placesFull && stepKey === "places" ? copy.placesFull : copy.steps[stepKey].helper}</p>}
         <div className="mt-5">
           {stepKey === "targets" && (
             <div className="flex flex-wrap gap-2">
-              {FUNCTIONS.map((fn) => (
+              {FNS.map((fn) => (
                 <Chip key={fn} pressed={intake.targets.includes(fn)} onToggle={() => dispatch({ type: "answer", patch: { targets: toggled(intake.targets, fn) } })}>
                   {copy.targetLabels[fn]}
                 </Chip>
@@ -113,21 +122,30 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
             <>
               <div className="flex flex-wrap gap-2">
                 {placeChips.map((place) => (
-                  <Chip key={place} pressed={intake.places.includes(place)} onToggle={() => dispatch({ type: "answer", patch: { places: toggled(intake.places, place) } })}>
+                  <Chip key={place} pressed={intake.places.includes(place)} disabled={placesFull && !intake.places.includes(place)} onToggle={() => dispatch({ type: "answer", patch: { places: toggled(intake.places, place) } })}>
                     {place}
                   </Chip>
                 ))}
               </div>
-              <input id="join-place" aria-label={copy.steps.places.inputLabel} placeholder={copy.steps.places.inputPlaceholder} value={typedPlace} maxLength={60} onChange={(e) => setTypedPlace(e.target.value)} className={`${FROSTED_INPUT} mt-3`} />
+              <input id="join-place" disabled={placesFull} aria-label={copy.steps.places.inputLabel} placeholder={copy.steps.places.inputPlaceholder} value={typedPlace} maxLength={60} onChange={(e) => setTypedPlace(e.target.value)} className={`${FROSTED_INPUT} mt-3`} />
             </>
           )}
           {stepKey === "why" && (
             <input ref={whyRef} aria-label={copy.steps.why.inputLabel} placeholder={copy.steps.why.placeholder} value={intake.why} maxLength={300} onChange={(e) => dispatch({ type: "answer", patch: { why: e.target.value } })} className={FROSTED_INPUT} />
           )}
-          {stepKey === "resume" && <PeoplePicker selected={selected} onSelect={setSelected} liveReading={state.live.reading} onUpload={onUpload} />}
+          {stepKey === "resume" && (
+            <PeoplePicker
+              selected={selected}
+              onSelect={setSelected}
+              connected={{ inbox: state.inboxConnected, calendar: state.calendarConnected }}
+              onConnect={(which, on) => dispatch({ type: which === "inbox" ? "connectInbox" : "connectCalendar", on })}
+              liveReading={state.live.reading}
+              onUpload={onUpload}
+            />
+          )}
         </div>
       </div>
-      <div className="rounded-b-3xl border-t border-sr-soft bg-sr-bg/40 px-6 py-4 md:px-8">
+      <div data-join-footer="" className="sticky bottom-0 z-10 rounded-b-3xl border-t border-sr-soft bg-sr-foot px-6 py-4 backdrop-blur md:px-8">
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => dispatch({ type: "back" })} disabled={joinStep === 0} className="rounded-full px-4 py-2 font-srcond text-sm uppercase tracking-wider text-sr-ink2 transition-opacity duration-200 hover:text-sr-ink disabled:invisible">
             {copy.back}

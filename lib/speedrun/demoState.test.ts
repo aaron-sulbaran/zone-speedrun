@@ -59,6 +59,35 @@ describe("demoReducer pickPerson", () => {
     expect(state.step).toBe("building");
   });
 
+  it("gives a re-pick the new person's own intake when the visitor answered nothing", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "dev" });
+    state = demoReducer(state, { type: "pickPerson", key: "sam" });
+    expect(state.intake).toEqual(PEOPLE.sam.intake);
+    expect(state.answers).toEqual({ targets: [], places: [], why: "" });
+  });
+
+  it("keeps the visitor's answers across re-picks", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { why: "Build." } });
+    state = demoReducer(state, { type: "pickPerson", key: "dev" });
+    state = demoReducer(state, { type: "pickPerson", key: "sam" });
+    expect(state.intake.why).toBe("Build.");
+  });
+
+  it("caps places at 8", () => {
+    const places = Array.from({ length: 12 }, (_, i) => `City ${i}`);
+    const state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { places } });
+    expect(state.answers.places).toHaveLength(8);
+  });
+
+  it("records the inbox and calendar connections", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "connectInbox", on: true });
+    expect([state.inboxConnected, state.calendarConnected]).toEqual([true, false]);
+    state = demoReducer(state, { type: "connectCalendar", on: true });
+    expect(state.calendarConnected).toBe(true);
+    state = demoReducer(state, { type: "connectInbox", on: false });
+    expect(state.inboxConnected).toBe(false);
+  });
+
   it("treats a whitespace-only why as unanswered", () => {
     let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { why: "   " } });
     state = demoReducer(state, { type: "pickPerson", key: "maya" });
