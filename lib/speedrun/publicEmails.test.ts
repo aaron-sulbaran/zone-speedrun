@@ -35,7 +35,7 @@ function strayEmails(text: string, patterns: RegExp[]): string[] {
 
 // The public export denies the config file but exports this test, so the mirror skips it instead of throwing ENOENT.
 describe.skipIf(!existsSync(EXPORT_CONFIG))("speedrun public-mirror email allowlist", () => {
-  const patterns = allowedPatterns();
+  const patterns = existsSync(EXPORT_CONFIG) ? allowedPatterns() : [];
 
   it("reads the allowlist from public-export.json", () => {
     expect(patterns.length).toBeGreaterThan(0);
