@@ -4,7 +4,7 @@ import { PEOPLE } from "./people";
 import type { BoardCard } from "./types";
 
 const LIVE = { reading: false, email: false };
-const ALL_CARDS: BoardCard[] = ["today", "matches", "pipeline", "flow", "intros", "tools"];
+const ALL_CARDS: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
 
 function everyCardOnce(state: DemoState) {
   expect([...state.boardOrder, ...state.hidden].sort()).toEqual([...ALL_CARDS].sort());
@@ -129,6 +129,21 @@ describe("demoReducer pickPerson", () => {
     expect(demoReducer(failed, { type: "uploaded" }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "pickPerson", key: "sam" }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "reset" }).uploadError).toBeNull();
+  });
+});
+
+describe("demoReducer pasted events", () => {
+  const pasted = { emailId: "pasted-1", company: "Halcyon Works", role: null, kind: "interview", date: "2026-11-07T12:00:00.000Z", lane: "jobs" } as const;
+
+  it("clears pasted events when another person is picked or a file is uploaded", () => {
+    const withEvent = demoReducer(demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" }), { type: "addEvents", events: [pasted] });
+    expect(withEvent.events).toHaveLength(1);
+    expect(demoReducer(withEvent, { type: "pickPerson", key: "dev" }).events).toEqual([]);
+    expect(demoReducer(withEvent, { type: "uploaded" }).events).toEqual([]);
+  });
+
+  it("never lists the matches section as a board card", () => {
+    for (const person of Object.values(PEOPLE)) expect(person.boardOrder).toHaveLength(5);
   });
 });
 

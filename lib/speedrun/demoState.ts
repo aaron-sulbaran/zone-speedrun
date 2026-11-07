@@ -43,7 +43,7 @@ export type DemoAction =
 
 export const MAX_PLACES = 8;
 
-export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "matches", "pipeline", "flow", "intros", "tools"];
+export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
 
 export function initialDemoState(live: Live): DemoState {
   return {
@@ -94,12 +94,13 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         result: null,
         boardOrder: [...person.boardOrder],
         hidden: [],
+        events: [],
         uploadError: null,
       };
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], uploadError: null };
+      return { ...state, step: "building", personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
     case "uploadFailed":
       return state.step === "building" && state.personKey === null ? { ...state, step: "join", uploadError: action.error } : state;
     case "built":

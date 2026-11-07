@@ -11,6 +11,7 @@ import { FlowReveal } from "./FlowReveal";
 
 const WIDE = { width: 864, height: 340, nodeWidth: 6, gap: 20, maxPerUnit: 14 } satisfies FlowSize;
 const WIDE_LEFT = 100;
+const WIDE_LEFT_NO_LANE = 8;
 const WIDE_TOP = 26;
 const TALL = { width: 340, height: 600, nodeWidth: 36, gap: 52, maxPerUnit: 12, orientation: "vertical" } satisfies FlowSize;
 const TALL_RIGHT = 64;
@@ -27,8 +28,8 @@ const TONES = {
   speedrun: {
     link: {
       flow: "color-mix(in srgb, var(--sr-ink) 70%, transparent)",
-      open: "color-mix(in srgb, var(--sr-ink) 30%, transparent)",
-      rejected: "var(--sr-purple)",
+      open: "color-mix(in srgb, var(--sr-purple) 70%, transparent)",
+      rejected: "color-mix(in srgb, var(--sr-ink) 42%, transparent)",
       noreply: "var(--sr-sec)",
     },
     node: "var(--sr-ink)",
@@ -46,7 +47,8 @@ function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; titl
   const colors = TONES[tone];
   const { nodes, links } = layoutFlow(data, vertical ? TALL : WIDE);
   const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
-  const view = vertical ? `0 0 ${TALL.width + TALL_RIGHT} ${TALL.height}` : `0 0 ${WIDE_LEFT + WIDE.width} ${WIDE.height + WIDE_TOP + 6}`;
+  const left = nodes.some((n) => n.kind === "lane") ? WIDE_LEFT : WIDE_LEFT_NO_LANE;
+  const view = vertical ? `0 0 ${TALL.width + TALL_RIGHT} ${TALL.height}` : `0 0 ${left + WIDE.width} ${WIDE.height + WIDE_TOP + 6}`;
   const halo = { stroke: colors.halo, strokeWidth: 4, paintOrder: "stroke" } as const;
 
   const label = (node: PlacedNode) => {
@@ -60,7 +62,7 @@ function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; titl
         </text>
       );
     }
-    const lane = node.column === 0;
+    const lane = node.kind === "lane";
     const atEnd = node.column === lastColumn && !lane;
     return (
       <text
@@ -88,7 +90,7 @@ function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; titl
       className={vertical ? "mx-auto block h-auto w-full max-w-[26rem] lg:hidden" : "hidden h-auto w-full lg:block"}
     >
       <title id={titleId}>{title}</title>
-      <g transform={vertical ? undefined : `translate(${WIDE_LEFT} ${WIDE_TOP})`}>
+      <g transform={vertical ? undefined : `translate(${left} ${WIDE_TOP})`}>
         {links.map((link) => (
           <path
             key={`${link.source}>${link.target}`}

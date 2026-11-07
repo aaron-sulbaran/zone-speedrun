@@ -63,7 +63,7 @@ export type Pipeline = {
 
 export type PersonKey = (typeof PERSON_KEYS)[number];
 
-export type BoardCard = "today" | "matches" | "pipeline" | "flow" | "intros" | "tools";
+export type BoardCard = "today" | "pipeline" | "flow" | "intros" | "tools";
 
 export type Person = {
   key: PersonKey;

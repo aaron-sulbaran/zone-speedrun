@@ -2,26 +2,25 @@
 
 import { useState } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { parsePasted } from "@/lib/speedrun/board";
-import { classifyEmail } from "@/lib/speedrun/classify";
+import { readPaste } from "@/lib/speedrun/board";
 import type { InboxEvent } from "@/lib/speedrun/types";
+import { useAnnounce } from "./useAnnounce";
 
 const copy = speedrunCopy.board;
 
 // Runs entirely in the tab: the text is parsed and classified here and never sent anywhere.
-export function PasteEmail({ serial, onAdd }: { serial: number; onAdd: (event: InboxEvent) => void }) {
+export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd: (event: InboxEvent) => void }) {
   const [text, setText] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, announce] = useAnnounce();
 
   const submit = () => {
-    const email = parsePasted(text, serial);
-    const event = email ? classifyEmail(email) : null;
-    if (!event || event.kind === "other") {
-      setStatus(copy.paste.unknown);
+    const outcome = readPaste(text, existing);
+    if (outcome.kind !== "added") {
+      announce(copy.paste[outcome.kind]);
       return;
     }
-    onAdd(event);
-    setStatus(copy.paste.found(copy.kindLabels[event.kind], event.company));
+    onAdd(outcome.event);
+    announce(copy.paste.found(copy.kindLabels[outcome.event.kind], outcome.event.company));
     setText("");
   };
 
@@ -33,7 +32,7 @@ export function PasteEmail({ serial, onAdd }: { serial: number; onAdd: (event: I
         submit();
       }}
     >
-      <label htmlFor="sr-paste" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
+      <label htmlFor="sr-paste" className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">
         {copy.paste.label}
       </label>
       <div className="sr-prism mt-3">

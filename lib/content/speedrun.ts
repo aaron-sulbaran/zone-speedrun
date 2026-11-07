@@ -188,9 +188,11 @@ export const speedrunCopy = {
     subhead: "Built from your inbox. Every row came from an email.",
     statLabels: { applied: "applied", inProcess: "in process", intros: "intros", offers: "offers" },
     flowTitle: (name: string) => `${name}'s search as a flow from applications to offers`,
+    flowTitleFallback: "Your search as a flow from applications to offers",
+    emptyBody: "Your board fills in as your inbox does. Paste an email to try it.",
     connectPrompt: "Connect your inbox and your board builds itself from it.",
     connectButton: "Connect Gmail",
-    cardNames: { today: "Today", matches: "Matches", pipeline: "Table", flow: "Flow chart", intros: "Warm intros", tools: "Tools" },
+    cardNames: { today: "Today", pipeline: "Table", flow: "Flow chart", intros: "Warm intros", tools: "Tools" },
     table: {
       headers: { company: "company", role: "role", stage: "stage", next: "next" },
       noRole: "Not listed",
@@ -218,10 +220,11 @@ export const speedrunCopy = {
     intros: {
       heading: "warm intros",
       empty: "No intros yet. Ask for one from a match above.",
-      item: (company: string) => `Intro through ${company}`,
+      item: (company: string) => `Intro to a founder at ${company}`,
     },
     tools: {
       heading: "speedrun tools, where they help you",
+      newTab: "Opens in a new tab.",
       rows: [
         {
           key: "jobs",
@@ -309,6 +312,8 @@ export const speedrunCopy = {
       button: "Add to my board",
       found: (kind: string, company: string) => `Added: ${kind} from ${company}.`,
       unknown: "I could not tell what that one was, so the board stayed the same.",
+      unknownSender: "I couldn't tell who sent this one. Paste it with the From line.",
+      duplicate: "Already on your board.",
       note: "Pasted text stays in this tab. Nothing is sent.",
     },
     arrange: {

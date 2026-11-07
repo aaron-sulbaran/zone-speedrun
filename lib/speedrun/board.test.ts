@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { classifyEmail } from "./classify";
 import { INBOX_TODAY } from "./inbox";
-import { introEvents, moveTarget, parsePasted, tableRows, todayEvents } from "./board";
+import { introEvents, moveTarget, parsePasted, readPaste, tableRows, todayEvents } from "./board";
 import type { AppRow, BoardCard, InboxEvent } from "./types";
 
-const ORDER: BoardCard[] = ["today", "matches", "pipeline", "flow", "intros", "tools"];
+const ORDER: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
 
 describe("moveTarget", () => {
-  it("steps past the matches card, which the board does not own", () => {
+  it("steps one card at a time", () => {
     expect(moveTarget(ORDER, "pipeline", -1)).toBe(0);
-    expect(moveTarget(ORDER, "today", 1)).toBe(2);
+    expect(moveTarget(ORDER, "today", 1)).toBe(1);
   });
 
   it("returns null at the ends", () => {
@@ -20,12 +20,12 @@ describe("moveTarget", () => {
   it("produces an index the reducer accepts", () => {
     const to = moveTarget(ORDER, "flow", 1) as number;
     const rest = ORDER.filter((card) => card !== "flow");
-    expect([...rest.slice(0, to), "flow", ...rest.slice(to)]).toEqual(["today", "matches", "pipeline", "intros", "flow", "tools"]);
+    expect([...rest.slice(0, to), "flow", ...rest.slice(to)]).toEqual(["today", "pipeline", "intros", "flow", "tools"]);
   });
 });
 
-function row(company: string, exit: AppRow["exit"], lastEventAt: string): AppRow {
-  return { company, role: null, lane: "jobs", furthest: "applied", exit, lastEventAt, next: null };
+function row(company: string, exit: AppRow["exit"], lastEventAt: string, furthest: AppRow["furthest"] = "applied"): AppRow {
+  return { company, role: null, lane: "jobs", furthest, exit, lastEventAt, next: null };
 }
 
 describe("tableRows", () => {
@@ -33,6 +33,11 @@ describe("tableRows", () => {
 
   it("puts live rows first, then the most recent", () => {
     expect(tableRows(rows, false, 8).shown.map((r) => r.company)).toEqual(["C", "B", "A", "D"]);
+  });
+
+  it("puts the furthest stage first among live rows, then the most recent", () => {
+    const mixed = [row("New", "open", "2026-11-06"), row("Deep", "open", "2026-09-01", "interview"), row("Mid", "open", "2026-10-01", "screen"), row("Late", "open", "2026-10-20", "screen")];
+    expect(tableRows(mixed, false, 8).shown.map((r) => r.company)).toEqual(["Deep", "Late", "Mid", "New"]);
   });
 
   it("caps the list and reports the total", () => {
@@ -61,10 +66,11 @@ describe("todayEvents and introEvents", () => {
 
 describe("parsePasted", () => {
   const BODY = "We would like to invite you to a final round interview.\nRole: Software Engineer";
+  const FROM = "Halcyon Works Hiring <hiring@halcyonworks.example>";
 
   it("reads From and Subject headers", () => {
-    const email = parsePasted(`From: Halcyon Works Hiring <hiring@halcyonworks.com>\nSubject: Interview invitation: Software Engineer\n\n${BODY}`, 1);
-    expect(email?.from).toBe("Halcyon Works Hiring <hiring@halcyonworks.com>");
+    const email = parsePasted(`From: ${FROM}\nSubject: Interview invitation: Software Engineer\n\n${BODY}`);
+    expect(email?.from).toBe(FROM);
     expect(email?.subject).toBe("Interview invitation: Software Engineer");
     expect(email?.body).toContain("final round");
     expect(email?.date.startsWith(INBOX_TODAY)).toBe(true);
@@ -72,13 +78,59 @@ describe("parsePasted", () => {
   });
 
   it("treats the first line as the subject when there are no headers", () => {
-    const email = parsePasted(`Interview invitation: Software Engineer at Halcyon Works\n${BODY}`, 2);
+    const email = parsePasted(`Interview invitation: Software Engineer at Halcyon Works\n${BODY}`);
     expect(email?.subject).toBe("Interview invitation: Software Engineer at Halcyon Works");
     expect(email?.from).toBe("");
   });
 
+  it("skips every leading blank line before the headers", () => {
+    const email = parsePasted(`\n\n  \n\nFrom: ${FROM}\nSubject: Interview invitation\n\n${BODY}`);
+    expect(email?.from).toBe(FROM);
+    expect(email?.subject).toBe("Interview invitation");
+  });
+
+  it("reads a bare sender line from a copied mail client", () => {
+    const email = parsePasted(`Interview invitation: Software Engineer\n${FROM}\nto me\n\n${BODY}`);
+    expect(email?.from).toBe(FROM);
+    expect(email?.subject).toBe("Interview invitation: Software Engineer");
+    expect(email?.body).not.toContain("<hiring@");
+    expect(classifyEmail(email!).company).toBe("Halcyon Works");
+  });
+
+  it("clamps long headers", () => {
+    const email = parsePasted(`From: ${"a".repeat(5000)}\nSubject: ${"b".repeat(5000)}\n\n${BODY}`);
+    expect(email?.from.length).toBe(200);
+    expect(email?.subject.length).toBe(200);
+  });
+
   it("returns null for empty text and clips long text", () => {
-    expect(parsePasted("   \n  ", 3)).toBeNull();
-    expect(parsePasted("x".repeat(50_000), 4)?.body.length).toBeLessThanOrEqual(20_000);
+    expect(parsePasted("   \n  ")).toBeNull();
+    expect(parsePasted("x".repeat(50_000))?.body.length).toBeLessThanOrEqual(20_000);
+  });
+
+  it("gives the same id to the same sender, subject and day", () => {
+    expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id).toBe(parsePasted(`From: ${FROM}\nSubject: Hi\n\ntwo`)?.id);
+    expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\n`)?.id).not.toBe(parsePasted(`From: ${FROM}\nSubject: Other\n\n`)?.id);
+  });
+});
+
+describe("readPaste", () => {
+  const INVITE = "From: Halcyon Works Hiring <hiring@halcyonworks.example>\nSubject: Interview invitation\n\nWe would like to invite you to a final round interview.\nRole: Software Engineer";
+
+  it("adds a classified email once, and calls the second the same email", () => {
+    const first = readPaste(INVITE, []);
+    expect(first.kind).toBe("added");
+    if (first.kind !== "added") return;
+    expect(first.event.company).toBe("Halcyon Works");
+    expect(readPaste(INVITE, [first.event]).kind).toBe("duplicate");
+  });
+
+  it("does not add what it cannot classify", () => {
+    expect(readPaste("Weekly newsletter\nTen recipes you will love.", []).kind).toBe("unknown");
+    expect(readPaste("", []).kind).toBe("unknown");
+  });
+
+  it("does not add an email whose sender it cannot name", () => {
+    expect(readPaste("Interview invitation\nWe would like to invite you to a final round interview.", []).kind).toBe("unknownSender");
   });
 });

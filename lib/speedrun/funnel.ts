@@ -6,25 +6,27 @@ export type FlowNode = { id: string; label: string; kind: "lane" | "stage" | "ex
 export type FlowLink = { source: string; target: string; value: number; tone: "flow" | "rejected" | "noreply" | "open" };
 export type FlowData = { nodes: FlowNode[]; links: FlowLink[] };
 
-const STAGE_COLUMN_START = 1;
 const LANES: Lane[] = ["jobs", "founder"];
 const EXITS: Exit[] = ["rejected", "noreply", "open"];
 
 const stageId = (stage: Stage) => `stage:${stage}`;
 const exitId = (exit: Exit, stage: Stage) => `exit:${exit}:${stage}`;
-const stageColumn = (stage: Stage) => STAGE_COLUMN_START + STAGES.indexOf(stage);
 
 export function toFlow(pipeline: Pipeline): FlowData {
   const { rows } = pipeline;
   if (rows.length === 0) return { nodes: [], links: [] };
   const labels = speedrunCopy.flow;
+  // One lane is just the whole search, so it gets no column of its own.
+  const laneCount = LANES.filter((lane) => rows.some((row) => row.lane === lane)).length;
+  const firstStageColumn = laneCount > 1 ? 1 : 0;
+  const stageColumn = (stage: Stage) => firstStageColumn + STAGES.indexOf(stage);
   const nodes: FlowNode[] = [];
   const links: FlowLink[] = [];
   const link = (source: string, target: string, value: number, tone: FlowLink["tone"]) => {
     if (value > 0) links.push({ source, target, value, tone });
   };
 
-  for (const lane of LANES) {
+  for (const lane of laneCount > 1 ? LANES : []) {
     const count = rows.filter((row: AppRow) => row.lane === lane).length;
     if (count === 0) continue;
     nodes.push({ id: `lane:${lane}`, label: labels.lanes[lane], kind: "lane", column: 0 });

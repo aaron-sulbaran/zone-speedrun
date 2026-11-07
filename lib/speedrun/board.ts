@@ -1,26 +1,32 @@
+import { classifyEmail } from "./classify";
 import { INBOX_TODAY } from "./inbox";
+import { STAGES } from "./pipeline";
 import type { AppRow, BoardCard, InboxEmail, InboxEvent } from "./types";
 
 // The board's pure helpers: card movement, which rows to show, which events
 // belong on the Today and Intros cards, and turning pasted text into an email.
 
 const MAX_PASTE_CHARS = 20_000;
-const MOVABLE = (card: BoardCard): boolean => card !== "matches";
+const MAX_HEADER_CHARS = 200;
+const SENDER_SEARCH_LINES = 6;
 
-/** The index `moveCard` takes to shift `card` one visible step, or null at an end. The matches section sits above the board and is skipped. */
+/** The index `moveCard` takes to shift `card` one step, or null at an end. */
 export function moveTarget(order: BoardCard[], card: BoardCard, direction: -1 | 1): number | null {
-  const visible = order.filter(MOVABLE);
-  const at = visible.indexOf(card);
-  const neighbor = visible[at + direction];
+  const at = order.indexOf(card);
+  const neighbor = order[at + direction];
   if (at < 0 || neighbor === undefined) return null;
   const rest = order.filter((other) => other !== card);
   return rest.indexOf(neighbor) + (direction === 1 ? 1 : 0);
 }
 
-/** Live rows first, then the most recent; capped unless `showAll`. */
+/** Live rows first, then the furthest stage, then the most recent; capped unless `showAll`. */
 export function tableRows(rows: AppRow[], showAll: boolean, limit: number): { shown: AppRow[]; total: number } {
   const ordered = [...rows].sort(
-    (a, b) => Number(b.exit === "open") - Number(a.exit === "open") || b.lastEventAt.localeCompare(a.lastEventAt) || a.company.localeCompare(b.company),
+    (a, b) =>
+      Number(b.exit === "open") - Number(a.exit === "open") ||
+      STAGES.indexOf(b.furthest) - STAGES.indexOf(a.furthest) ||
+      b.lastEventAt.localeCompare(a.lastEventAt) ||
+      a.company.localeCompare(b.company),
   );
   return { shown: showAll ? ordered : ordered.slice(0, limit), total: ordered.length };
 }
@@ -34,19 +40,25 @@ export function introEvents(events: InboxEvent[]): InboxEvent[] {
 }
 
 const HEADER = /^(from|subject|date|to|cc)\s*:\s*(.*)$/i;
+// A copied Gmail sender line: a name and an address in angle brackets, nothing else.
+const BARE_SENDER = /^[^<>\n]{1,80}<[^\s<>@]+@[^\s<>@]+>$/;
 
-/** One pasted email. "From:" and "Subject:" lines are read when present; otherwise the first line is the subject. Dated to the demo's today. */
-export function parsePasted(text: string, serial: number): InboxEmail | null {
-  const clipped = text.slice(0, MAX_PASTE_CHARS);
-  if (clipped.trim() === "") return null;
-  const lines = clipped.replace(/\r\n?/g, "\n").split("\n");
+function stableId(...parts: string[]): string {
+  let hash = 5381;
+  for (const char of parts.join("\u0001")) hash = (Math.imul(hash, 33) + char.charCodeAt(0)) >>> 0;
+  return `pasted-${hash.toString(36)}`;
+}
+
+/** One pasted email. "From:" and "Subject:" lines are read when present, or a bare "Name <address>" line near the top; otherwise the first line is the subject. Dated to the demo's today. */
+export function parsePasted(text: string): InboxEmail | null {
+  const lines = text.slice(0, MAX_PASTE_CHARS).replace(/\r\n?/g, "\n").split("\n");
   let from = "";
   let subject = "";
   let index = 0;
   while (index < lines.length) {
     const line = lines[index].trim();
     const header = HEADER.exec(line);
-    if (line === "" && index === 0) {
+    if (line === "" && from === "" && subject === "") {
       index += 1;
       continue;
     }
@@ -56,12 +68,36 @@ export function parsePasted(text: string, serial: number): InboxEmail | null {
     if (name === "subject") subject = header[2].trim();
     index += 1;
   }
-  let body = lines.slice(index).join("\n").trim();
-  if (subject === "") {
-    const rest = body.split("\n");
-    subject = (rest.shift() ?? "").trim();
-    body = rest.join("\n").trim();
+  const rest = lines.slice(index);
+  if (from === "") {
+    const at = rest.slice(0, SENDER_SEARCH_LINES).findIndex((line) => BARE_SENDER.test(line.trim()));
+    if (at >= 0) from = rest.splice(at, 1)[0].trim();
   }
+  if (subject === "") {
+    const first = rest.findIndex((line) => line.trim() !== "");
+    if (first >= 0) subject = rest.splice(first, 1)[0].trim();
+  }
+  const body = rest.join("\n").trim();
   if (subject === "" && body === "") return null;
-  return { id: `pasted-${serial}`, from, subject, body, date: `${INBOX_TODAY}T12:00:00.000Z` };
+  from = from.slice(0, MAX_HEADER_CHARS);
+  subject = subject.slice(0, MAX_HEADER_CHARS);
+  const date = `${INBOX_TODAY}T12:00:00.000Z`;
+  return { id: stableId(from, subject, date), from, subject, body, date };
+}
+
+export type PasteOutcome =
+  | { kind: "added"; event: InboxEvent }
+  | { kind: "unknown" }
+  | { kind: "unknownSender" }
+  | { kind: "duplicate" };
+
+/** Parses and classifies one pasted email against what the board already holds. */
+export function readPaste(text: string, existing: InboxEvent[]): PasteOutcome {
+  const email = parsePasted(text);
+  if (!email) return { kind: "unknown" };
+  const event = classifyEmail(email);
+  if (event.kind === "other") return { kind: "unknown" };
+  if (event.company === "Unknown") return { kind: "unknownSender" };
+  if (existing.some((known) => known.emailId === event.emailId)) return { kind: "duplicate" };
+  return { kind: "added", event };
 }

@@ -41,7 +41,7 @@ export function BoardTable({ rows }: { rows: AppRow[] }) {
         <tbody>
           {shown.map((row) => (
             <tr key={`${row.company}-${row.role ?? ""}`} data-row="" className="border-b border-sr-soft align-top last:border-0">
-              <th scope="row" className="px-3 py-3 text-left font-semibold">
+              <th scope="row" className="break-words px-3 py-3 text-left font-semibold [overflow-wrap:anywhere]">
                 {row.company}
                 <span className="mt-0.5 block text-xs font-normal text-sr-ink2 md:hidden">{row.role ?? copy.noRole}</span>
               </th>
@@ -59,7 +59,7 @@ export function BoardTable({ rows }: { rows: AppRow[] }) {
           type="button"
           aria-expanded={showAll}
           onClick={() => setShowAll((now) => !now)}
-          className="mt-3 rounded-full px-3 py-1.5 font-srcond text-xs uppercase tracking-wider text-sr-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple"
+          className="mt-3 rounded-full px-3 py-1.5 font-srcond text-xs uppercase tracking-wider text-sr-ink2 underline underline-offset-4 hover:text-sr-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple"
         >
           {showAll ? copy.showFewer : copy.showAll(total)}
         </button>

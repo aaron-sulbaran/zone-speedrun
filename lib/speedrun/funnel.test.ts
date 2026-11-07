@@ -53,6 +53,15 @@ describe("toFlow", () => {
     expect(column("stage:offer")).toBe(5);
   });
 
+  it("drops the lane column when there is only one lane", () => {
+    const single = toFlow({ rows: rows.filter((r) => r.lane === "jobs"), stats: pipeline.stats });
+    expect(single.nodes.some((node) => node.kind === "lane")).toBe(false);
+    expect(single.nodes.find((node) => node.id === "stage:applied")?.column).toBe(0);
+    expect(single.links.every((link) => !link.source.startsWith("lane:"))).toBe(true);
+    const ids = new Set(single.nodes.map((node) => node.id));
+    expect(single.links.every((link) => ids.has(link.source) && ids.has(link.target))).toBe(true);
+  });
+
   it("only links existing nodes", () => {
     const ids = new Set(flow.nodes.map((node) => node.id));
     expect(flow.links.every((link) => ids.has(link.source) && ids.has(link.target))).toBe(true);

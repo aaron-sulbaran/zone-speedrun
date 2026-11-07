@@ -12,7 +12,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     },
     volume: 5,
     cadence: "on-change",
-    boardOrder: ["matches", "today", "tools", "pipeline", "intros", "flow"],
+    boardOrder: ["today", "tools", "pipeline", "intros", "flow"],
     profile: {
       firstName: "Maya",
       headline: "Software engineer, sophomore in CS",
@@ -36,7 +36,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     },
     volume: 60,
     cadence: "daily",
-    boardOrder: ["today", "matches", "pipeline", "flow", "intros", "tools"],
+    boardOrder: ["today", "pipeline", "flow", "intros", "tools"],
     profile: {
       firstName: "Ravi",
       headline: "AI engineer, new grad",
@@ -60,7 +60,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     },
     volume: 90,
     cadence: "daily",
-    boardOrder: ["pipeline", "flow", "today", "intros", "matches", "tools"],
+    boardOrder: ["pipeline", "flow", "today", "intros", "tools"],
     profile: {
       firstName: "Sam",
       headline: "Product engineer, senior in ECE",
@@ -84,7 +84,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     },
     volume: 40,
     cadence: "daily",
-    boardOrder: ["today", "matches", "pipeline", "flow", "tools", "intros"],
+    boardOrder: ["today", "pipeline", "flow", "tools", "intros"],
     profile: {
       firstName: "Lena",
       headline: "Product designer, two years in",
@@ -108,7 +108,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     },
     volume: 500,
     cadence: "digest",
-    boardOrder: ["intros", "today", "flow", "pipeline", "matches", "tools"],
+    boardOrder: ["intros", "today", "flow", "pipeline", "tools"],
     profile: {
       firstName: "Dev",
       headline: "Founder and infrastructure engineer",
