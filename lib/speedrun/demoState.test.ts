@@ -96,7 +96,7 @@ describe("demoReducer pickPerson", () => {
 
   it("reaches ready once built, and reset returns to the start", () => {
     let state = demoReducer(initialDemoState({ reading: true, email: false }), { type: "pickPerson", key: "sam" });
-    const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, afterFilters: 0, shown: 0 } };
+    const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
     state = demoReducer(state, { type: "built", profile: PEOPLE.sam.profile, result });
     expect(state.step).toBe("ready");
     expect(state.profile).toBe(PEOPLE.sam.profile);
@@ -109,7 +109,7 @@ describe("demoReducer pickPerson", () => {
     expect(state.step).toBe("building");
     expect(state.personKey).toBeNull();
     expect(state.profile).toBeNull();
-    const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, afterFilters: 0, shown: 0 } };
+    const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
     state = demoReducer(state, { type: "built", profile: PEOPLE.lena.profile, result });
     expect(state.step).toBe("ready");
     expect(state.profile).toBe(PEOPLE.lena.profile);

@@ -32,7 +32,7 @@ export type FounderRoute = { kind: "speedrun" | "alpha"; url: string };
 export type MatchResult = {
   matches: Match[];
   routes: FounderRoute[];
-  narrowing: { companies: number; roles: number; speedrunRoles: number; afterFilters: number; shown: number };
+  narrowing: { companies: number; roles: number; speedrunRoles: number; a16zRoles: number; afterFilters: number; shown: number };
 };
 
 type Corpus = Pick<Snapshot, "companies" | "roles">;
@@ -293,6 +293,7 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
       companies: companies.length,
       roles: roles.length,
       speedrunRoles: roles.filter((r) => r.tier === "speedrun").length,
+      a16zRoles: roles.filter((r) => r.tier === "a16z").length,
       afterFilters: afterFilters + keptCompanyMatches.length,
       shown: shown.length,
     },

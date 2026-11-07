@@ -26,12 +26,19 @@ describe("composeBuildLog", () => {
     const scanning = lines.find((l) => l.text.startsWith("scanning"))!;
     const { narrowing } = result;
     expect(scanning.text).toContain(
-      `${narrowing.companies} speedrun companies, ${narrowing.speedrunRoles} of their roles and ${narrowing.roles - narrowing.speedrunRoles} more across the a16z portfolio`,
+      `${narrowing.companies} speedrun companies, ${narrowing.speedrunRoles} of their roles and ${narrowing.a16zRoles} more across the a16z portfolio`,
     );
     expect(scanning.text).toContain(String(result.narrowing.companies));
     const text = lines.map((l) => l.text).join("\n");
     expect(text).toContain(`${result.narrowing.afterFilters} fit`);
     expect(text).toContain(`${result.narrowing.shown} worth`);
+  });
+
+  it("counts only a16z-tier roles in the more-across clause, not market-tier ones", () => {
+    const { result } = logFor("sam");
+    const a16z = getSnapshot().roles.filter((role) => role.tier === "a16z").length;
+    expect(result.narrowing.a16zRoles).toBe(a16z);
+    expect(result.narrowing.a16zRoles + result.narrowing.speedrunRoles).toBeLessThan(result.narrowing.roles);
   });
 
   it("names the same speedrun role count as the hero", () => {

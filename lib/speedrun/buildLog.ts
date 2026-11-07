@@ -43,7 +43,7 @@ export function composeBuildLog(intake: Intake, profile: Profile, result: MatchR
   if (intake.why.trim()) drafts.push({ text: copy.why(whyFragment(intake.why)), tone: "read" });
   if (profile.skills.length >= 2) drafts.push({ text: copy.found(profile.skills.slice(0, 3).join(", ")), tone: "read" });
   drafts.push(
-    { text: copy.scanning(narrowing.companies, narrowing.speedrunRoles, narrowing.roles - narrowing.speedrunRoles), tone: "narrow" },
+    { text: copy.scanning(narrowing.companies, narrowing.speedrunRoles, narrowing.a16zRoles), tone: "narrow" },
     { text: copy.fit(narrowing.afterFilters), tone: "narrow" },
     { text: copy.worth(narrowing.shown), tone: "narrow" },
     { text: speedrunCopy.build.madeFor(profile.firstName), tone: "made" },
