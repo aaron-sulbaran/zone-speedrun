@@ -51,6 +51,12 @@ describe.skipIf(!existsSync(EXPORT_CONFIG))("speedrun public-mirror email allowl
     expect(strayEmails(`mail ${stray} now`, patterns)).toEqual([stray]);
   });
 
+  it("flags a personal local part on a hiring-platform domain", () => {
+    const stray = ["jane.doe", "linkedin.com"].join("@");
+    expect(strayEmails(stray, patterns)).toEqual([stray]);
+    expect(strayEmails("acme@myworkday.com jobs-noreply@linkedin.com", patterns)).toEqual([]);
+  });
+
   it("finds no address in speedrun source, tests or e2e outside the allowlist", () => {
     const offenders: string[] = [];
     for (const file of SCAN_ROOTS.flatMap(listFiles).filter((entry) => SCANNED_FILE.test(entry))) {
