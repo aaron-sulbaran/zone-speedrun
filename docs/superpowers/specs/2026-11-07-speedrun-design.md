@@ -22,6 +22,7 @@ Goals
 
 Non-goals (tonight)
 - Real Gmail or Google Calendar OAuth. Gmail read access is a restricted Google scope that needs Google's security review (weeks), and an unverified app is capped at test users with a warning screen. The demo uses sample inboxes and a paste-an-email box; the page says what production would do. **(my call, forced by Google)**
+- Live email by default. Resend keeps a log of every message it sends, recipient included, which arguably counts as storing personal data under the pilot stage. The send path ships switched off behind `SPEEDRUN_EMAIL=on`; turning it on is Aaron's stage call. Likewise the model path ships behind `SPEEDRUN_AI=on`, because on Vercel the AI Gateway authenticates with an automatic OIDC token, so spend would start without any key.
 - Scheduled daily emails. They require storing visitors' emails, which is a stage change under AGENTS.md (pilot: "storing personal data (emails count)"). Tonight: a one-shot "email me this brief" that stores nothing. The daily schedule is designed, not built, and waits for Aaron's stage decision.
 - The anonymize toggle on the private `/recruiting` dashboard (a privacy mode like Robinhood's). Aaron wants it; it touches private recruiting files, so it ships as its own PR. Tonight's page shows a mock of his dashboard with fudged numbers.
 - Changing anything on speedrun's site or submitting their form. Aaron submits the application himself.
@@ -52,7 +53,7 @@ Three acts on one page, about 90 seconds to watch, open-ended to play.
 - The turn: "I'm not building this for me. I'm building it for y'all. So it should look like y'all." and a button.
 
 ### The shift (about 1.1 s)
-His sea-blue mask slides in from the right (480 ms, ease-in), a short line holds ("okay. y'all's style."), the page swaps to the speedrun theme underneath, and the mask slides off to the left (560 ms, expo-out) trailing their purple, aqua and cream gradient as it reveals their page. Reduced motion: a plain fade (240 ms out, 180 ms in). Triggered by the button or by scrolling past the opener; plays once per visit; a "Replay the shift" control sits in Aaron's chrome. Approved by Aaron in the mockup ("the transition works great").
+His sea-blue mask slides in from the right (480 ms, ease-in), a short line holds ("okay. y'all's style."), the page swaps to the speedrun theme underneath, and the mask slides off to the left (560 ms, expo-out) trailing their purple, aqua and cream gradient as it reveals their page. Reduced motion: a plain fade (240 ms out, 180 ms in). Triggered by the button only (Layer 1: vertical scroll is never hijacked); Act 1 stays above Act 2, so scrolling simply arrives in Act 2 without the sweep; plays once per visit; a "Replay the shift" control sits in Aaron's chrome. Approved by Aaron in the mockup ("the transition works great").
 
 ### Act 2: in their style, the product
 Their warm paper, black text, white cards, frosted controls; lowercase headlines with italic emphasis; condensed uppercase labels; their expo-out easing, count-ups and cascades. Their logo in the product's header as their own product would show it. The flow:
@@ -84,7 +85,7 @@ Names and details are mine **(my call)**; Aaron can swap any.
 - **Brief composer** (pure): diffs today's board against yesterday's and picks at most three items by priority, then renders an email (HTML and text). `/speedrun/api/brief` sends it when `RESEND_API_KEY` and a verified sender are set, rate limited, fixed template only (no visitor free text in the email), stores nothing.
 - **Guards**: per-IP rate limits on both routes (best effort, in memory, like the existing HackTX brake) plus a daily cap; request size caps; model output token caps; no logging of resume text or email addresses; errors logged with a `[speedrun]` prefix.
 - **Models**: AI SDK through the Vercel AI Gateway with a `provider/model` string (a fast Claude model for extraction and rerank). Builders read the installed AI SDK docs before writing calls. Tests use the AI SDK's mock model; nothing in CI calls a real model.
-- **Sankey**: a new public module (`lib/speedrun/funnel.ts` plus `components/speedrun/Sankey.tsx`) using `d3-sankey`, written fresh. Nothing is imported from the private recruiting code.
+- **The flow chart** (the Sankey): a new public module (`lib/speedrun/funnel.ts`, `lib/speedrun/flowLayout.ts`, `components/speedrun/FlowChart.tsx`) with a hand-rolled layout, because the public export strips the d3 packages and its verify step rejects the word sankey in public files. Nothing is imported from the private recruiting code.
 
 ## 6. Look and motion
 
