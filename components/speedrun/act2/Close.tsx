@@ -35,7 +35,7 @@ export function Close() {
           })}
         </ul>
         <span id={NEW_TAB_NOTE_ID} hidden>
-          {copy.newTab}
+          {speedrunCopy.newTab}
         </span>
         <p className="mt-10 font-srcond text-xs uppercase tracking-widest opacity-70">{speedrunCopy.affiliation}</p>
       </div>

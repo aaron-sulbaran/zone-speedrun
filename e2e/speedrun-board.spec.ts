@@ -17,6 +17,17 @@ async function joinAs(page: Page, key: "sam" | "dev", connected: boolean, reduce
   await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
 }
 
+test("Skip to the dashboard lands on a connected dashboard with focus on the matches", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).click();
+  await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
+  await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("[data-connect-prompt]")).toHaveCount(0);
+  await expect(page.locator("[data-today-list]")).toBeVisible();
+  await expect(page.locator("[data-brief]")).toBeVisible();
+  await expect(page.locator("#sr-matches-heading")).toBeFocused();
+});
+
 const stat = (page: Page, key: string) => page.locator(`[data-stat=${key}]`);
 const statValue = async (page: Page, key: string) => Number(await stat(page, key).getAttribute("data-value"));
 
@@ -35,7 +46,9 @@ test("pasting an interview invite moves the funnel", async ({ page }) => {
   await page.getByLabel(COPY.paste.label).fill(INTERVIEW_EMAIL);
   await page.getByRole("button", { name: COPY.paste.button }).click();
   await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.found(COPY.kindLabels.interview, "Halcyon Works"));
-  await expect(page.getByLabel(COPY.paste.label)).toBeFocused();
+  // A tap on the button must not pull focus into the box (it would open a phone keyboard); the button keeps it.
+  await expect(page.getByRole("button", { name: COPY.paste.button })).toBeFocused();
+  await expect(page.getByRole("button", { name: COPY.paste.button })).toHaveAttribute("aria-disabled", "true");
   await expect(stat(page, "inProcess")).toHaveAttribute("data-value", String(before + 1));
   await expect(page.locator("[data-today-list]")).toContainText("Halcyon Works");
 });
@@ -152,6 +165,6 @@ test("the tools card links the six real pages and says each opens a new tab", as
     await expect(link).toHaveAttribute("target", "_blank");
     await expect(link).toHaveAttribute("rel", "noopener noreferrer");
     expect(row.href).not.toContain("-ad00000");
-    await expect(link).toHaveAccessibleDescription(COPY.tools.newTab);
+    await expect(link).toHaveAccessibleDescription(speedrunCopy.newTab);
   }
 });

@@ -9,6 +9,7 @@ export const speedrunCopy = {
     description:
       "What joining the speedrun talent network could give you on day one: a concept and working demo by Aaron Sulbaran.",
   },
+  newTab: "Opens in a new tab.",
   affiliation: "A concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",
   logoAlt: "a16z speedrun",
   act1: {
@@ -42,7 +43,7 @@ export const speedrunCopy = {
   hero: {
     eyebrow: "Talent network \u00b7 a concept",
     headline: [{ text: "you joined. " }, { text: "now what", em: true }, { text: "?" }] as { text: string; em?: boolean }[],
-    lede: "Today, joining gets you a confirmation and a week or two of quiet. Here, the network starts working the day you join: matches with reasons, a board built from your inbox, and a morning brief that only says what changed.",
+    lede: "Today, joining gets you a confirmation and a promise to match you if there's a match. Here, the network starts working the day you join: matches with reasons, a board built from your inbox, and a morning brief that only says what changed.",
     stats: {
       companies: "speedrun companies",
       roles: "live speedrun roles",
@@ -112,7 +113,6 @@ export const speedrunCopy = {
     } as Record<Fn, string>,
     placeChips: ["Remote", "San Francisco", "New York", "Austin", "Los Angeles"],
     building: "Building your board.",
-    ready: "Your board is ready.",
     error: "That did not load.",
     retry: "Try again",
     stepWord: "Step",
@@ -121,6 +121,7 @@ export const speedrunCopy = {
   },
   build: {
     label: "Building this for you",
+    labelDone: "Built for you",
     skip: "Skip",
     madeFor: (first: string) => `made for ${first}. no one else in the network gets this board.`,
     lines: {
@@ -225,7 +226,6 @@ export const speedrunCopy = {
     },
     tools: {
       heading: "speedrun tools, where they help you",
-      newTab: "Opens in a new tab.",
       rows: [
         {
           key: "jobs",
@@ -332,7 +332,7 @@ export const speedrunCopy = {
   brief: {
     heading: "this morning, 8:02 am",
     subhead: "The brief you'd get. It only says what changed for you, so it never reads like a newsletter.",
-    from: "speedrun talent network",
+    from: "a concept for the speedrun talent network",
     time: "8:02 am",
     subject: (name: string, count: number) => `${name}, ${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubject: (name: string) => `${name}, nothing moved. that's fine.`,
@@ -380,10 +380,10 @@ export const speedrunCopy = {
     send: {
       button: "Send it to me",
       emailLabel: "Your email address",
-      note: "One email, now. Your address isn't stored.",
+      note: "One email, now. This site keeps no list of addresses. Resend, the email service, keeps a delivery record of the one email it sends.",
       off: "Email sending is off in this demo for now.",
       sent: "Sent. Check your inbox.",
-      failed: "That didn't send. Nothing was stored.",
+      failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
       pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
       sampleOnly: "Only the sample briefs can be sent in this demo.",
@@ -432,7 +432,6 @@ export const speedrunCopy = {
     eyebrow: "Built by Aaron Sulbaran",
     body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read, with an AI model on top only when switched on. The inbox and the people are made up; the decisions are mine.",
     // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
-    newTab: "opens in a new tab",
     links: [
       { key: "site", label: "My site", href: "/" },
       { key: "quick", label: "The 30-second version", href: "/quick" },

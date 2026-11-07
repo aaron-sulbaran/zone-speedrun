@@ -46,9 +46,9 @@ export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: (skipp
   const typingIndex = lines.findIndex((line) => elapsed < line.at + line.typeMs);
 
   return (
-    <section data-build-log="" aria-label={copy.label} className="mx-auto w-full max-w-2xl">
+    <section data-build-log="" aria-label={finished ? copy.labelDone : copy.label} className="mx-auto w-full max-w-2xl">
       <div className="flex items-center justify-between px-1 pb-3">
-        <h3 className="font-srcond text-xs uppercase tracking-widest text-sr-ink2">{copy.label}</h3>
+        <h3 className="font-srcond text-xs uppercase tracking-widest text-sr-ink2">{finished ? copy.labelDone : copy.label}</h3>
         {!finished && (
           <button
             type="button"

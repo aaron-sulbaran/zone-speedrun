@@ -3,7 +3,8 @@ import { speedrunCopy } from "@/lib/content";
 import type { PersonKey } from "@/lib/speedrun/types";
 
 export function ToolsCard({ personKey }: { personKey: PersonKey | null }) {
-  const { rows, newTab } = speedrunCopy.board.tools;
+  const { rows } = speedrunCopy.board.tools;
+  const { newTab } = speedrunCopy;
   return (
     <ul data-tools-list="">
       {rows.map((row) => (

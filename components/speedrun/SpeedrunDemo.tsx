@@ -33,6 +33,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   const [attempt, setAttempt] = useState(0);
   const [loggedFor, setLoggedFor] = useState<MatchResult | null>(null);
   const [skippedLog, setSkippedLog] = useState(false);
+  const [heroSkipped, setHeroSkipped] = useState(false);
   const { step, personKey, intake, profile, result } = state;
   // A failure belongs to one build (person and attempt), so a new build starts clean.
   const buildKey = `${personKey}:${attempt}`;
@@ -64,16 +65,24 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
     dispatch({ type: "uploadFailed", error: outcome.error });
   };
 
+  // "Skip to the dashboard" has to land on one: Sam with the inbox already connected.
+  // The hero buttons unmount with the join step, so focus waits for the matches heading.
+  const skipToDashboard = () => {
+    setHeroSkipped(true);
+    dispatch({ type: "pickPerson", key: "sam" });
+    dispatch({ type: "connectInbox", on: true });
+  };
+
   const retry = () => {
     setAttempt((n) => n + 1);
   };
 
   return (
     <div data-demo="" data-step={step}>
-      <Hero stats={stats} showCtas={step === "join"} onSkip={() => dispatch({ type: "pickPerson", key: "sam" })} />
+      <Hero stats={stats} showCtas={step === "join"} onSkip={skipToDashboard} />
       <div className="px-6 pb-24">
         {step === "join" && <JoinCard state={state} dispatch={dispatch} onUpload={readUpload} />}
-        {step === "building" && <BuildPlaceholder step="building" failed={failed} onRetry={retry} />}
+        {step === "building" && <BuildPlaceholder failed={failed} onRetry={retry} />}
         {/* Reduced motion keeps the finished log above the matches, so the answers stay readable. */}
         {step === "ready" && result && (!logDone || prefersReducedMotion()) && (
           <div className={logDone ? "mb-16" : undefined}>
@@ -88,7 +97,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
         )}
         {step === "ready" && result && logDone && (
           <div className="space-y-16">
-            <Matches result={result} focusHeading={skippedLog} />
+            <Matches result={result} focusHeading={skippedLog || heroSkipped} />
             <Board state={state} dispatch={dispatch} />
             <BriefPreview state={state} />
           </div>
