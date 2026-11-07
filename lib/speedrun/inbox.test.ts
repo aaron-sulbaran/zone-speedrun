@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyEmail } from "./classify";
 import { FICTIONAL_COMPANIES, FOUNDER_FUNDS, FOUNDER_ORGS } from "./fictional";
-import { INBOX_TODAY, generateInbox } from "./inbox";
+import { INBOX_TODAY, OVERNIGHT, generateInbox } from "./inbox";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
 import { getSnapshot } from "./snapshot";
@@ -35,7 +35,41 @@ describe("generateInbox", () => {
     expect(count("interview")).toBeGreaterThanOrEqual(6);
     expect(count("interview")).toBeLessThanOrEqual(10);
     expect(count("offer")).toBe(2);
-    expect(pipelineFor("sam").stats.intros).toBe(2);
+    expect(pipelineFor("sam").stats.intros).toBe(3);
+  });
+
+  it("keeps each person's applied count where the overnight moves found it", () => {
+    const applied = Object.fromEntries(KEYS.map((key) => [key, pipelineFor(key).stats.applied]));
+    expect(applied).toEqual({ maya: 5, ravi: 60, sam: 90, lena: 40, dev: 500 });
+  });
+
+  it("lands every overnight move on an open application at least three days old, before the brief", () => {
+    const real = new Set(getSnapshot().companies.map((company) => company.name.toLowerCase()));
+    expect(OVERNIGHT.maya ?? []).toHaveLength(0);
+    for (const key of KEYS) {
+      const events = generateInbox(PEOPLE[key]).map(classifyEmail);
+      for (const move of OVERNIGHT[key] ?? []) {
+        const label = `${key} ${move.company} ${move.kind}`;
+        expect(move.at >= `${INBOX_TODAY}T00:00:00.000Z` && move.at <= `${INBOX_TODAY}T07:00:00.000Z`, label).toBe(true);
+        expect(real.has(move.company.toLowerCase()), label).toBe(false);
+        const event = events.find((entry) => entry.company === move.company && entry.date === move.at);
+        expect(event?.kind, label).toBe(move.kind);
+        if (move.kind === "intro") {
+          expect(FICTIONAL_COMPANIES, label).toContain(move.company);
+          continue;
+        }
+        const exact = (entry: { company: string; role: string | null }) => entry.company === move.company && entry.role === move.role;
+        const after = buildPipeline(events, INBOX_TODAY).rows.find(exact);
+        expect(after?.lastEventAt, label).toBe(move.at);
+        expect(after?.lane, label).toBe(move.founder ? "founder" : "jobs");
+        expect(after?.exit, label).toBe(move.kind === "rejection" ? "rejected" : "open");
+        if (move.kind !== "rejection") expect(after?.furthest, label).toBe(move.kind);
+        const before = buildPipeline(events.filter((entry) => entry !== event), INBOX_TODAY).rows.find(exact);
+        expect(before?.exit, label).toBe("open");
+        const applied = events.find((entry) => exact(entry) && entry.kind === "applied");
+        expect(Date.parse(move.at) - Date.parse(applied?.date ?? move.at), label).toBeGreaterThanOrEqual(3 * 86_400_000);
+      }
+    }
   });
 
   it("gives Dev a founder lane with accelerator and fund threads", () => {

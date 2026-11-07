@@ -329,7 +329,7 @@ export const speedrunCopy = {
     },
   },
   brief: {
-    heading: "tomorrow, 8:02 am",
+    heading: "this morning, 8:02 am",
     subhead: "The brief you'd get. It only says what changed for you, so it never reads like a newsletter.",
     from: "speedrun talent network",
     time: "8:02 am",
@@ -338,7 +338,7 @@ export const speedrunCopy = {
     subjectAnon: (count: number) => `${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubjectAnon: "Nothing moved. that's fine.",
     nothingNew: (name: string) => (name ? `${name}, nothing new overnight.` : "Nothing new overnight."),
-    stillOpen: { intro: "one intro still open.", due: "one deadline coming up.", "new-role": "one role worth a look.", reply: "one reply to answer." },
+    stillOpen: { intro: "one intro still open.", due: "one deadline coming up.", "new-role": "one role worth a look." },
     stillOpenMany: (count: number) => `${count} things still open.`,
     greeting: (name: string) => (name ? `Morning, ${name}.` : "Morning."),
     quietBody: "Nothing moved overnight, so there is nothing to read. You will hear from us when something does.",
@@ -357,14 +357,23 @@ export const speedrunCopy = {
     },
     items: {
       intro: (company: string) => `A founder replied to your intro at ${company}. Pick a time.`,
-      reply: (company: string, role: string) => `${company} replied about ${role}.`,
+      // A reply says what it is. With no role named, the line is about the application itself.
+      passed: (company: string, role: string | null) => `${company} passed on ${role ?? "your application"}.`,
+      takeHome: (company: string, role: string | null) => (role ? `${company} sent a take-home for ${role}.` : `${company} sent a take-home.`),
+      call: (company: string, role: string | null) => (role ? `${company} wants a quick call about ${role}.` : `${company} wants a quick call.`),
+      interview: (company: string, role: string | null) => (role ? `${company} wants to interview you for ${role}.` : `${company} wants to interview you.`),
+      offer: (company: string, role: string | null) => (role ? `${company} sent an offer for ${role}.` : `${company} sent you an offer.`),
+      // From a fund or an accelerator, who wrote matters more than the round.
+      founderPassed: (org: string) => `${org} passed this round.`,
+      founderCall: (org: string) => `${org} wants an intro call.`,
+      founderMeeting: (org: string) => `${org} invited you to a partner meeting.`,
+      founderOffer: (org: string) => `${org} made you an offer.`,
       due: (what: string, company: string, when: string) => `${what} for ${company} is due ${when}.`,
       newRole: (title: string, company: string) => `${title} at ${company} posted overnight and fits you.`,
       newThisWeek: (title: string, company: string) => `${title} at ${company} is new this week and fits you.`,
       openRole: (title: string, company: string) => `${title} at ${company} is open and fits you.`,
-      introStanding: (company: string) => `Still waiting on a time with a founder at ${company}.`,
+      introStanding: (company: string) => `Pick a time with the founder at ${company}.`,
     },
-    fallbackRole: "your application",
     dueWhat: "The assessment",
     dueWhen: "this week",
     send: {
@@ -461,7 +470,7 @@ export const speedrunCopy = {
     },
     sam: {
       name: "Sam",
-      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and two founder intros.",
+      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and three founder intros.",
       mode: "Pipeline",
     },
     lena: {

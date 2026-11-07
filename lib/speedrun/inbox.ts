@@ -194,35 +194,64 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
   return drafts;
 }
 
-// What moved overnight, so a morning brief has news to carry. Each move advances an
-// application that is already in the person's inbox (so applied counts do not change).
-// A move is dropped if its application is not there, as happens for a seed other than 1.
-type Overnight = { company: string; role: string; kind: "assessment" | "screen" | "interview" | "rejection"; at: string };
-const OVERNIGHT: Partial<Record<PersonKey, Overnight[]>> = {
+// What moved overnight, so this morning's brief has news to carry. Every move lands between midnight and 7:00 on
+// INBOX_TODAY, before the 8:02 brief, so the board's Today card shows it too. A reply advances an application already
+// in the person's inbox (so applied counts do not change): the same role exactly, still open, and at least three days
+// old. A move whose application is not there is dropped, as happens for a seed other than 1; inbox.test pins that
+// every one lands. An intro move is a founder writing back on an intro.
+type ReplyMove = Target & { kind: "assessment" | "screen" | "interview" | "rejection"; at: string };
+type IntroMove = { kind: "intro"; company: string; at: string };
+export type OvernightMove = ReplyMove | IntroMove;
+
+const jobTarget = (company: string, role: string) => ({ company, role, founder: false });
+export const OVERNIGHT: Partial<Record<PersonKey, OvernightMove[]>> = {
   ravi: [
-    { company: "Ostrava Labs", role: "Retrieval Engineer", kind: "assessment", at: "2026-11-06T21:30:00.000Z" },
-    { company: "Jetsam Works", role: "Applied Scientist", kind: "rejection", at: "2026-11-07T05:00:00.000Z" },
+    { ...jobTarget("Ostrava Labs", "Retrieval Engineer"), kind: "assessment", at: "2026-11-07T02:15:00.000Z" },
+    { ...jobTarget("Jetsam Works", "Applied Scientist"), kind: "rejection", at: "2026-11-07T05:00:00.000Z" },
   ],
   sam: [
-    { company: "Cindermoor Cloud", role: "Software Engineer, New Grad", kind: "interview", at: "2026-11-06T22:00:00.000Z" },
-    { company: "Tarnmoor Robotics", role: "Founding Engineer", kind: "screen", at: "2026-11-07T04:00:00.000Z" },
+    { ...jobTarget("Cindermoor Cloud", "Software Engineer, New Grad"), kind: "interview", at: "2026-11-07T01:30:00.000Z" },
+    { ...jobTarget("Tarnmoor Robotics", "Founding Engineer"), kind: "screen", at: "2026-11-07T04:00:00.000Z" },
+    { kind: "intro", company: "Lumora Health", at: "2026-11-07T06:10:00.000Z" },
   ],
   lena: [
-    { company: "Velmora Loft", role: "Product Designer", kind: "interview", at: "2026-11-06T20:00:00.000Z" },
-    { company: "Valewood", role: "Design Systems Designer", kind: "rejection", at: "2026-11-07T05:30:00.000Z" },
+    { ...jobTarget("Alder Forge", "Interaction Designer"), kind: "rejection", at: "2026-11-07T04:30:00.000Z" },
+    { ...jobTarget("Velmora Loft", "Product Designer"), kind: "interview", at: "2026-11-07T06:00:00.000Z" },
   ],
   dev: [
-    { company: "Nettlefield", role: "Founding Engineer", kind: "interview", at: "2026-11-06T23:00:00.000Z" },
-    { company: "Foxglove Labs", role: "Backend Engineer", kind: "rejection", at: "2026-11-07T03:30:00.000Z" },
+    { ...jobTarget("Tessel Harbor", "Founding Engineer"), kind: "interview", at: "2026-11-07T02:00:00.000Z" },
+    { company: "Oriel Partners", role: "Seed intro", founder: true, kind: "screen", at: "2026-11-07T06:30:00.000Z" },
   ],
 };
+
+const MIN_REPLY_AGE_MS = 3 * DAY_MS;
+const sameDraft = (a: Draft, b: Draft) => a.from === b.from && a.subject === b.subject && a.body === b.body;
+
+/** True when the application's own confirmation is in `base`, it is old enough to hear back, and nothing closed it. */
+function openApplication(base: Draft[], t: Target, first: string, at: number): boolean {
+  const make = t.founder ? founderDraft : jobsDraft;
+  const applied = make("applied", t, first, 0);
+  const closing = ["rejection", "offer"].map((kind) => make(kind, t, first, 0));
+  const confirmation = base.find((draft) => sameDraft(draft, applied));
+  return confirmation !== undefined && confirmation.when <= at - MIN_REPLY_AGE_MS && !base.some((draft) => closing.some((closed) => sameDraft(draft, closed)));
+}
+
+function introReplyDraft(company: string, first: string, when: number): Draft {
+  return {
+    when,
+    from: `Founders at ${company} <hello@${slug(company)}.example>`,
+    subject: `Re: Introduction: ${first} and the ${company} founders`,
+    body: `Hi ${first},\n\nThanks for the introduction. We are a small team and your work is close to what we are building. Pick a time this week that suits you and we will be there.`,
+  };
+}
 
 function overnightDrafts(person: Person, base: Draft[]): Draft[] {
   const first = person.profile.firstName;
   return (OVERNIGHT[person.key] ?? []).flatMap((move) => {
-    const target: Target = { company: move.company, role: move.role, founder: false };
-    const present = base.some((draft) => draft.subject === `Thanks for applying to ${move.company}` && draft.body.includes(`Role: ${move.role}`));
-    return present ? [jobsDraft(move.kind, target, first, Date.parse(move.at))] : [];
+    const at = Date.parse(move.at);
+    if (move.kind === "intro") return [introReplyDraft(move.company, first, at)];
+    if (!openApplication(base, move, first, at)) return [];
+    return [(move.founder ? founderDraft : jobsDraft)(move.kind, move, first, at)];
   });
 }
 

@@ -53,7 +53,7 @@ function stableId(...parts: string[]): string {
   return `pasted-${hash.toString(36)}`;
 }
 
-/** One pasted email. "From:" and "Subject:" lines are read when present, or a bare "Name <address>" line near the top; otherwise the first line is the subject. Dated to the demo's today. */
+/** One pasted email. "From:" and "Subject:" lines are read when present, or a bare "Name <address>" line near the top; otherwise the first line is the subject. Dated to the demo's morning, before the 8:02 brief, so this morning's brief hears it. */
 export function parsePasted(text: string): InboxEmail | null {
   const lines = text.slice(0, MAX_PASTE_CHARS).replace(/\r\n?/g, "\n").split("\n");
   let from = "";
@@ -85,7 +85,7 @@ export function parsePasted(text: string): InboxEmail | null {
   if (subject === "" && body === "") return null;
   from = from.slice(0, MAX_HEADER_CHARS);
   subject = subject.slice(0, MAX_HEADER_CHARS);
-  const date = `${INBOX_TODAY}T12:00:00.000Z`;
+  const date = `${INBOX_TODAY}T08:00:00.000Z`;
   return { id: stableId(from, subject, date, body), from, subject, body, date };
 }
 

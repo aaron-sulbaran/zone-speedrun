@@ -1,6 +1,6 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
 import type { SnapshotRole } from "./snapshot";
-import type { Person, PersonKey, Pipeline } from "./types";
+import type { AppRow, Person, PersonKey, Pipeline } from "./types";
 
 /** `standing` items are worth a line but did not change overnight, so the subject does not count them. */
 export type BriefItem = { kind: "reply" | "new-role" | "due" | "intro"; text: string; href: string | null; standing?: boolean };
@@ -24,7 +24,12 @@ export type BriefInput = {
 
 const copy = speedrunCopy.brief;
 const DAY_MS = 86_400_000;
-const MAX_ITEMS = 4;
+const WEEK_MS = 7 * DAY_MS;
+const MAX_ITEMS = 3;
+/** A standing intro older than this is a stale nag, not a line worth reading. */
+const STANDING_INTRO_MS = 14 * DAY_MS;
+/** The brief goes out at 8:02 in the morning, the time the preview shows. */
+const SEND_TIME = "T08:02:00.000Z";
 const REPLY_STAGES = new Set(["assessment", "screen", "interview", "offer"]);
 
 function dayStart(iso: string): number {
@@ -34,8 +39,6 @@ function dayStart(iso: string): number {
 function safeHref(href: string | null): string | null {
   return href && /^https:\/\//i.test(href) ? href : null;
 }
-
-const WEEK_MS = 7 * DAY_MS;
 
 /** One role line from the ranked list: speedrun tier only, never one dated after the brief goes out. */
 export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: number, until: number): { company: string; item: BriefItem } | null {
@@ -53,57 +56,66 @@ export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: 
   return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(freshest.url), standing: true } };
 }
 
-/** Only what changed since yesterday's midnight. A quiet night gives an empty list on purpose. */
+/** A reply in the words of what it says: a no is a no, an interview is an interview. */
+function replyText(row: AppRow): string {
+  const say = copy.items;
+  const founder = row.lane === "founder";
+  if (row.exit === "rejected") return founder ? say.founderPassed(row.company) : say.passed(row.company, row.role);
+  switch (row.furthest) {
+    case "offer":
+      return founder ? say.founderOffer(row.company) : say.offer(row.company, row.role);
+    case "interview":
+      return founder ? say.founderMeeting(row.company) : say.interview(row.company, row.role);
+    case "screen":
+      return founder ? say.founderCall(row.company) : say.call(row.company, row.role);
+    default:
+      return say.takeHome(row.company, row.role);
+  }
+}
+
+/**
+ * Only what changed between today's midnight and the 8:02 send, the same day the board's Today card shows.
+ * What moved goes first, then what is still open, at most three lines. A quiet night gives an empty list on purpose.
+ */
 export function composeBrief(input: BriefInput): Brief {
   const { pipeline, roles, cadence, today } = input;
-  const since = dayStart(today) - DAY_MS;
+  const since = dayStart(today);
+  const until = Date.parse(`${today.slice(0, 10)}${SEND_TIME}`);
   const items: BriefItem[] = [];
   const seen = new Set<string>();
+  // One line per company, and the first one added wins, so moved lines are added before standing ones.
   const add = (company: string, item: BriefItem) => {
     const key = company.toLowerCase();
     if (seen.has(key)) return;
     seen.add(key);
     items.push(item);
   };
+  const moved = (iso: string) => Date.parse(iso) >= since && Date.parse(iso) < until;
 
-  const until = dayStart(today) + DAY_MS;
-  // An intro that landed overnight is news. An older one is a standing line for daily readers and nothing for on-change readers.
-  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until && (cadence !== "on-change" || Date.parse(entry.date) >= since));
-  if (intro) {
-    const overnight = Date.parse(intro.date) >= since;
-    add(intro.company, overnight
-      ? { kind: "intro", text: copy.items.intro(intro.company), href: null }
-      : { kind: "intro", text: copy.items.introStanding(intro.company), href: null, standing: true });
-  }
+  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until);
+  if (intro && moved(intro.date)) add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null });
 
-  const open = pipeline.rows.filter((row) => row.exit === "open");
   // A rejection is a reply too: someone wrote back, and it is better heard in the morning than found later.
   const fresh = pipeline.rows
-    .filter((row) => row.exit !== "noreply" && (REPLY_STAGES.has(row.furthest) || row.exit === "rejected") && Date.parse(row.lastEventAt) >= since && Date.parse(row.lastEventAt) < until)
+    .filter((row) => row.exit !== "noreply" && (REPLY_STAGES.has(row.furthest) || row.exit === "rejected") && moved(row.lastEventAt))
     .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
-  for (const row of fresh) {
-    add(row.company, { kind: "reply", text: copy.items.reply(row.company, row.role ?? copy.fallbackRole), href: null });
-  }
-
-  // A standing deadline is worth a morning line for people who asked for one every day.
-  if (cadence !== "on-change") {
-    const assessments = open
-      .filter((row) => row.furthest === "assessment")
-      .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
-    const [row] = assessments;
-    if (row) add(row.company, { kind: "due", text: copy.items.due(copy.dueWhat, row.company, copy.dueWhen), href: null, standing: true });
-  }
+  for (const row of fresh) add(row.company, { kind: "reply", text: replyText(row), href: null });
 
   const role = pickRole(roles, cadence, since, until);
-  if (role) add(role.company, role.item);
+  if (role && !role.item.standing) add(role.company, role.item);
 
-  // What moved comes first, then what is still open: an intro, a role, a deadline.
-  const rank = (item: BriefItem) => {
-    const moved = ["intro", "reply", "new-role", "due"].indexOf(item.kind);
-    const standing = ["intro", "new-role", "due", "reply"].indexOf(item.kind);
-    return item.standing ? 10 + standing : moved;
-  };
-  items.sort((a, b) => rank(a) - rank(b));
+  // What is still open, for people who asked to hear every morning: a recent intro, a role, a deadline.
+  if (cadence !== "on-change") {
+    if (intro && !moved(intro.date) && Date.parse(intro.date) >= until - STANDING_INTRO_MS) {
+      add(intro.company, { kind: "intro", text: copy.items.introStanding(intro.company), href: null, standing: true });
+    }
+    if (role?.item.standing) add(role.company, role.item);
+    const [assessment] = pipeline.rows
+      .filter((row) => row.exit === "open" && row.furthest === "assessment")
+      .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
+    if (assessment) add(assessment.company, { kind: "due", text: copy.items.due(copy.dueWhat, assessment.company, copy.dueWhen), href: null, standing: true });
+  }
+
   items.splice(MAX_ITEMS);
   return { personKey: input.personKey ?? "you", date: today, cadence, items };
 }
@@ -114,7 +126,9 @@ const escapeHtml = (value: string) =>
 export function briefSubject(brief: Brief, firstName: string): string {
   const moved = brief.items.filter((item) => !item.standing).length;
   if (moved === 0 && brief.items.length > 0) {
-    const tail = brief.items.length === 1 ? copy.stillOpen[brief.items[0].kind] : copy.stillOpenMany(brief.items.length);
+    // Every item here is standing, and a reply never is.
+    const [only] = brief.items;
+    const tail = brief.items.length === 1 && only.kind !== "reply" ? copy.stillOpen[only.kind] : copy.stillOpenMany(brief.items.length);
     return `${copy.nothingNew(firstName)} ${tail}`;
   }
   if (moved === 0) return firstName ? copy.quietSubject(firstName) : copy.quietSubjectAnon;
