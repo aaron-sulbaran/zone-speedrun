@@ -6,6 +6,7 @@ test("renders logged out with noindex and the affiliation line", async ({ page }
   expect(response?.status()).toBe(200);
 
   await expect(page).toHaveTitle(speedrunCopy.meta.title);
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/opengraph-image/);
   const robots = page.locator('meta[name="robots"]');
   await expect(robots).toHaveAttribute("content", /noindex/);
   await expect(robots).toHaveAttribute("content", /nofollow/);

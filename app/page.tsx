@@ -7,22 +7,29 @@ import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
 
+const SHARE_CARD = { url: "/opengraph-image", width: 1200, height: 630, alt: siteContent.meta.title };
+
 export const metadata: Metadata = {
   title: { absolute: speedrunCopy.meta.title },
   description: speedrunCopy.meta.description,
   robots: { index: false, follow: false },
-  // The page-level object replaces the layout's, so the preview is restated.
+  // A page-level openGraph or twitter object replaces the layout's whole object,
+  // and the file-based share card only attaches to the objects that have no
+  // images of their own, so the card is named here (the root opengraph-image
+  // route, 1200 by 630) and the rest is restated.
   openGraph: {
     title: speedrunCopy.meta.title,
     description: speedrunCopy.meta.description,
     url: "/speedrun",
     siteName: siteContent.meta.title,
     type: "website",
+    images: [SHARE_CARD],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: speedrunCopy.meta.title,
     description: speedrunCopy.meta.description,
+    images: [SHARE_CARD.url],
   },
 };
 
