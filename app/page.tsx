@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Affiliation } from "@/components/speedrun/Affiliation";
+import { Shift } from "@/components/speedrun/Shift";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
@@ -15,8 +16,10 @@ export default function SpeedrunPage() {
     <main id="main">
       <section data-act="1" className="px-6 pb-24 pt-32">
         <Affiliation variant="inline" />
+        <Shift targetId="act-2" />
       </section>
       <section
+        id="act-2"
         data-speedrun=""
         className={`${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >

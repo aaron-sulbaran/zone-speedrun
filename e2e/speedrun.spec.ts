@@ -17,3 +17,45 @@ test("renders logged out with noindex and the affiliation line", async ({ page }
   await panel.getByRole("link", { name: /Home/ }).click();
   await page.waitForURL((url) => url.pathname === "/");
 });
+
+async function expectShiftLands(page: import("@playwright/test").Page) {
+  await page.goto("/speedrun");
+  await expect(page.locator("#act-2")).toBeVisible();
+  await page.getByRole("button", { name: speedrunCopy.shift.button }).click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const rect = document.getElementById("act-2")?.getBoundingClientRect();
+          return !!rect && rect.top < window.innerHeight && rect.bottom > 0;
+        }),
+      { timeout: 2000 },
+    )
+    .toBe(true);
+  await page.waitForTimeout(2500);
+  await expect(page.locator("[data-shift-strip]")).toBeHidden();
+  await expect(page.getByRole("button", { name: speedrunCopy.shift.replay })).toBeVisible();
+}
+
+test("the shift lands on act 2", async ({ page }) => {
+  await expectShiftLands(page);
+});
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("the shift lands on act 2", async ({ page }) => {
+    await expectShiftLands(page);
+  });
+});
+
+test("replay goes back to the turn line and re-arms the button", async ({ page }) => {
+  await page.goto("/speedrun");
+  const button = page.getByRole("button", { name: speedrunCopy.shift.button });
+  await button.click();
+  const replay = page.getByRole("button", { name: speedrunCopy.shift.replay });
+  await expect(replay).toBeVisible({ timeout: 3000 });
+  await expect(button).toBeEnabled({ timeout: 3000 });
+  await replay.click();
+  await expect(page.getByText(speedrunCopy.shift.turnLine1)).toBeInViewport();
+  await expect(button).toBeEnabled();
+});
