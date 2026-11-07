@@ -111,10 +111,10 @@ function founderDraft(kind: string, t: Target, first: string, when: number): Dra
 }
 
 const NEWSLETTERS: Array<[string, string, string]> = [
-  ["Weeknight Table <news@weeknighttable.com>", "Five dinners under 30 minutes", "This week: lemon pasta, sheet-pan chicken and a crisp slaw."],
-  ["Trailhead Weekly <hello@trailheadweekly.com>", "Seven day hikes within an hour of town", "Pack water, bring layers and start early."],
-  ["The Commuter <letters@thecommuter.news>", "Your Monday reading list", "Longform picks on cities, buses and why trains run late."],
-  ["Campus Bookstore <deals@campusbookstore.shop>", "Textbook swap this Friday", "Bring your used books and trade for credit."],
+  ["Weeknight Table <news@weeknighttable.example>", "Five dinners under 30 minutes", "This week: lemon pasta, sheet-pan chicken and a crisp slaw."],
+  ["Trailhead Weekly <hello@trailheadweekly.example>", "Seven day hikes within an hour of town", "Pack water, bring layers and start early."],
+  ["The Commuter <letters@thecommuter.example>", "Your Monday reading list", "Longform picks on cities, buses and why trains run late."],
+  ["Campus Bookstore <deals@campusbookstore.example>", "Textbook swap this Friday", "Bring your used books and trade for credit."],
 ];
 
 function buildSchedule(person: Person, rng: Rng): Draft[] {
