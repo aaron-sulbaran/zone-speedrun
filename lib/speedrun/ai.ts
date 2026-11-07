@@ -57,13 +57,22 @@ function trimProfile(raw: z.infer<typeof profileSchema>): Profile {
 }
 
 // A resume cannot close or reopen its own wrapper.
-const stripTags = (text: string) => text.replace(/<\/?\s*resume[^>]*>/gi, "");
+// No angle brackets survive, so no nesting trick can rebuild a tag.
+const stripTags = (text: string) => text.replace(/[<>]/g, " ");
 
-// Codes only, never content: this runs on resume text.
-function fellBack<T>(stage: "read" | "rerank", value: () => T): T {
-  console.error(`[speedrun] ${stage} fell back: model`);
+// Codes only, never content: this runs on resume text. The error's name and status
+// say whether a failure was a plan or retention rejection, a schema miss or a timeout.
+function fellBack<T>(stage: "read" | "rerank", error: unknown, value: () => T): T {
+  const detail: { name?: string; statusCode?: number } = {};
+  if (error instanceof Error) detail.name = error.name;
+  const status = (error as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof status === "number") detail.statusCode = status;
+  console.error(`[speedrun] ${stage} fell back: model`, detail);
   return value();
 }
+
+const INVALID_OUTPUT = new Error("invalid output");
+INVALID_OUTPUT.name = "InvalidOutput";
 
 const READ_SYSTEM = [
   "You turn one resume into a short structured profile for matching against startup jobs.",
@@ -90,10 +99,10 @@ export async function readResume(
       providerOptions: GATEWAY_OPTIONS,
     });
     const parsed = profileSchema.safeParse(output);
-    if (!parsed.success) return fellBack("read", rules);
+    if (!parsed.success) return fellBack("read", INVALID_OUTPUT, rules);
     return { profile: trimProfile(parsed.data), mode: "model" };
-  } catch {
-    return fellBack("read", rules);
+  } catch (error) {
+    return fellBack("read", error, rules);
   }
 }
 
@@ -176,7 +185,7 @@ export async function rerank(
       providerOptions: GATEWAY_OPTIONS,
     });
     const parsed = rerankSchema.safeParse(output);
-    if (!parsed.success) return fellBack("rerank", () => result);
+    if (!parsed.success) return fellBack("rerank", INVALID_OUTPUT, () => result);
 
     const used = new Set<number>();
     const reordered: Match[] = [];
@@ -194,13 +203,13 @@ export async function rerank(
       }
       reordered.push({ ...original, reasons: reasons.length > 0 ? reasons : original.reasons });
     }
-    if (reordered.length === 0) return fellBack("rerank", () => result);
+    if (reordered.length === 0) return fellBack("rerank", INVALID_OUTPUT, () => result);
     // Anything the model skipped keeps its place after the ranked ones.
     pool.forEach((match, i) => {
       if (!used.has(i)) reordered.push(match);
     });
     return { ...result, matches: [...reordered, ...result.matches.slice(RERANK_POOL)] };
-  } catch {
-    return fellBack("rerank", () => result);
+  } catch (error) {
+    return fellBack("rerank", error, () => result);
   }
 }
