@@ -367,6 +367,7 @@ export const speedrunCopy = {
       // From a fund or an accelerator, who wrote matters more than the round.
       founderPassed: (org: string) => `${org} passed this round.`,
       founderCall: (org: string) => `${org} wants an intro call.`,
+      founderQuestions: (org: string) => `${org} sent a few questions about this round.`,
       founderMeeting: (org: string) => `${org} invited you to a partner meeting.`,
       founderOffer: (org: string) => `${org} made you an offer.`,
       due: (what: string, company: string, when: string) => `${what} for ${company} is due ${when}.`,

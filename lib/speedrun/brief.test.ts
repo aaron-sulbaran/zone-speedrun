@@ -58,6 +58,7 @@ describe("composeBrief", () => {
     expect(say(row("Oriel Partners", "screen", "open", OVERNIGHT_AT, fund))).toBe("Oriel Partners wants an intro call.");
     expect(say(row("Oriel Partners", "interview", "open", OVERNIGHT_AT, fund))).toBe("Oriel Partners invited you to a partner meeting.");
     expect(say(row("Oriel Partners", "screen", "rejected", OVERNIGHT_AT, fund))).toBe("Oriel Partners passed this round.");
+    expect(say(row("Oriel Partners", "assessment", "open", OVERNIGHT_AT, fund))).toBe("Oriel Partners sent a few questions about this round.");
   });
 
   it("counts only what moved since midnight and before the 8:02 send", () => {

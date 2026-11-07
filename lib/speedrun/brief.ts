@@ -69,7 +69,7 @@ function replyText(row: AppRow): string {
     case "screen":
       return founder ? say.founderCall(row.company) : say.call(row.company, row.role);
     default:
-      return say.takeHome(row.company, row.role);
+      return founder ? say.founderQuestions(row.company) : say.takeHome(row.company, row.role);
   }
 }
 
