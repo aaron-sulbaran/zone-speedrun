@@ -12,14 +12,13 @@ import { SHIFT_MS, shiftReducer } from "@/lib/speedrun/shift";
 const COVER_EASE = "cubic-bezier(.7,0,.84,0)";
 const REVEAL_EASE = "cubic-bezier(.16,1,.3,1)";
 const REDUCE = "(prefers-reduced-motion: reduce)";
-const BAND_FADE = "linear-gradient(90deg, black 0%, black 62%, transparent 100%)";
+const BAND_FADE = "linear-gradient(90deg, black 0%, black 84%, transparent 100%)";
 const BAND_BG = "linear-gradient(90deg, var(--color-accent) 0%, transparent 24%), var(--sr-grad-accent)";
 
 function jumpTo(targetId: string) {
   const target = document.getElementById(targetId);
   if (!target) return;
   target.scrollIntoView({ behavior: "instant", block: "start" });
-  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
   target.focus({ preventScroll: true });
 }
 
@@ -52,6 +51,7 @@ export function Shift({ targetId }: { targetId: string }) {
     if (!main) return send("abort");
     track(main.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SHIFT_MS.fadeOut, fill: "forwards" })).finished.then(() => {
       if (run !== runRef.current) return;
+      setPlayed(true);
       jumpTo(targetId);
       const back = track(main.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SHIFT_MS.fadeIn }));
       main.getAnimations().forEach((a) => a !== back && a.cancel());
@@ -67,7 +67,6 @@ export function Shift({ targetId }: { targetId: string }) {
     const line = lineRef.current;
     if (!strip || !line) return;
     const run = (runRef.current += 1);
-    setPlayed(true);
     send("go");
     if (window.matchMedia(REDUCE).matches) return playReduced(run);
     strip.style.visibility = "visible";
@@ -76,6 +75,7 @@ export function Shift({ targetId }: { targetId: string }) {
     cover.finished.then(() => {
       if (run !== runRef.current) return;
       send("covered");
+      setPlayed(true);
       jumpTo(targetId);
       window.setTimeout(() => {
         if (run !== runRef.current) return;
@@ -92,18 +92,26 @@ export function Shift({ targetId }: { targetId: string }) {
   }
 
   function replay() {
+    const strip = stripRef.current;
+    const main = document.getElementById("main");
+    runRef.current += 1;
+    animationsRef.current.forEach((a) => a.cancel());
+    animationsRef.current = [];
+    if (strip) strip.style.visibility = "hidden";
+    if (main) main.getAnimations().forEach((a) => a.cancel());
+    send("abort");
     turnRef.current?.scrollIntoView({ behavior: "instant", block: "center" });
   }
 
   const buttonClass =
-    "rounded-full px-6 py-4 font-label text-sm transition-transform duration-300 hover:-translate-y-0.5 disabled:opacity-60";
+    "rounded-full px-6 py-4 font-label text-sm transition-transform duration-300 hover:-translate-y-0.5";
   return (
     <>
       <div ref={turnRef} className="mt-16 max-w-2xl">
         <p className="font-display text-3xl leading-tight text-foreground">{copy.turnLine1}</p>
         <p className="mt-1 font-display text-3xl leading-tight text-foreground">{copy.turnLine2}</p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={play} disabled={busy} className={`${buttonClass} bg-accent text-background`}>
+          <button type="button" onClick={play} className={`${buttonClass} bg-accent text-background`}>
             {copy.button}
           </button>
           {played && (
@@ -122,7 +130,7 @@ export function Shift({ targetId }: { targetId: string }) {
         style={{ visibility: "hidden", transform: "translateX(100vw)" }}
       >
         <div className="relative h-full w-screen bg-accent">
-          <p ref={lineRef} className="absolute left-0 top-1/2 w-screen -translate-y-1/2 text-center font-display text-4xl text-background" style={{ opacity: 0 }}>
+          <p ref={lineRef} className="absolute left-0 top-1/2 w-screen -translate-y-1/2 px-6 text-center font-display text-[clamp(28px,4vw,52px)] text-background" style={{ opacity: 0 }}>
             {copy.line}
           </p>
         </div>

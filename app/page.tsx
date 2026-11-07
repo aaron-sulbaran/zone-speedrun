@@ -33,8 +33,9 @@ export default function SpeedrunPage() {
       </section>
       <section
         id="act-2"
+        tabIndex={-1}
         data-speedrun=""
-        className={`${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
+        className={`focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
       >
         <div className="px-6 py-24">
           <SpeedrunLogo className="h-8 w-auto" />

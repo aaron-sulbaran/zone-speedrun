@@ -26,18 +26,9 @@ async function expectShiftLands(page: import("@playwright/test").Page) {
   await page.goto("/speedrun");
   await expect(page.locator("#act-2")).toBeVisible();
   await page.getByRole("button", { name: speedrunCopy.shift.button }).click();
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const rect = document.getElementById("act-2")?.getBoundingClientRect();
-          return !!rect && rect.top < window.innerHeight && rect.bottom > 0;
-        }),
-      { timeout: 2000 },
-    )
-    .toBe(true);
+  await expect(page.locator("#act-2")).toBeFocused({ timeout: 2000 });
   await page.waitForTimeout(2500);
-  await expect(page.locator("[data-shift-strip]")).toBeHidden();
+  expect(await page.locator("[data-shift-strip]").isHidden()).toBe(true);
   await expect(page.getByRole("button", { name: speedrunCopy.shift.replay })).toBeVisible();
 }
 
@@ -52,14 +43,23 @@ test.describe("reduced motion", () => {
   });
 });
 
-test("replay goes back to the turn line and re-arms the button", async ({ page }) => {
-  await page.goto("/speedrun");
-  const button = page.getByRole("button", { name: speedrunCopy.shift.button });
-  await button.click();
-  const replay = page.getByRole("button", { name: speedrunCopy.shift.replay });
-  await expect(replay).toBeVisible({ timeout: 3000 });
-  await expect(button).toBeEnabled({ timeout: 3000 });
-  await replay.click();
-  await expect(page.getByText(speedrunCopy.shift.turnLine1)).toBeInViewport();
-  await expect(button).toBeEnabled();
+test.describe("short viewport", () => {
+  test.use({ viewport: { width: 1440, height: 400 } });
+  test("replay waits for the cover, returns to the turn line and re-arms the button", async ({ page }) => {
+    await page.goto("/speedrun");
+    const turn = page.getByText(speedrunCopy.shift.turnLine1);
+    const button = page.getByRole("button", { name: speedrunCopy.shift.button });
+    const replay = page.getByRole("button", { name: speedrunCopy.shift.replay });
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(turn).not.toBeInViewport();
+    await page.evaluate(() => document.getElementById("main")?.scrollIntoView({ block: "start" }));
+    await button.click();
+    await expect(replay).toHaveCount(0);
+    await expect(page.locator("#act-2")).toBeFocused({ timeout: 2000 });
+    await expect(replay).toBeVisible();
+    await expect(turn).not.toBeInViewport();
+    await replay.click();
+    await expect(turn).toBeInViewport();
+    await expect(button).toBeEnabled();
+  });
 });
