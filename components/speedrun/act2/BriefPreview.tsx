@@ -20,7 +20,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
 
   const brief = useMemo(() => {
     if (!result) return null;
-    if (personKey) return sampleBrief(personKey, { connected, extraEvents: connected ? pasted : [], result });
+    if (personKey) return sampleBrief(personKey, { connected, extraEvents: connected ? pasted : [] });
     return visitorBrief(firstName, connected ? pasted : [], result);
   }, [personKey, connected, pasted, result, firstName]);
   if (!brief || !profile) return null;
@@ -30,7 +30,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
 
   return (
     <section data-brief="" aria-labelledby="sr-brief-heading" className="mx-auto w-full max-w-3xl">
-      <h3 id="sr-brief-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
+      <h3 id="sr-brief-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">
         {copy.heading}
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
@@ -76,7 +76,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
       </p>
 
       <div className="mt-6">
-        <p id="sr-brief-channels" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
+        <p id="sr-brief-channels" className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">
           {copy.channels.label}
         </p>
         <div role="group" aria-labelledby="sr-brief-channels" className="mt-3 flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
         <p className="mt-3 text-sm text-sr-ink2">{copy.channelNote}</p>
       </div>
 
-      {channel === "email" && <BriefSend live={live.email} personKey={personKey} />}
+      {channel === "email" && <BriefSend live={live.email} personKey={personKey} connected={connected} />}
     </section>
   );
 }

@@ -5,11 +5,11 @@ import { speedrunCopy } from "@/lib/content";
 import type { PersonKey } from "@/lib/speedrun/types";
 
 const copy = speedrunCopy.brief;
-type Status = "idle" | "sending" | "sent" | "failed";
+type Status = "idle" | "sending" | "sent" | "failed" | "slow";
 
 // With sending off there is no input at all, so no address is ever collected.
 // The address lives in this field until the request goes out, then is cleared.
-export function BriefSend({ live, personKey }: { live: boolean; personKey: PersonKey | null }) {
+export function BriefSend({ live, personKey, connected }: { live: boolean; personKey: PersonKey | null; connected: boolean }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -21,7 +21,13 @@ export function BriefSend({ live, personKey }: { live: boolean; personKey: Perso
     );
   }
   // An uploaded visitor has no sample brief for the server to send.
-  if (!personKey) return null;
+  if (!personKey) {
+    return (
+      <p data-brief-sample-only="" className="mt-6 text-sm text-sr-ink2">
+        {copy.send.sampleOnly}
+      </p>
+    );
+  }
 
   const submit = async () => {
     setStatus("sending");
@@ -29,9 +35,9 @@ export function BriefSend({ live, personKey }: { live: boolean; personKey: Perso
       const response = await fetch("/speedrun/api/brief", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, personKey }),
+        body: JSON.stringify({ email, personKey, connected }),
       });
-      setStatus(response.ok ? "sent" : "failed");
+      setStatus(response.ok ? "sent" : response.status === 429 ? "slow" : "failed");
       if (response.ok) setEmail("");
     } catch {
       setStatus("failed");
@@ -70,8 +76,9 @@ export function BriefSend({ live, personKey }: { live: boolean; personKey: Perso
         </button>
       </div>
       <p className="mt-2 text-xs text-sr-ink2">{copy.send.note}</p>
+      <p className="mt-1 text-xs text-sr-ink2">{copy.send.pastedNote}</p>
       <p data-brief-status="" role="status" className="mt-2 text-sm text-sr-ink">
-        {status === "sent" ? copy.send.sent : status === "failed" ? copy.send.failed : ""}
+        {status === "sent" ? copy.send.sent : status === "failed" ? copy.send.failed : status === "slow" ? copy.send.slowDown : ""}
       </p>
     </form>
   );

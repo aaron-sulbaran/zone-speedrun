@@ -1,14 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { handleBrief, sendWithResend, type BriefDeps } from "./briefHandler";
+import { handleBrief, MAX_BODY_BYTES, readCappedJson, sendWithResend, type BriefDeps } from "./briefHandler";
 import { createLimiter } from "./guard";
 
-const BODY = { email: "ada@example.com", personKey: "sam" };
+const BODY = { email: "ada@example.com", personKey: "sam", connected: true };
 
 function deps(over: Partial<BriefDeps> = {}): BriefDeps {
   return {
     live: true,
     isBot: async () => false,
     allow: () => ({ ok: true, retryAfterMs: 0 }),
+    allowIp: () => ({ ok: true, retryAfterMs: 0 }),
     send: vi.fn(async () => true),
     ...over,
   };
@@ -30,7 +31,7 @@ describe("handleBrief", () => {
   });
 
   it("400 bad_input for a bad address, an unknown person, or no body", async () => {
-    for (const body of [{ email: "nope", personKey: "sam" }, { email: "a@b.co", personKey: "you" }, { email: "a@b.co" }, null, "x"]) {
+    for (const body of [{ email: "nope", personKey: "sam", connected: true }, { email: "a@b.co", personKey: "you", connected: true }, { email: "a@b.co", personKey: "sam" }, null, "x"]) {
       const out = await handleBrief(body, deps());
       expect(out).toEqual({ status: 400, body: { error: "bad_input" } });
     }
@@ -43,11 +44,26 @@ describe("handleBrief", () => {
 
   it("keys the limiter on a digest, never the address itself", async () => {
     const allow = vi.fn(() => ({ ok: true, retryAfterMs: 0 }));
-    await handleBrief({ email: "Ada@Example.com", personKey: "sam" }, deps({ allow }));
-    await handleBrief({ email: "ada@example.com", personKey: "sam" }, deps({ allow }));
+    await handleBrief({ email: "Ada@Example.com", personKey: "sam", connected: true }, deps({ allow }));
+    await handleBrief({ email: "ada@example.com", personKey: "sam", connected: true }, deps({ allow }));
     const [first, second] = allow.mock.calls.map((call) => (call as unknown as [string])[0]);
     expect(first).toBe(second);
-    expect(first).not.toContain("ada");
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(first).not.toBe("ada@example.com");
+  });
+
+  it("429 when the caller's own address is over its limit, before the email limiter", async () => {
+    const allow = vi.fn(() => ({ ok: true, retryAfterMs: 0 }));
+    const out = await handleBrief(BODY, deps({ allow, allowIp: () => ({ ok: false, retryAfterMs: 9000 }) }));
+    expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 9000 } });
+    expect(allow).not.toHaveBeenCalled();
+  });
+
+  it("builds the same brief the page shows, using connected", async () => {
+    const send = vi.fn(async () => true);
+    await handleBrief({ ...BODY, connected: false }, deps({ send }));
+    const message = (send.mock.calls[0] as unknown as [{ subject: string }])[0];
+    expect(message.subject).toBe("Sam, nothing moved. that's fine.");
   });
 
   it("502 send_failed when the sender says no", async () => {
@@ -70,6 +86,25 @@ describe("handleBrief", () => {
     const run = () => handleBrief(BODY, deps({ allow: (key) => limit(key, 1000) }));
     expect([(await run()).status, (await run()).status, (await run()).status]).toEqual([200, 200, 200]);
     expect((await run()).status).toBe(429);
+  });
+});
+
+describe("readCappedJson", () => {
+  const post = (body: string, headers: Record<string, string> = {}) => new Request("http://x/", { method: "POST", body, headers });
+
+  it("parses a small body", async () => {
+    expect(await readCappedJson(post('{"a":1}'))).toEqual({ body: { a: 1 } });
+  });
+
+  it("refuses a declared length over the cap without reading", async () => {
+    expect(await readCappedJson(post("{}", { "content-length": String(MAX_BODY_BYTES + 1) }))).toEqual({ tooLarge: true });
+  });
+
+  it("stops reading a body over the cap even with no content-length", async () => {
+    const big = "x".repeat(MAX_BODY_BYTES * 4);
+    const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(big)); c.close(); } });
+    const request = new Request("http://x/", { method: "POST", body: stream, duplex: "half" } as RequestInit);
+    expect(await readCappedJson(request)).toEqual({ tooLarge: true });
   });
 });
 

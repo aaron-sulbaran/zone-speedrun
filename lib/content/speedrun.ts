@@ -330,7 +330,9 @@ export const speedrunCopy = {
     time: "8:02 am",
     subject: (name: string, count: number) => `${name}, ${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubject: (name: string) => `${name}, nothing moved. that's fine.`,
-    greeting: (name: string) => `Morning, ${name}.`,
+    subjectAnon: (count: number) => `${count} ${count === 1 ? "thing" : "things"} moved overnight`,
+    quietSubjectAnon: "Nothing moved. that's fine.",
+    greeting: (name: string) => (name ? `Morning, ${name}.` : "Morning."),
     quietBody: "Nothing moved overnight, so there is nothing to read. You will hear from us when something does.",
     needsInbox: "Connect your inbox above and the brief fills in from it.",
     channels: {
@@ -350,6 +352,7 @@ export const speedrunCopy = {
       reply: (company: string, role: string) => `${company} replied about ${role}.`,
       due: (what: string, company: string, when: string) => `${what} for ${company} is due ${when}.`,
       newRole: (title: string, company: string) => `${title} at ${company} posted overnight and fits you.`,
+      newThisWeek: (title: string, company: string) => `${title} at ${company} is new this week and fits you.`,
     },
     fallbackRole: "your application",
     dueWhat: "The assessment",
@@ -361,6 +364,9 @@ export const speedrunCopy = {
       off: "Email sending is off in this demo for now.",
       sent: "Sent. Check your inbox.",
       failed: "That didn't send. Nothing was stored.",
+      slowDown: "Too many sends just now. Try again later.",
+      pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
+      sampleOnly: "Only the sample briefs can be sent in this demo.",
     },
     footer:
       "You're getting this because you asked for it on aaronsulbaran.com/speedrun, a concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",

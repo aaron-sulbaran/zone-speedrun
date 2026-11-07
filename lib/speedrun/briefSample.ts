@@ -22,7 +22,7 @@ export function sampleBrief(key: PersonKey, options: Options = {}): Brief {
     today: INBOX_TODAY,
     pipeline: buildPipeline(events, INBOX_TODAY),
     result: options.result ?? rankMatches(person.profile, person.intake, getSnapshot()),
-    intros: introEvents(events).map((event) => event.company),
+    intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
   });
 }
 
@@ -34,6 +34,6 @@ export function visitorBrief(firstName: string, events: InboxEvent[], result: Ma
     today: INBOX_TODAY,
     pipeline: buildPipeline(events, INBOX_TODAY),
     result,
-    intros: introEvents(events).map((event) => event.company),
+    intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
   });
 }
