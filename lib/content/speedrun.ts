@@ -100,7 +100,32 @@ export const speedrunCopy = {
     stepWord: "Step",
   },
   build: {},
-  matches: {},
+  matches: {
+    fnLabels: {
+      engineering: "engineering",
+      ai: "AI",
+      product: "product",
+      design: "design",
+      data: "data",
+      operations: "operations",
+      founder: "founding roles",
+    },
+    reasons: {
+      fnTitle: (label: string, title: string) => `You asked for ${label}, and they are hiring ${title}.`,
+      fnCompany: (label: string, name: string) => `You asked for ${label}, and ${name} hires for it.`,
+      seniority: (listed: string) => `The role is listed as ${listed}, which fits where you are.`,
+      earlyCareer: "The title says it is open to people early in their career.",
+      city: (location: string, place: string) => `It is in ${location}, and you named ${place}.`,
+      companyCity: (location: string, place: string) => `They are based in ${location}, and you named ${place}.`,
+      remote: "It can be done remotely, and you said remote works.",
+      why: (phrase: string) => `You wrote "${phrase}", and the listing talks about the same things.`,
+      shipped: (item: string, word: string, where: string) => `You shipped ${item}, and ${where} mentions ${word}.`,
+      skillsTitle: (skills: string) => `Your ${skills} shows up in the title.`,
+      skillsExcerpt: (skills: string) => `Your ${skills} comes up in the role description.`,
+      skillsBlurb: (skills: string) => `Your ${skills} fits what the company builds.`,
+      aiBlurb: "The company works on AI, though the listing itself does not say so.",
+    },
+  },
   board: {
     next: {
       applied: "Wait for a reply",
