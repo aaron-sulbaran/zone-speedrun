@@ -12,7 +12,7 @@ const CODE = /\.(ts|tsx)$/;
 // Only client-side navigation is a problem: a next/link, an `href:` object key (which feeds one) or a router call.
 // A plain <a href="/speedrun"> is a full page load and is fine.
 const INTO_SPEEDRUN =
-  /(<Link\b[^>]*?\bhref\s*=\s*[{"'`]+\s*["'`]?\/speedrun(?![\w/-]*\/api)|\bhref\s*:\s*["'`]\/speedrun(?![\w/-]*\/api)|(?:push|replace|prefetch)\(\s*["'`]\/speedrun)/;
+  /(<Link\b(?:=>|[^>])*?\bhref\s*=\s*[{"'`]+\s*["'`]?\/speedrun(?![\w/-]*\/api)|\bhref\s*:\s*["'`]\/speedrun(?![\w/-]*\/api)|(?:push|replace|prefetch)\(\s*["'`]\/speedrun)/;
 
 function files(dir: string): string[] {
   return readdirSync(path.join(REPO_ROOT, dir)).flatMap((entry) => {
@@ -33,6 +33,7 @@ describe("entry into /speedrun", () => {
       "<Link href={'/speedrun'}>",
       '<Link\n  className="x"\n  href="/speedrun#join"\n>',
       'router.push("/speedrun")',
+      '<Link onClick={() => go()} href="/speedrun">',
       '{ label: "Demo", href: "/speedrun" }',
       "{ href: '/speedrun#join' }",
     ]) {
