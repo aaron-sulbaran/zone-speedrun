@@ -191,6 +191,14 @@ describe("each sample person's brief", () => {
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "reply"]);
   });
 
+  it("leads Ravi's brief with the take-home, ahead of the pass", () => {
+    const replies = sampleBrief("ravi").items.filter((item) => item.kind === "reply");
+    expect(replies.length).toBeGreaterThanOrEqual(2);
+    expect(replies[0].text.toLowerCase()).toContain("take-home");
+    const passAt = replies.findIndex((item) => /passed on/i.test(item.text));
+    expect(passAt).toBeGreaterThan(0);
+  });
+
   it("gives Dev a moved line from his founder lane", () => {
     const moved = sampleBrief("dev").items.filter((item) => !item.standing);
     expect(moved.some((item) => FOUNDER_ORGS.some((org) => item.text.startsWith(org)))).toBe(true);

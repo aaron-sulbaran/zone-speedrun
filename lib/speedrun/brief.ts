@@ -98,7 +98,8 @@ export function composeBrief(input: BriefInput): Brief {
   // A rejection is a reply too: someone wrote back, and it is better heard in the morning than found later.
   const fresh = pipeline.rows
     .filter((row) => row.exit !== "noreply" && (REPLY_STAGES.has(row.furthest) || row.exit === "rejected") && moved(row.lastEventAt))
-    .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
+    // What needs an answer (an offer, an interview, a call, a take-home) comes before a pass, newest first within each.
+    .sort((a, b) => Number(a.exit === "rejected") - Number(b.exit === "rejected") || b.lastEventAt.localeCompare(a.lastEventAt));
   for (const row of fresh) add(row.company, { kind: "reply", text: replyText(row), href: null });
 
   const role = pickRole(roles, cadence, since, until);
