@@ -11,27 +11,35 @@ const CASCADE_MS = 420;
 const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 
-export function Matches({ result }: { result: MatchResult }) {
+export function Matches({ result, focusHeading = false }: { result: MatchResult; focusHeading?: boolean }) {
   const copy = speedrunCopy.matches;
   const listRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (focusHeading) headingRef.current?.focus();
+    // Only the first paint decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
     const targets = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-founder-route], [data-match-card]") ?? [])];
-    targets.forEach((el, i) => {
+    const running = targets.map((el, i) =>
       el.animate(
         [
           { opacity: 0, transform: "translateY(10px) scale(.99)" },
           { opacity: 1, transform: "translateY(0) scale(1)" },
         ],
         { duration: CASCADE_MS, delay: Math.min(i, MAX_STAGGERED) * STAGGER_MS, easing: SR_EASE, fill: "backwards" },
-      );
-    });
+      ),
+    );
+    return () => running.forEach((animation) => animation.cancel());
   }, []);
 
   return (
     <section data-matches="" aria-labelledby="sr-matches-heading" className="mx-auto w-full max-w-3xl">
-      <h3 id="sr-matches-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
+      <h3 id="sr-matches-heading" ref={headingRef} tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-purple focus:outline-none">
         {copy.heading}
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>

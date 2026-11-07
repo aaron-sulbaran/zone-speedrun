@@ -110,11 +110,9 @@ export const speedrunCopy = {
     skip: "Skip",
     madeFor: (first: string) => `made for ${first}. no one else in the network gets this board.`,
     lines: {
-      answers: "reading your answers",
       targets: (targets: string) => `targets: ${targets}`,
       places: (places: string) => `places: ${places}`,
       why: (fragment: string) => `why: "${fragment}"`,
-      resume: "reading the resume",
       found: (skills: string) => `found: ${skills}`,
       scanning: (companies: number, roles: number) => `scanning ${companies} speedrun companies and ${roles} live roles`,
       fit: (afterFilters: number) => `${afterFilters} fit your answers`,
@@ -123,11 +121,11 @@ export const speedrunCopy = {
   },
   matches: {
     heading: "your first matches",
-    subhead: "The companies I'd put in front of you on day one, and why.",
+    subhead: "The companies we'd put in front of you on day one, and why.",
     connect: { intro: "Ask for a warm intro", apply: "Apply", follow: "Follow" },
     connectSheet: {
       intro: "The talent team would see your profile and this match, and reach out to the founder if it fits. Nothing is sent from this demo.",
-      apply: "Opens the role on the company's own careers page.",
+      apply: "Opens the role on the speedrun jobs board in a new tab.",
       follow: "You'd hear about it in your morning brief when they post something new.",
     },
     founder: {

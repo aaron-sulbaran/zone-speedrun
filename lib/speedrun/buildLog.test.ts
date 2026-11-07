@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeBuildLog } from "./buildLog";
+import { composeBuildLog, timingFor } from "./buildLog";
 import { rankMatches } from "./match";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
@@ -43,7 +43,31 @@ describe("composeBuildLog", () => {
   it("keeps the why fragment to 60 characters", () => {
     const { lines } = logFor("sam");
     const why = lines.find((l) => l.text.startsWith("why: "))!;
-    expect(why.text.length).toBeLessThanOrEqual(60 + 'why: ""'.length);
+    expect(why.text.length).toBeLessThanOrEqual(60 + 3 + 'why: ""'.length);
+    expect(why.text).toContain('..."');
+  });
+
+  it("lands the whole beat between 6 and 8 s for every sample person", () => {
+    for (const key of Object.keys(PEOPLE) as (keyof typeof PEOPLE)[]) {
+      const person = PEOPLE[key];
+      const result = rankMatches(person.profile, person.intake, getSnapshot());
+      const end = timingFor(composeBuildLog(person.intake, person.profile, result)).end;
+      expect(end, key).toBeGreaterThanOrEqual(6000);
+      expect(end, key).toBeLessThanOrEqual(8000);
+    }
+  });
+
+  it("still takes 6 s or more with empty answers", () => {
+    const { person, result } = logFor("sam");
+    const lines = composeBuildLog({ targets: [], places: [], why: "" }, person.profile, result);
+    expect(timingFor(lines).end).toBeGreaterThanOrEqual(6000);
+  });
+
+  it("never shows a single skill", () => {
+    const { person, result } = logFor("sam");
+    const one = { ...person.profile, skills: ["Go"] };
+    const lines = composeBuildLog(person.intake, one, result);
+    expect(lines.some((l) => l.text.startsWith("found:"))).toBe(false);
   });
 
   it("skips lines for answers the visitor left empty", () => {

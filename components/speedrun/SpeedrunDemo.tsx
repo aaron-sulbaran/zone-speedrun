@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { composeBuildLog } from "@/lib/speedrun/buildLog";
 import { demoReducer, initialDemoState, MAX_PLACES, type Live } from "@/lib/speedrun/demoState";
+import { prefersReducedMotion } from "@/lib/speedrun/motion";
 import type { MatchResult } from "@/lib/speedrun/match";
 import type { Intake, Profile } from "@/lib/speedrun/types";
 import { BuildLog } from "./act2/BuildLog";
@@ -28,6 +29,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [loggedFor, setLoggedFor] = useState<MatchResult | null>(null);
+  const [skippedLog, setSkippedLog] = useState(false);
   const { step, personKey, intake, profile, result } = state;
   // A failure belongs to one build (person and attempt), so a new build starts clean.
   const buildKey = `${personKey}:${attempt}`;
@@ -58,10 +60,21 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
       <div className="px-6 pb-24">
         {step === "join" && <JoinCard state={state} dispatch={dispatch} />}
         {step === "building" && <BuildPlaceholder step="building" failed={failed} onRetry={retry} />}
-        {step === "ready" && result && !logDone && <BuildLog lines={lines} onDone={() => setLoggedFor(result)} />}
+        {/* Reduced motion keeps the finished log above the matches, so the answers stay readable. */}
+        {step === "ready" && result && (!logDone || prefersReducedMotion()) && (
+          <div className={logDone ? "mb-16" : undefined}>
+            <BuildLog
+              lines={lines}
+              onDone={(skipped) => {
+                setSkippedLog(skipped);
+                setLoggedFor(result);
+              }}
+            />
+          </div>
+        )}
         {step === "ready" && result && logDone && (
           <div className="space-y-16">
-            <Matches result={result} />
+            <Matches result={result} focusHeading={skippedLog} />
             <Board state={state} dispatch={dispatch} />
             {/* Slots for the morning brief and the decisions. */}
             <div data-slot="brief" />

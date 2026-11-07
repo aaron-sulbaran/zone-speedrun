@@ -2,40 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { speedrunCopy } from "@/lib/content";
-import type { BuildLine } from "@/lib/speedrun/buildLog";
+import { BAR_FILL_MS, timingFor, type BuildLine } from "@/lib/speedrun/buildLog";
 import { prefersReducedMotion } from "@/lib/speedrun/motion";
 
-const CHARS_PER_SECOND = 30;
-const MADE_CHARS_PER_SECOND = 45;
 const FADE_MS = 160;
-const BAR_DELAY_MS = 150;
-const BAR_FILL_MS = 700;
-const HOLD_MS = 600;
-const SLOT_PAD_MS = 80;
 
-type Timing = { typeMs: number[]; barStart: number; barEnd: number; end: number };
-
-function timingFor(lines: BuildLine[]): Timing {
-  const typeMs = lines.map((line, i) => {
-    const natural = (line.text.length / (line.tone === "made" ? MADE_CHARS_PER_SECOND : CHARS_PER_SECOND)) * 1000;
-    const next = lines[i + 1];
-    return next ? Math.min(natural, Math.max(120, next.at - line.at - SLOT_PAD_MS)) : natural;
-  });
-  const last = lines.length - 1;
-  const barStart = last < 0 ? 0 : lines[last].at + typeMs[last] + BAR_DELAY_MS;
-  const barEnd = barStart + BAR_FILL_MS;
-  return { typeMs, barStart, barEnd, end: barEnd + HOLD_MS };
-}
-
-const shown = (line: BuildLine, typeMs: number, elapsed: number) => {
+const shown = (line: BuildLine, elapsed: number) => {
+  const { typeMs } = line;
   const progress = typeMs <= 0 ? 1 : Math.min(1, Math.max(0, (elapsed - line.at) / typeMs));
   return line.text.slice(0, Math.ceil(line.text.length * progress));
 };
 
-export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: () => void }) {
+export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: (skipped: boolean) => void }) {
   const copy = speedrunCopy.build;
   const timing = timingFor(lines);
   const [elapsed, setElapsed] = useState(() => (prefersReducedMotion() ? timing.end : 0));
+  const skippedRef = useRef(false);
   const doneRef = useRef(onDone);
   useEffect(() => {
     doneRef.current = onDone;
@@ -50,19 +32,18 @@ export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: () => 
       frame = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(frame);
-    // The clock restarts only if the lines change.
+    // The clock starts once and runs until the beat ends.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, timing.end]);
 
   useEffect(() => {
-    if (finished) doneRef.current();
+    if (finished) doneRef.current(skippedRef.current);
   }, [finished]);
 
   const terminal = lines.map((line, i) => ({ line, i })).filter(({ line }) => line.tone !== "made");
   const made = lines.find((line) => line.tone === "made");
-  const madeIndex = lines.findIndex((line) => line.tone === "made");
   const barWidth = Math.min(1, Math.max(0, (elapsed - timing.barStart) / BAR_FILL_MS));
-  const typingIndex = lines.findIndex((line, i) => elapsed < line.at + timing.typeMs[i]);
+  const typingIndex = lines.findIndex((line) => elapsed < line.at + line.typeMs);
 
   return (
     <section data-build-log="" aria-label={copy.label} className="mx-auto w-full max-w-2xl">
@@ -71,7 +52,10 @@ export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: () => 
         {!finished && (
           <button
             type="button"
-            onClick={() => setElapsed(timing.end)}
+            onClick={() => {
+              skippedRef.current = true;
+              setElapsed(timing.end);
+            }}
             className="rounded-full px-3 py-1 font-srcond text-xs uppercase tracking-widest text-sr-ink2 transition-colors duration-200 hover:text-sr-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple"
           >
             {copy.skip}
@@ -91,7 +75,7 @@ export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: () => 
           return (
             <p key={line.at} className="break-words" style={{ opacity, transform: `translateY(${lift}px)` }}>
               <span className="text-sr-aqua">&gt; </span>
-              {shown(line, timing.typeMs[i], elapsed)}
+              {shown(line, elapsed)}
               {typingIndex === i && <Cursor />}
             </p>
           );
@@ -101,7 +85,7 @@ export function BuildLog({ lines, onDone }: { lines: BuildLine[]; onDone: () => 
       {made && elapsed >= made.at && (
         <div className="mt-6" data-made-for="">
           <p aria-hidden="true" className="text-xl font-semibold leading-snug md:text-2xl">
-            {shown(made, timing.typeMs[madeIndex], elapsed)}
+            {shown(made, elapsed)}
           </p>
           <div className="mt-4 h-1 overflow-hidden rounded-full bg-sr-soft" role="presentation">
             <div className="h-full rounded-full" style={{ width: `${barWidth * 100}%`, backgroundImage: "var(--sr-grad-accent)" }} />

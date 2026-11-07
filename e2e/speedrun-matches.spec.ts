@@ -47,5 +47,27 @@ test.describe("reduced motion", () => {
   test("the matches appear without waiting out the log", async ({ page }) => {
     await joinAs(page, "sam");
     await expect(page.locator("[data-match-card]").first()).toBeVisible({ timeout: 3000 });
+    await expect(page.locator("[data-made-for]")).toContainText("made for Sam");
   });
+});
+
+test("Apply opens the real role without agent tracking", async ({ page }) => {
+  await joinAs(page, "sam");
+  await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
+  const apply = page.locator("[data-match-card]").getByRole("link", { name: speedrunCopy.matches.connect.apply }).first();
+  await expect(apply).toBeVisible();
+  expect(await apply.getAttribute("href")).not.toContain("utm_medium=agent");
+  await expect(apply).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(apply).toHaveAttribute("target", "_blank");
+});
+
+test("Escape closes the connect sheet and keeps focus on its button", async ({ page }) => {
+  await joinAs(page, "sam");
+  await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
+  const follow = page.locator("[data-match-card]").first().getByRole("button", { name: speedrunCopy.matches.connect.follow });
+  await follow.click();
+  await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
+  await expect(follow).toBeFocused();
 });
