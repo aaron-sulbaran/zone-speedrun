@@ -1,5 +1,5 @@
 import { introEvents } from "./board";
-import { composeBrief, type Brief } from "./brief";
+import { composeBrief, type Brief, type BriefRole } from "./brief";
 import { classifyEmail } from "./classify";
 import { generateInbox, INBOX_TODAY } from "./inbox";
 import { rankMatches, type MatchResult } from "./match";
@@ -8,32 +8,49 @@ import { buildPipeline } from "./pipeline";
 import { getSnapshot } from "./snapshot";
 import type { InboxEvent, PersonKey } from "./types";
 
-type Options = { connected?: boolean; extraEvents?: InboxEvent[]; result?: MatchResult };
+export const MAX_ROLE_IDS = 6;
 
-/** A sample person's brief, built from their made-up inbox and the same matcher the page uses. */
+/** Roles by id from the snapshot, in the order given. Unknown ids are dropped, so a request cannot invent a role. */
+export function rolesFromIds(ids: string[]): BriefRole[] {
+  const byId = new Map(getSnapshot().roles.map((role) => [role.id, role]));
+  return ids.slice(0, MAX_ROLE_IDS).flatMap((id) => {
+    const role = byId.get(id);
+    return role ? [role] : [];
+  });
+}
+
+/** The ids the brief request carries: the top roles on the visitor's own matches. */
+export function roleIdsOf(result: MatchResult): string[] {
+  return result.matches.flatMap((match) => (match.role ? [match.role.id] : [])).slice(0, MAX_ROLE_IDS);
+}
+
+type Options = { connected?: boolean; extraEvents?: InboxEvent[]; roleIds?: string[] };
+
+/** A sample person's brief from their made-up inbox. Without `roleIds` it ranks with the person's own intake (tests only). */
 export function sampleBrief(key: PersonKey, options: Options = {}): Brief {
   const person = PEOPLE[key];
   const connected = options.connected ?? true;
   const events = connected ? [...generateInbox(person).map(classifyEmail), ...(options.extraEvents ?? [])] : [];
+  const roleIds = options.roleIds ?? roleIdsOf(rankMatches(person.profile, person.intake, getSnapshot()));
   return composeBrief({
     personKey: key,
     firstName: person.profile.firstName,
     cadence: person.cadence,
     today: INBOX_TODAY,
     pipeline: buildPipeline(events, INBOX_TODAY),
-    result: options.result ?? rankMatches(person.profile, person.intake, getSnapshot()),
+    roles: rolesFromIds(roleIds),
     intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
   });
 }
 
 /** The brief for someone who uploaded their own resume: no sample inbox, only what they pasted. */
-export function visitorBrief(firstName: string, events: InboxEvent[], result: MatchResult): Brief {
+export function visitorBrief(firstName: string, events: InboxEvent[], roleIds: string[]): Brief {
   return composeBrief({
     firstName,
     cadence: "daily",
     today: INBOX_TODAY,
     pipeline: buildPipeline(events, INBOX_TODAY),
-    result,
+    roles: rolesFromIds(roleIds),
     intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
   });
 }

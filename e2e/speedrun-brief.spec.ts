@@ -20,7 +20,7 @@ test("the brief previews as an email with the first name in its subject", async 
   await joinAs(page, "sam");
   const subject = page.locator("[data-brief-subject]");
   await expect(subject).toContainText("Sam");
-  await expect(subject).toHaveText(/things? moved overnight/);
+  await expect(subject).toContainText(COPY.nothingNew("Sam"));
   await expect(page.locator("[data-brief-item]").first()).toHaveAttribute("data-brief-item", "intro");
 });
 

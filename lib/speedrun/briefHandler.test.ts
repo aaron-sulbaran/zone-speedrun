@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleBrief, MAX_BODY_BYTES, readCappedJson, sendWithResend, type BriefDeps } from "./briefHandler";
 import { createLimiter } from "./guard";
+import { getSnapshot } from "./snapshot";
 
-const BODY = { email: "ada@example.com", personKey: "sam", connected: true };
+const BODY = { email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] };
 
 function deps(over: Partial<BriefDeps> = {}): BriefDeps {
   return {
@@ -31,7 +32,7 @@ describe("handleBrief", () => {
   });
 
   it("400 bad_input for a bad address, an unknown person, or no body", async () => {
-    for (const body of [{ email: "nope", personKey: "sam", connected: true }, { email: "a@b.co", personKey: "you", connected: true }, { email: "a@b.co", personKey: "sam" }, null, "x"]) {
+    for (const body of [{ email: "nope", personKey: "sam", connected: true, roleIds: [] }, { email: "a@b.co", personKey: "you", connected: true, roleIds: [] }, { email: "a@b.co", personKey: "sam", connected: true }, { ...BODY, roleIds: ["1", "2", "3", "4", "5", "6", "7"] }, null, "x"]) {
       const out = await handleBrief(body, deps());
       expect(out).toEqual({ status: 400, body: { error: "bad_input" } });
     }
@@ -44,8 +45,8 @@ describe("handleBrief", () => {
 
   it("keys the limiter on a digest, never the address itself", async () => {
     const allow = vi.fn(() => ({ ok: true, retryAfterMs: 0 }));
-    await handleBrief({ email: "Ada@Example.com", personKey: "sam", connected: true }, deps({ allow }));
-    await handleBrief({ email: "ada@example.com", personKey: "sam", connected: true }, deps({ allow }));
+    await handleBrief({ email: "Ada@Example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
+    await handleBrief({ email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
     const [first, second] = allow.mock.calls.map((call) => (call as unknown as [string])[0]);
     expect(first).toBe(second);
     expect(first).toMatch(/^[0-9a-f]{64}$/);
@@ -64,6 +65,22 @@ describe("handleBrief", () => {
     await handleBrief({ ...BODY, connected: false }, deps({ send }));
     const message = (send.mock.calls[0] as unknown as [{ subject: string }])[0];
     expect(message.subject).toBe("Sam, nothing moved. that's fine.");
+  });
+
+  it("takes the role from the request's ids, and drops unknown ones", async () => {
+    const send = vi.fn(async () => true);
+    const first = getSnapshot().roles.find((r) => r.tier === "speedrun")!;
+    await handleBrief({ ...BODY, connected: false, roleIds: ["unknown-id", first.id] }, deps({ send }));
+    const message = (send.mock.calls[0] as unknown as [{ text: string }])[0];
+    expect(message.text).toContain(`${first.title} at ${first.company}`);
+    await handleBrief({ ...BODY, connected: false, roleIds: ["unknown-id"] }, deps({ send }));
+    const bare = (send.mock.calls[1] as unknown as [{ text: string }])[0];
+    expect(bare.text).not.toContain("fits you");
+  });
+
+  it("keeps a full request under the body cap", () => {
+    const body = JSON.stringify({ email: `${"a".repeat(240)}@example.com`, personKey: "sam", connected: true, roleIds: Array(6).fill("e1e241c5-bba0-67c9-13ed-8770b02ec398") });
+    expect(new TextEncoder().encode(body).byteLength).toBeLessThan(MAX_BODY_BYTES);
   });
 
   it("502 send_failed when the sender says no", async () => {

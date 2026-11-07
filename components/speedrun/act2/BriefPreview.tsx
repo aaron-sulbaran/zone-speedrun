@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { briefSubject } from "@/lib/speedrun/brief";
-import { sampleBrief, visitorBrief } from "@/lib/speedrun/briefSample";
+import { roleIdsOf, sampleBrief, visitorBrief } from "@/lib/speedrun/briefSample";
 import type { DemoState } from "@/lib/speedrun/demoState";
 import { BriefSend } from "./BriefSend";
 
@@ -18,11 +18,13 @@ export function BriefPreview({ state }: { state: DemoState }) {
   const [channel, setChannel] = useState<Channel>("email");
   const firstName = profile?.firstName ?? "";
 
+  // The role line comes from the visitor's own matches, the same ids the sent email is built from.
+  const roleIds = useMemo(() => (result ? roleIdsOf(result) : []), [result]);
   const brief = useMemo(() => {
     if (!result) return null;
-    if (personKey) return sampleBrief(personKey, { connected, extraEvents: connected ? pasted : [] });
-    return visitorBrief(firstName, connected ? pasted : [], result);
-  }, [personKey, connected, pasted, result, firstName]);
+    if (personKey) return sampleBrief(personKey, { connected, extraEvents: connected ? pasted : [], roleIds });
+    return visitorBrief(firstName, connected ? pasted : [], roleIds);
+  }, [personKey, connected, pasted, result, firstName, roleIds]);
   if (!brief || !profile) return null;
 
   const subject = briefSubject(brief, firstName);
@@ -98,7 +100,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
         <p className="mt-3 text-sm text-sr-ink2">{copy.channelNote}</p>
       </div>
 
-      {channel === "email" && <BriefSend live={live.email} personKey={personKey} connected={connected} />}
+      {channel === "email" && <BriefSend live={live.email} personKey={personKey} connected={connected} roleIds={roleIds} />}
     </section>
   );
 }

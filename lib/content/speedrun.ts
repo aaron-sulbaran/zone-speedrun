@@ -337,6 +337,9 @@ export const speedrunCopy = {
     quietSubject: (name: string) => `${name}, nothing moved. that's fine.`,
     subjectAnon: (count: number) => `${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubjectAnon: "Nothing moved. that's fine.",
+    nothingNew: (name: string) => (name ? `${name}, nothing new overnight.` : "Nothing new overnight."),
+    stillOpen: { intro: "one intro still open.", due: "one deadline coming up.", "new-role": "one role worth a look.", reply: "one reply to answer." },
+    stillOpenMany: (count: number) => `${count} things still open.`,
     greeting: (name: string) => (name ? `Morning, ${name}.` : "Morning."),
     quietBody: "Nothing moved overnight, so there is nothing to read. You will hear from us when something does.",
     needsInbox: "Connect your inbox above and the brief fills in from it.",
@@ -358,6 +361,8 @@ export const speedrunCopy = {
       due: (what: string, company: string, when: string) => `${what} for ${company} is due ${when}.`,
       newRole: (title: string, company: string) => `${title} at ${company} posted overnight and fits you.`,
       newThisWeek: (title: string, company: string) => `${title} at ${company} is new this week and fits you.`,
+      openRole: (title: string, company: string) => `${title} at ${company} is open and fits you.`,
+      introStanding: (company: string) => `Still waiting on a time with a founder at ${company}.`,
     },
     fallbackRole: "your application",
     dueWhat: "The assessment",
@@ -375,7 +380,6 @@ export const speedrunCopy = {
     },
     footer:
       "You're getting this because you asked for it on aaronsulbaran.com/speedrun, a concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",
-    logoAlt: "speedrun",
   },
   decisions: {
     eyebrow: "Product decisions",

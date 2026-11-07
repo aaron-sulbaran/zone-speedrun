@@ -1,16 +1,20 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
-import type { MatchResult } from "./match";
+import type { SnapshotRole } from "./snapshot";
 import type { Person, PersonKey, Pipeline } from "./types";
 
 /** `standing` items are worth a line but did not change overnight, so the subject does not count them. */
 export type BriefItem = { kind: "reply" | "new-role" | "due" | "intro"; text: string; href: string | null; standing?: boolean };
 export type Brief = { personKey: PersonKey | "you"; date: string; cadence: Person["cadence"]; items: BriefItem[] };
 
+/** The few role fields the brief reads; the page and the server both build these from the snapshot by id. */
+export type BriefRole = Pick<SnapshotRole, "id" | "title" | "company" | "tier" | "postedAt" | "url">;
+
 export type BriefInput = {
   firstName: string;
   cadence: Person["cadence"];
   pipeline: Pipeline;
-  result: MatchResult;
+  /** The visitor's top matched roles in rank order. */
+  roles: BriefRole[];
   /** ISO date of the morning the brief goes out. */
   today: string;
   /** Founders who wrote back, most recent first. */
@@ -31,9 +35,27 @@ function safeHref(href: string | null): string | null {
   return href && /^https:\/\//i.test(href) ? href : null;
 }
 
+const WEEK_MS = 7 * DAY_MS;
+
+/** One role line from the ranked list: speedrun tier only, never one dated after the brief goes out. */
+export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: number, until: number): { company: string; item: BriefItem } | null {
+  const posted = (role: BriefRole) => Date.parse(role.postedAt);
+  const eligible = roles.filter((role) => role.tier === "speedrun" && posted(role) < until);
+  const overnight = eligible.find((role) => posted(role) >= since);
+  if (overnight) {
+    return { company: overnight.company, item: { kind: "new-role", text: copy.items.newRole(overnight.title, overnight.company), href: safeHref(overnight.url) } };
+  }
+  if (cadence === "on-change") return null;
+  const [freshest] = [...eligible].sort((a, b) => posted(b) - posted(a));
+  if (!freshest) return null;
+  const thisWeek = posted(freshest) >= until - WEEK_MS;
+  const text = thisWeek ? copy.items.newThisWeek(freshest.title, freshest.company) : copy.items.openRole(freshest.title, freshest.company);
+  return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(freshest.url), standing: true } };
+}
+
 /** Only what changed since yesterday's midnight. A quiet night gives an empty list on purpose. */
 export function composeBrief(input: BriefInput): Brief {
-  const { pipeline, result, cadence, today } = input;
+  const { pipeline, roles, cadence, today } = input;
   const since = dayStart(today) - DAY_MS;
   const items: BriefItem[] = [];
   const seen = new Set<string>();
@@ -44,9 +66,15 @@ export function composeBrief(input: BriefInput): Brief {
     items.push(item);
   };
 
-  // Someone who wants a note only on change hears about an intro only if it landed overnight.
-  const intro = (input.intros ?? []).find((entry) => cadence !== "on-change" || Date.parse(entry.date) >= since);
-  if (intro) add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null });
+  const until = dayStart(today) + DAY_MS;
+  // An intro that landed overnight is news. An older one is a standing line for daily readers and nothing for on-change readers.
+  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until && (cadence !== "on-change" || Date.parse(entry.date) >= since));
+  if (intro) {
+    const overnight = Date.parse(intro.date) >= since;
+    add(intro.company, overnight
+      ? { kind: "intro", text: copy.items.intro(intro.company), href: null }
+      : { kind: "intro", text: copy.items.introStanding(intro.company), href: null, standing: true });
+  }
 
   const open = pipeline.rows.filter((row) => row.exit === "open");
   const fresh = open
@@ -65,31 +93,8 @@ export function composeBrief(input: BriefInput): Brief {
     if (row) add(row.company, { kind: "due", text: copy.items.due(copy.dueWhat, row.company, copy.dueWhen), href: null, standing: true });
   }
 
-  const until = dayStart(today) + DAY_MS;
-  const fresh_ = result.matches.filter((m) => {
-    const posted = m.role ? Date.parse(m.role.postedAt) : NaN;
-    return m.role && posted >= since && posted < until;
-  });
-  for (const match of fresh_) {
-    const role = match.role;
-    if (!role) continue;
-    add(match.company.name, { kind: "new-role", text: copy.items.newRole(role.title, match.company.name), href: safeHref(role.url) });
-  }
-  // The demo's snapshot is a few weeks old, so a daily reader still gets the freshest speedrun role, said plainly.
-  if (cadence !== "on-change" && !items.some((item) => item.kind === "new-role")) {
-    const speedrun = result.matches
-      .filter((m) => m.role?.tier === "speedrun" && !seen.has(m.company.name.toLowerCase()))
-      .sort((a, b) => Date.parse(b.role?.postedAt ?? "") - Date.parse(a.role?.postedAt ?? ""));
-    const best = speedrun[0];
-    if (best?.role) {
-      add(best.company.name, {
-        kind: "new-role",
-        text: copy.items.newThisWeek(best.role.title, best.company.name),
-        href: safeHref(best.role.url),
-        standing: true,
-      });
-    }
-  }
+  const role = pickRole(roles, cadence, since, until);
+  if (role) add(role.company, role.item);
 
   const order: BriefItem["kind"][] = ["intro", "reply", "due", "new-role"];
   items.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
@@ -101,6 +106,10 @@ const escapeHtml = (value: string) =>
 
 export function briefSubject(brief: Brief, firstName: string): string {
   const moved = brief.items.filter((item) => !item.standing).length;
+  if (moved === 0 && brief.items.length > 0) {
+    const tail = brief.items.length === 1 ? copy.stillOpen[brief.items[0].kind] : copy.stillOpenMany(brief.items.length);
+    return `${copy.nothingNew(firstName)} ${tail}`;
+  }
   if (moved === 0) return firstName ? copy.quietSubject(firstName) : copy.quietSubjectAnon;
   return firstName ? copy.subject(firstName, moved) : copy.subjectAnon(moved);
 }

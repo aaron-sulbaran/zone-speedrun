@@ -9,7 +9,7 @@ type Status = "idle" | "sending" | "sent" | "failed" | "slow";
 
 // With sending off there is no input at all, so no address is ever collected.
 // The address lives in this field until the request goes out, then is cleared.
-export function BriefSend({ live, personKey, connected }: { live: boolean; personKey: PersonKey | null; connected: boolean }) {
+export function BriefSend({ live, personKey, connected, roleIds }: { live: boolean; personKey: PersonKey | null; connected: boolean; roleIds: string[] }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
@@ -35,7 +35,7 @@ export function BriefSend({ live, personKey, connected }: { live: boolean; perso
       const response = await fetch("/speedrun/api/brief", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, personKey, connected }),
+        body: JSON.stringify({ email, personKey, connected, roleIds }),
       });
       setStatus(response.ok ? "sent" : response.status === 429 ? "slow" : "failed");
       if (response.ok) setEmail("");

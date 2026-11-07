@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { renderBriefEmail } from "./brief";
-import { sampleBrief } from "./briefSample";
+import { MAX_ROLE_IDS, sampleBrief } from "./briefSample";
 import type { LimitVerdict } from "./guard";
 import { PEOPLE } from "./people";
 import { PERSON_KEYS } from "./types";
@@ -10,6 +10,8 @@ const bodySchema = z.object({
   email: z.string().trim().min(3).max(254).email(),
   personKey: z.enum(PERSON_KEYS),
   connected: z.boolean(),
+  /** The visitor's top matched role ids; unknown ids are dropped when the brief is built. */
+  roleIds: z.array(z.string().max(64)).max(MAX_ROLE_IDS),
 });
 
 export type BriefError = "email_off" | "bot" | "bad_input" | "too_large" | "slow_down" | "send_failed";
@@ -40,7 +42,7 @@ export async function handleBrief(body: unknown, deps: BriefDeps): Promise<Brief
   if (await deps.isBot()) return fail(403, "bot");
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return fail(400, "bad_input");
-  const { email, personKey, connected } = parsed.data;
+  const { email, personKey, connected, roleIds } = parsed.data;
 
   const ipVerdict = deps.allowIp();
   if (!ipVerdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: ipVerdict.retryAfterMs } };
@@ -49,7 +51,7 @@ export async function handleBrief(body: unknown, deps: BriefDeps): Promise<Brief
   const verdict = deps.allow(digest);
   if (!verdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: verdict.retryAfterMs } };
 
-  const rendered = renderBriefEmail(sampleBrief(personKey, { connected }), PEOPLE[personKey].profile.firstName);
+  const rendered = renderBriefEmail(sampleBrief(personKey, { connected, roleIds }), PEOPLE[personKey].profile.firstName);
   const sent = await deps.send({ to: email, subject: rendered.subject, html: rendered.html, text: rendered.text });
   return sent ? { status: 200, body: { sent: true } } : fail(502, "send_failed");
 }
