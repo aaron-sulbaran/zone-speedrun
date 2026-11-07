@@ -1,0 +1,104 @@
+import type { MatchResult } from "./match";
+import { PEOPLE } from "./people";
+import type { BoardCard, InboxEvent, Intake, PersonKey, Profile } from "./types";
+
+export type Live = { reading: boolean; email: boolean };
+
+export type DemoState = {
+  step: "join" | "building" | "ready";
+  joinStep: 0 | 1 | 2 | 3;
+  intake: Intake;
+  personKey: PersonKey | null;
+  profile: Profile | null;
+  result: MatchResult | null;
+  events: InboxEvent[];
+  boardOrder: BoardCard[];
+  hidden: BoardCard[];
+  live: Live;
+};
+
+export type DemoAction =
+  | { type: "answer"; patch: Partial<Intake> }
+  | { type: "next" }
+  | { type: "back" }
+  | { type: "pickPerson"; key: PersonKey }
+  | { type: "uploaded"; profile: Profile }
+  | { type: "built"; profile: Profile; result: MatchResult }
+  | { type: "addEvents"; events: InboxEvent[] }
+  | { type: "moveCard"; card: BoardCard; to: number }
+  | { type: "toggleCard"; card: BoardCard }
+  | { type: "reset" };
+
+export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "matches", "pipeline", "flow", "intros", "tools"];
+
+export function initialDemoState(live: Live): DemoState {
+  return {
+    step: "join",
+    joinStep: 0,
+    intake: { targets: [], places: [], why: "" },
+    personKey: null,
+    profile: null,
+    result: null,
+    events: [],
+    boardOrder: [...DEFAULT_BOARD_ORDER],
+    hidden: [],
+    live,
+  };
+}
+
+function hasAnswers(intake: Intake) {
+  return intake.targets.length > 0 || intake.places.length > 0 || intake.why.trim().length > 0;
+}
+
+export function demoReducer(state: DemoState, action: DemoAction): DemoState {
+  switch (action.type) {
+    case "answer":
+      return { ...state, intake: { ...state.intake, ...action.patch } };
+    case "next":
+      return { ...state, joinStep: Math.min(3, state.joinStep + 1) as DemoState["joinStep"] };
+    case "back":
+      return { ...state, joinStep: Math.max(0, state.joinStep - 1) as DemoState["joinStep"] };
+    case "pickPerson": {
+      const person = PEOPLE[action.key];
+      return {
+        ...state,
+        step: "building",
+        personKey: action.key,
+        intake: hasAnswers(state.intake) ? state.intake : person.intake,
+        profile: null,
+        result: null,
+        boardOrder: [...person.boardOrder],
+        hidden: [],
+      };
+    }
+    case "uploaded":
+      return { ...state, step: "building", personKey: null, profile: action.profile, result: null };
+    case "built":
+      return { ...state, step: "ready", profile: action.profile, result: action.result };
+    case "addEvents":
+      return { ...state, events: [...state.events, ...action.events] };
+    case "moveCard": {
+      if (!state.boardOrder.includes(action.card)) return state;
+      const rest = state.boardOrder.filter((card) => card !== action.card);
+      const to = Math.max(0, Math.min(rest.length, action.to));
+      return { ...state, boardOrder: [...rest.slice(0, to), action.card, ...rest.slice(to)] };
+    }
+    case "toggleCard": {
+      if (state.boardOrder.includes(action.card)) {
+        return {
+          ...state,
+          boardOrder: state.boardOrder.filter((card) => card !== action.card),
+          hidden: [...state.hidden, action.card],
+        };
+      }
+      if (!state.hidden.includes(action.card)) return state;
+      return {
+        ...state,
+        boardOrder: [...state.boardOrder, action.card],
+        hidden: state.hidden.filter((card) => card !== action.card),
+      };
+    }
+    case "reset":
+      return initialDemoState(state.live);
+  }
+}

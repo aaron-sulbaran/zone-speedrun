@@ -29,6 +29,8 @@ export const speedrunCopy = {
     flowTitle: "My fall search as a flow from applications to offers",
     lanes: { internship: "Internship", coop: "Co-op", fulltime: "Full-time", fellowship: "Fellowship" },
     rowsLabel: "A few rows from the dashboard",
+    lanesInline: { internship: "internship", coop: "co-op", fulltime: "full-time", fellowship: "fellowship" },
+    rowSeparators: { detail: ", ", status: " \u00b7 " },
   },
   shift: {
     turnLine1: "I'm not building this for me.",
@@ -79,7 +81,8 @@ export const speedrunCopy = {
     connect: {
       gmail: "Connect Gmail",
       calendar: "Connect Calendar",
-      connected: "Connected",
+      connectedGmail: "Gmail connected",
+      connectedCalendar: "Calendar connected",
       connectNote:
         "In production this reads your inbox and calendar, read-only, and never sends as you. In this demo it loads the sample person's inbox.",
     },
@@ -140,7 +143,6 @@ export const speedrunCopy = {
   close: {},
   flow: {
     lanes: { jobs: "Job search", founder: "Founder lane" },
-    hub: "Applications",
     stages: {
       applied: "Applied",
       assessment: "Assessment",
@@ -149,7 +151,7 @@ export const speedrunCopy = {
       offer: "Offer",
     },
     exits: { rejected: "Rejected", noreply: "No reply", open: "Still open" },
-    tableHead: { step: "Step", count: "Applications" },
+    tableHead: { stage: "Stage", reached: "Reached", track: "Track", count: "Applications" },
   },
   people: {
     maya: {

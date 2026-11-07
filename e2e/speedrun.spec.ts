@@ -72,3 +72,35 @@ test("act 1 shows the headline, the applications stat and a flow chart", async (
   const links = page.locator('[data-act="1"] svg path.flow-link');
   expect(await links.count()).toBeGreaterThanOrEqual(8);
 });
+
+test.describe("act 2 join card", () => {
+  test("Enter advances the join steps", async ({ page }) => {
+    await page.goto("/speedrun");
+    const card = page.locator("#join");
+    await card.scrollIntoViewIfNeeded();
+    await expect(card.getByRole("heading", { name: speedrunCopy.join.steps.targets.question })).toBeVisible();
+    await card.getByRole("button", { name: speedrunCopy.join.targetLabels.design }).click();
+    await page.keyboard.press("Enter");
+    await expect(card.getByRole("heading", { name: speedrunCopy.join.steps.places.question })).toBeVisible();
+    await card.getByRole("button", { name: "Remote" }).click();
+    await page.keyboard.press("Enter");
+    await expect(card.getByRole("heading", { name: speedrunCopy.join.steps.why.question })).toBeVisible();
+    await expect(card.getByLabel(speedrunCopy.join.steps.why.inputLabel)).toBeFocused();
+    await page.keyboard.type("Build things.");
+    await page.keyboard.press("Enter");
+    await expect(card.getByRole("heading", { name: speedrunCopy.join.steps.resume.question })).toBeVisible();
+    await expect(card.getByText(speedrunCopy.join.nothingSent)).toBeVisible();
+    await expect(card.locator('[data-affiliation="inline"]')).toBeVisible();
+  });
+
+  test("pick a sample person reaches the board", async ({ page }) => {
+    await page.goto("/speedrun");
+    const card = page.locator("#join");
+    await card.scrollIntoViewIfNeeded();
+    for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
+    await card.locator('[data-person="dev"]').click();
+    await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
+    await expect(page.locator("[data-demo]")).toHaveAttribute("data-step", /^(building|ready)$/);
+    await expect(page.locator("[data-demo]")).toHaveAttribute("data-step", "ready", { timeout: 10_000 });
+  });
+});
