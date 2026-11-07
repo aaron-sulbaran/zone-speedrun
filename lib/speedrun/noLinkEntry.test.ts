@@ -7,9 +7,12 @@ import { describe, expect, it } from "vitest";
 // load. A next/link (or router push) into /speedrun would skip it and leave the
 // read and brief posts unprotected.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const ROOTS = ["app", "components"];
+const ROOTS = ["app", "components", "lib/content"];
 const CODE = /\.(ts|tsx)$/;
-const INTO_SPEEDRUN = /(href\s*=\s*[{"'`]+\s*["'`]?\/speedrun(?![\w/-]*\/api)|(?:push|replace|prefetch)\(\s*["'`]\/speedrun)/;
+// Only client-side navigation is a problem: a next/link, an `href:` object key (which feeds one) or a router call.
+// A plain <a href="/speedrun"> is a full page load and is fine.
+const INTO_SPEEDRUN =
+  /(<Link\b[^>]*?\bhref\s*=\s*[{"'`]+\s*["'`]?\/speedrun(?![\w/-]*\/api)|\bhref\s*:\s*["'`]\/speedrun(?![\w/-]*\/api)|(?:push|replace|prefetch)\(\s*["'`]\/speedrun)/;
 
 function files(dir: string): string[] {
   return readdirSync(path.join(REPO_ROOT, dir)).flatMap((entry) => {
@@ -25,9 +28,18 @@ describe("entry into /speedrun", () => {
   });
 
   it("the pattern catches the links it is meant to catch", () => {
-    for (const bad of ['<Link href="/speedrun">', "<Link href={'/speedrun'}>", 'router.push("/speedrun")', '<a href="/speedrun#join">']) {
-      expect(INTO_SPEEDRUN.test(bad)).toBe(true);
+    for (const bad of [
+      '<Link href="/speedrun">',
+      "<Link href={'/speedrun'}>",
+      '<Link\n  className="x"\n  href="/speedrun#join"\n>',
+      'router.push("/speedrun")',
+      '{ label: "Demo", href: "/speedrun" }',
+      "{ href: '/speedrun#join' }",
+    ]) {
+      expect(INTO_SPEEDRUN.test(bad), bad).toBe(true);
     }
-    expect(INTO_SPEEDRUN.test('fetch("/speedrun/api/read")')).toBe(false);
+    for (const fine of ['fetch("/speedrun/api/read")', '<a href="/speedrun">', '<a href="/speedrun#join" className="x">', '{ href: "/speedrun/api/read" }']) {
+      expect(INTO_SPEEDRUN.test(fine), fine).toBe(false);
+    }
   });
 });

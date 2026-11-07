@@ -6,10 +6,11 @@ import { getSnapshot } from "../lib/speedrun/snapshot";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 
-// Needs its own server started with SPEEDRUN_AI=on and no AI Gateway credentials
-// (E2E_BASE_URL points at it). The read route is intercepted in the browser, so
-// no request reaches the model or the gateway even if a credential were present.
-test.skip(!process.env.E2E_BASE_URL, "needs E2E_BASE_URL pointing at a server started with SPEEDRUN_AI=on");
+// Needs a server built with SPEEDRUN_AI=on, so the upload step shows (E2E_BASE_URL points at it).
+// The request intercept below is what keeps this spec offline and spend-free: the read route never reaches
+// the server. Unsetting env would not do that, because @vercel/oidc can mint a gateway token from the CLI
+// login through the repo's .vercel folder.
+test.skip(process.env.E2E_SPEEDRUN_AI !== "1", "needs E2E_SPEEDRUN_AI=1 and E2E_BASE_URL pointing at a server built with SPEEDRUN_AI=on");
 
 const FICTIONAL_RESUME = "Ada Example, software engineer. SKILLS TypeScript, React, Postgres. Built a fictional billing tool.";
 

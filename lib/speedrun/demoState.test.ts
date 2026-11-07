@@ -133,7 +133,7 @@ describe("demoReducer pickPerson", () => {
 });
 
 describe("demoReducer pasted events", () => {
-  const pasted = { emailId: "pasted-1", company: "Halcyon Works", role: null, kind: "interview", date: "2026-11-07T12:00:00.000Z", lane: "jobs" } as const;
+  const pasted = { emailId: "pasted-1", company: "Halcyon Works", role: null, kind: "interview", date: "2026-11-07T08:00:00.000Z", lane: "jobs" } as const;
 
   it("clears pasted events when another person is picked or a file is uploaded", () => {
     const withEvent = demoReducer(demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" }), { type: "addEvents", events: [pasted] });
