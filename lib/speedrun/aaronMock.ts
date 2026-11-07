@@ -66,9 +66,8 @@ export const AARON_ENTRIES: AaronEntry[] = tracks.map((track, i) => {
   };
 });
 
-export const AARON_MOCK: Pipeline = {
+export const AARON_MOCK: Pick<Pipeline, "rows"> = {
   rows: AARON_ENTRIES.map((entry) => entry.row),
-  stats: { applied: 84, inProcess: 18, intros: 2, offers: 2 },
 };
 
 /** The flow with the first column relabelled into Aaron's four tracks. */

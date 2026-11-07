@@ -15,7 +15,7 @@ const exitId = (exit: Exit, stage: Stage) => `exit:${exit}:${stage}`;
 /** "auto" drops the lane column when only one lane has rows; "always" keeps it, for callers that relabel the lanes themselves. */
 export type FlowOptions = { laneColumn?: "auto" | "always" };
 
-export function toFlow(pipeline: Pipeline, { laneColumn = "auto" }: FlowOptions = {}): FlowData {
+export function toFlow(pipeline: Pick<Pipeline, "rows"> & Partial<Pipeline>, { laneColumn = "auto" }: FlowOptions = {}): FlowData {
   const { rows } = pipeline;
   if (rows.length === 0) return { nodes: [], links: [] };
   const labels = speedrunCopy.flow;

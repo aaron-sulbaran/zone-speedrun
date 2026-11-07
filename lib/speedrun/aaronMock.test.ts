@@ -20,7 +20,7 @@ describe("AARON_MOCK", () => {
     expect(count((r) => r.exit === "noreply")).toBe(44);
     expect(count((r) => r.exit === "open" && r.furthest !== "offer")).toBe(16);
     expect(count((r) => r.furthest === "offer" && r.exit === "open")).toBe(2);
-    expect(AARON_MOCK.stats.applied).toBe(84);
+    expect(AARON_MOCK.rows).toHaveLength(84);
   });
 
   it("keeps the track lanes in column 0 and every stage to their right", () => {
@@ -59,7 +59,7 @@ describe("AARON_MOCK", () => {
     expect(stats.applications).toBe(AARON_MOCK.rows.length);
     expect(stats.assessments).toBe(reached("stage:assessment"));
     expect(stats.interviews).toBe(reached("stage:interview"));
-    expect(stats.intros).toBe(AARON_MOCK.stats.intros);
+    expect(stats.intros).toBe(2);
   });
 
   it("picks an offer, a co-op and a full-time row for the card", () => {
