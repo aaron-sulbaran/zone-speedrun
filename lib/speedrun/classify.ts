@@ -41,8 +41,8 @@ const RESCINDED = /\b(rescind\w*|retract\w*) (your|the|our) offer\b/;
 const REJECTIONS: RegExp[] = [
   /regret to inform|not (be )?moving forward|will not be proceeding/,
   /(decided not to|won'?t be|will not be|not) (be )?(move|moving|go|going|proceed|proceeding) forward/,
-  /(decided not to|unable to|not able to) (proceed|move forward|continue)( with your (application|candidacy)| at this time)/,
-  /(won'?t|will not|not) (be )?able to (proceed|move forward|go forward|continue)( further)?( with your (application|candidacy)| at this time)/,
+  /(decided not to|unable to|not able to) (proceed|move forward|continue)( with your (application|candidacy))/,
+  /(won'?t|will not|not) (be )?able to (proceed|move forward|go forward|continue)( further)?( with your (application|candidacy))/,
   /(pursue|pursuing|move forward with|moving forward with|proceed with|proceeding with) (other|another|different) (candidates?|applicants?)/,
   /(chosen|chose|selected|hired|gone with|went with) (another|a different|other|a more \w+) (candidates?|applicants?)/,
   /decided to (move|go|pursue) .{0,30}(other|another)|(move|moving) forward with (a|another|other) (candidate|applicant)s?/,
@@ -55,6 +55,9 @@ const REJECTIONS: RegExp[] = [
   /(move|moving|moved|go|going|proceed|proceeding) forward with (candidates|applicants) (whose|who|that) [^.!?\n]{0,60}\b(more closely|closer|better)\b/,
   /\b(can'?t|cannot|won'?t|will not|unable to|not able to|decided not to)( be able to)? (move|advance|progress|take) you (past|beyond|forward|further|to the next|on to)\b/,
 ];
+// "Unable to proceed at this time" is a no only with hiring in view and no meeting being moved: an outage note and a reschedule both use it.
+const AT_THIS_TIME = /\b(decided not to|unable to|not able to|won'?t be able to|will not be able to|not be able to) (proceed|move forward|go forward|continue)( further)? at this time\b/;
+const HIRING_VIEW = /\b(application|candidate|candidacy|position|role|interview\w*|final round|hiring)\b/;
 // A subject that names the take-home itself, from a hiring sender, is the ask even when the body never says "application".
 const TAKE_HOME_SUBJECT = /\b(take-?home|coding challenge)\b/;
 const ASSESSMENT = /take-home|coding challenge|online (coding )?test|coding test|online assessment|assessment|hackerrank|codesignal|technical exercise/;
@@ -272,6 +275,7 @@ function kindOf(email: InboxEmail): EventKind {
     (WARM_OFFER_OPENING.test(text) || (YOUR_OFFER.test(text) && OFFER_TERMS.test(text)) || DOCUSIGN_OFFER.test(text));
   if (OFFER.test(text) || OFFER_OPENING.test(text) || OFFER_FOR_ROLE.test(original) || hiringOffer) return "offer";
   if (REJECTIONS.some((pattern) => pattern.test(text))) return "rejection";
+  if (AT_THIS_TIME.test(text) && HIRING_VIEW.test(text) && !RESCHEDULE.test(text)) return "rejection";
   if (/\bunfortunately\b/.test(text) && JOB_CONTEXT.test(text) && !RESCHEDULE.test(text) && !/cannot respond|can't respond|unable to respond|high volume/.test(text)) return "rejection";
   const hasContext = APPLICATION_CONTEXT.test(text) || VENDORS.test(domain);
   if (ASSESSMENT.test(text) && hasContext && asksForAssessment(text)) return "assessment";

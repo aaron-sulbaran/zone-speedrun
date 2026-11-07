@@ -290,6 +290,8 @@ const CASES: Array<[string, EventKind, string, string, string, string]> = [
   ["wave newsletter about take-homes stays other", "other", "", "Craft Notes <news@notes.example>", "Take-home exercises that candidates like", "Ten ways to design a fair take-home. Unsubscribe any time."],
   ["batchD re: take-home reply inviting a final-round interview is an interview", "interview", "Quillpoint", "Ravi Anand <ravi@quillpoint.example>", "Re: Take-home exercise", "Hi Sam,\n\nThanks for sending the take-home back, the team liked it. We'd like to invite you to a final-round interview with our engineering lead. Please share your availability for next week.\n\nRavi"],
   ["batchD re: coding challenge reply asking for a phone screen is a screen", "screen", "Quillpoint", "Ravi Anand <ravi@quillpoint.example>", "Re: Coding challenge", "Hi Sam,\n\nThanks for the submission. Could we set up a 30-minute phone screen to talk it through?\n\nRavi"],
+  ["batchD an outage note with at this time stays other", "other", "", "Statuspage <notices@statuspage.example>", "Incident update", "Deployments are unable to continue at this time. Our engineers are investigating and will post another update within the hour."],
+  ["batchD a reschedule with at this time is an interview", "interview", "Tidewell", tw, "Your Tidewell interview", "Hi Sam, we are unable to proceed at this time with Thursday's slot for the role. Could we move your interview to Friday at 2pm instead?"],
 ];
 
 function mail(id: string, from: string, subject: string, body: string, date: string): InboxEmail {
