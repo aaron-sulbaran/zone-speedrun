@@ -60,4 +60,17 @@ describe("buildPipeline", () => {
     expect(pipeline.rows[0].role).toBe("Product Engineer");
     expect(pipeline.rows[0].lane).toBe("jobs");
   });
+
+  it("keeps a platform confirmation, a platform assessment and a person's screen on one Acme row", () => {
+    const mail = (id: string, from: string, subject: string, body: string, date: string): InboxEmail => ({ id, from, subject, body, date });
+    const events = [
+      mail("1", "Greenhouse <no-reply@greenhouse.io>", "Thanks for applying to Acme", "We received your application.", "2026-10-20T10:00:00.000Z"),
+      mail("2", "CodeSignal <no-reply@codesignal.com>", "Your CodeSignal assessment", "Acme invited you to take a CodeSignal assessment.", "2026-10-22T10:00:00.000Z"),
+      mail("3", "Priya <priya@acme.com>", "Phone screen", "Can we set up a phone screen?", "2026-10-25T10:00:00.000Z"),
+    ].map(classifyEmail);
+    const pipeline = buildPipeline(events, "2026-11-01");
+    expect(pipeline.rows).toHaveLength(1);
+    expect(pipeline.rows[0].furthest).toBe("screen");
+    expect(pipeline.rows[0].company).toBe("Acme");
+  });
 });

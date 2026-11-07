@@ -91,6 +91,9 @@ describe("PEOPLE", () => {
     const names = FICTIONAL_COMPANIES.map((name) => name.toLowerCase());
     expect(names).not.toContain("greywing");
     expect(names).not.toContain("thistledown");
+    for (const real of ["zinnia health", "xylem row", "fenwick seed fund", "silverbirch"]) {
+      expect([...names, ...FOUNDER_ORGS.map((n) => n.toLowerCase())]).not.toContain(real);
+    }
   });
 
   it("pairs accelerators with batch rounds and funds with pitch rounds", () => {

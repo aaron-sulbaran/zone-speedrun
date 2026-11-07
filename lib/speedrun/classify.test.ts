@@ -121,6 +121,21 @@ describe("classifyEmail", () => {
       ["greenhouse confirmation", "applied", email("Acme <no-reply@greenhouse.io>", "Thanks for applying to Acme", "We received your application. We may schedule an interview if it is a fit.")],
       ["job digest", "other", email("LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>", "12 new jobs for software engineer", "Apply now. Tips for your interview and assessment prep.")],
       ["interview tips newsletter", "other", email("Career Weekly <news@careerweekly.com>", "Ace your next interview", "Practice an assessment and a mock interview this week.")],
+      ["offer with a start date caveat", "offer", email(hr, "Offer", "We are pleased to offer you the Product Engineer position. If you are not able to make the January 5 start date, let us know.")],
+      ["offer without relocation support", "offer", email(hr, "Offer details", "We would like to offer you the role. We cannot offer relocation support.")],
+      ["offer with travel advice", "offer", email(hr, "Offer letter", "We are pleased to offer you the role. Please do not make any travel plans until you sign.")],
+      ["offer without a signing bonus", "offer", email(hr, "Offer letter", "We are pleased to offer you the role. We are not offering a signing bonus.")],
+      ["cannot extend an offer, curly apostrophe", "rejection", email(hr, "Your application", "We can\u2019t extend an offer at this time.")],
+      ["won't be making an offer", "rejection", email(hr, "Your application", "We won't be making an offer this round.")],
+      ["interview newsletter", "other", email("Metro Weekly <news@metroweekly.com>", "This week", "Our interview with a transit planner is up.")],
+      ["sports final round", "other", email("Court Report <news@courtreport.com>", "Tonight", "Final round tonight at eight.")],
+      ["onsite workshop", "other", email("Maker Space <hi@makerspace.org>", "Workshops", "Join our onsite workshop on Saturday.")],
+      ["decided not to move forward under an applying subject", "rejection", email(hr, "Thank you for applying", "We have decided not to move forward with your candidacy.")],
+      ["won't be moving forward", "rejection", email(hr, "Update", "We won't be moving forward with your application.")],
+      ["linkedin easy apply", "applied", email("LinkedIn <jobs-noreply@linkedin.com>", "Your application was sent to Acme", "Your application was sent to Acme for the Designer role.")],
+      ["marketing introduce", "other", email("Frost Boxes <hi@frostboxes.com>", "Winter", "We're excited to introduce you to our new winter flavors.")],
+      ["meet a person", "intro", email("Jo Lin <jo@friend.org>", "Hello", "I think you should meet Priya, she runs a small studio.")],
+      ["push the interview", "interview", email("Priya Shah <priya@acme.com>", "Schedule", "Unfortunately our interviewer is out sick. Can we push the interview for the role to Friday?")],
     ];
     for (const [name, kind, fixture] of cases) {
       it(`${name} is ${kind}`, () => {
@@ -137,5 +152,17 @@ describe("classifyEmail", () => {
       const event = classifyEmail(email(hr, "Thanks for applying for the Product Engineer role at Acme", "Hello."));
       expect(event.role).toBe("Product Engineer");
     });
+
+    it("resolves vendor senders to the company named in the text", () => {
+      const codesignal = classifyEmail(FIXTURE_CODESIGNAL);
+      expect(codesignal.company).toBe("Acme");
+      expect(classifyEmail(email("LinkedIn <jobs-noreply@linkedin.com>", "Your application was sent to Acme", "Sent.")).company).toBe("Acme");
+    });
+
+    it("treats a single name matching the address as a person and handles country domains", () => {
+      expect(classifyEmail(email("Priya <priya@acme.co.uk>", "Phone screen", "Can we set up a phone screen for the role?")).company).toBe("Acme");
+    });
   });
 });
+
+const FIXTURE_CODESIGNAL = email("CodeSignal <no-reply@codesignal.com>", "Your CodeSignal assessment", "Acme invited you to take a CodeSignal assessment.");
