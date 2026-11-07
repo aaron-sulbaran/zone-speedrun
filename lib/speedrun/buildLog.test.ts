@@ -24,11 +24,21 @@ describe("composeBuildLog", () => {
   it("shows the narrowing counts", () => {
     const { result, lines } = logFor("sam");
     const scanning = lines.find((l) => l.text.startsWith("scanning"))!;
-    expect(scanning.text).toContain(String(result.narrowing.roles));
+    const { narrowing } = result;
+    expect(scanning.text).toContain(
+      `${narrowing.companies} speedrun companies, ${narrowing.speedrunRoles} of their roles and ${narrowing.roles - narrowing.speedrunRoles} more across the a16z portfolio`,
+    );
     expect(scanning.text).toContain(String(result.narrowing.companies));
     const text = lines.map((l) => l.text).join("\n");
     expect(text).toContain(`${result.narrowing.afterFilters} fit`);
     expect(text).toContain(`${result.narrowing.shown} worth`);
+  });
+
+  it("names the same speedrun role count as the hero", () => {
+    const heroCount = getSnapshot().roles.filter((role) => role.tier === "speedrun").length;
+    const { result, lines } = logFor("sam");
+    expect(result.narrowing.speedrunRoles).toBe(heroCount);
+    expect(lines.find((l) => l.text.startsWith("scanning"))!.text).toContain(`${heroCount} of their roles`);
   });
 
   it("ends with the made-for line, with strictly increasing times under 8 s", () => {

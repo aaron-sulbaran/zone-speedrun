@@ -128,7 +128,8 @@ export const speedrunCopy = {
       places: (places: string) => `places: ${places}`,
       why: (fragment: string) => `why: "${fragment}"`,
       found: (skills: string) => `found: ${skills}`,
-      scanning: (companies: number, roles: number) => `scanning ${companies} speedrun companies and ${roles} live roles`,
+      scanning: (companies: number, speedrunRoles: number, otherRoles: number) =>
+        `scanning ${companies} speedrun companies, ${speedrunRoles} of their roles and ${otherRoles} more across the a16z portfolio`,
       fit: (afterFilters: number) => `${afterFilters} fit your answers`,
       worth: (shown: number) => `${shown} worth your time first`,
     },
