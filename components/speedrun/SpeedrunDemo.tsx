@@ -8,6 +8,7 @@ import { postResume, type UploadErrorKey } from "@/lib/speedrun/readClient";
 import type { MatchResult } from "@/lib/speedrun/match";
 import type { Intake, Profile } from "@/lib/speedrun/types";
 import { BuildLog } from "./act2/BuildLog";
+import { BriefPreview } from "./act2/BriefPreview";
 import { BuildPlaceholder } from "./act2/BuildPlaceholder";
 import { Hero, type DemoStats } from "./act2/Hero";
 import { Board } from "./act2/Board";
@@ -91,8 +92,8 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
           <div className="space-y-16">
             <Matches result={result} focusHeading={skippedLog} />
             <Board state={state} dispatch={dispatch} />
-            {/* Slots for the morning brief and the decisions. */}
-            <div data-slot="brief" />
+            <BriefPreview state={state} />
+            {/* Slot for the decisions. */}
             <div data-slot="decisions" />
           </div>
         )}
