@@ -31,10 +31,10 @@ describe("matchText", () => {
 
   it("lets a remote role fit a US visitor only when it is here or generic", () => {
     const fits = (loc: string | null, places: string[] = ["Remote"]) => remoteFitsUs(loc, places);
-    for (const ok of [null, "", "Remote", "Remote - Multiple Locations", "Anywhere", "United States", "North America", "Texas", "Dublin, CA", "New London, CT", "Indiana", "Seattle, WA", "San Francisco / Bay Area"]) {
+    for (const ok of [null, "", "Remote", "Remote - Multiple Locations", "Anywhere", "United States", "North America", "Texas", "Dublin, CA", "New London, CT", "Indiana", "Seattle, WA", "San Francisco / Bay Area", "Remote or Hybrid", "Remote \u2013 PST Working Hours"]) {
       expect(fits(ok), String(ok)).toBe(true);
     }
-    for (const bad of ["Canada", "Toronto - Canada", "Mexico City, Mexico", "Madrid, Spain", "Zurich, Switzerland", "Istanbul, Turkey", "Ho Chi Minh City, Vietnam", "Shanghai, China", "Seoul, South Korea", "India", "London, UK", "Dublin, Ireland", "Australia (Remote)", "Abu Dhabi, United Arab Emirates; London, England, United Kingdom"]) {
+    for (const bad of ["Canada", "Toronto - Canada", "Mexico City, Mexico", "Madrid, Spain", "Zurich, Switzerland", "Istanbul, Turkey", "Ho Chi Minh City, Vietnam", "Shanghai, China", "Seoul, South Korea", "India", "London, UK", "Dublin, Ireland", "Australia (Remote)", "Abu Dhabi, United Arab Emirates; London, England, United Kingdom", "Remote - Venice, Italy", "Tbilisi, Georgia"]) {
       expect(fits(bad), bad).toBe(false);
     }
     expect(fits("Toronto - Canada", ["Toronto"])).toBe(true);

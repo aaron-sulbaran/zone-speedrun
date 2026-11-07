@@ -148,4 +148,46 @@ describe("extractProfile", () => {
     const text = "Ana\nProduct Designer | Brooklyn, NY | ana@example.com\nSKILLS\nFigma";
     expect(extractProfile(text, { targets: ["design"], places: [], why: "" }).locations).toEqual(["New York"]);
   });
+
+  it("keeps founder routes for AI founders", () => {
+    for (const line of ["Co-founded Acme AI (YC W25), raised $3M seed", "Co-founded an ML infra startup; went through Y Combinator"]) {
+      expect(founderScore(`Ana\n${line}`), line).toBeGreaterThanOrEqual(0.6);
+    }
+    expect(founderScore("Ana\nBuilt an FPGA accelerator and a GPU accelerator for ML accelerators work")).toBeLessThan(0.4);
+  });
+
+  it("reads funding and growth wording", () => {
+    expect(founderScore("Ana\nRaised a seed round to drive growth\nRaised $2M from angels")).toBeGreaterThanOrEqual(0.5);
+    expect(extractProfile("Ana\nCo-founded Acme and grew the team to 12", intake).founderSignal.evidence[0]).toContain("Acme");
+    expect(founderScore("Ana\nFounded the Texas Robotics Team")).toBeLessThan(0.3);
+  });
+
+  it("reads an intern role as an intern, and mentoring interns as nothing", () => {
+    const seniorText = "Ana\nEXPERIENCE\nStaff Software Engineer, Acme, 2018 to present\n";
+    for (const line of ["Looking for a software engineering intern role", "Seeking SWE intern positions for summer"]) {
+      expect(extractProfile(`Ana\n${line}`, intake).seniority, line).toBe("intern");
+    }
+    expect(extractProfile("Ana", { ...intake, why: "An intern role on a small team" }).seniority).toBe("intern");
+    for (const why of ["I want to mentor an intern", "I managed interns last summer"]) {
+      expect(extractProfile(seniorText, { ...intake, why }).seniority, why).toBe("senior");
+    }
+  });
+
+  it("keeps looking-for and open-to lines out of skills", () => {
+    const text = "Ana\nSKILLS\nPython, Go\nI'm looking for a team that ships.\nOpen to relocation, remote work";
+    expect(extractProfile(text, intake).skills).toEqual(["Python", "Go"]);
+  });
+
+  it("keeps what a project does, not only its name", () => {
+    const profile = extractProfile(PEOPLE.maya.resumeText, PEOPLE.maya.intake);
+    const buddy = profile.shipped.find((item) => item.startsWith("Study Buddy"));
+    expect(buddy).toMatch(/flashcards/);
+  });
+
+  it("finds a city written with a state name or as a Bay Area line", () => {
+    const city = (line: string) => extractProfile(`Ana\n${line}\nSKILLS\nPython`, { targets: ["engineering"], places: [], why: "" }).locations;
+    expect(city("Austin, Texas | ana@example.com")).toEqual(["Austin"]);
+    expect(city("ana@example.com | Seattle, Washington")).toEqual(["Seattle"]);
+    expect(city("San Francisco Bay Area | ana@example.com")).toEqual(["San Francisco"]);
+  });
 });

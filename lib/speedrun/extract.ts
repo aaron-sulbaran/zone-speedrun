@@ -1,3 +1,4 @@
+import { isUsStateName } from "./matchText";
 import type { Fn, Intake, Profile } from "./types";
 
 // A rules-only resume reader. It is the floor that always works: no keys, no
@@ -47,14 +48,20 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 // A club, chapter or team the person founded is not a company. A team they grew inside one is fine.
-const GROUP_NEAR = /\b(founded|founder of|co-?founded|started)\b[^,.;]{0,40}\b(club|chapter|society|association|fraternity|sorority|team)\b/i;
+const GROUP_NEAR =
+  /\b(founded|founder of|co-?founded|started)\s+(the\s+|a\s+|our\s+|my\s+)?([\w'-]+\s+){0,3}(club|chapter|society|association|fraternity|sorority|team)\b/i;
 const FOUNDER_STRONG = /\b(co-?founded|co-?founders?|solo founder|founded)\b/gi;
 const FOUNDER_FUNDING =
   /\braised\b[^.]{0,40}(\$\s?\d[\d.,]*\s?(m|k|b|million|billion)\b|seed|pre-seed|round|funding|capital|investors?|angels?|series [a-c]|million)/gi;
-const NOT_FUNDING = /food bank|charity|donat|fundrais|nonprofit|scholarship|drive\b/i;
+const NOT_FUNDING = /food bank|food drive|blood drive|toy drive|charity|donat|fundrais|nonprofit|scholarship/i;
 const FOUNDER_PROGRAM = /\b(accelerators?|incubators?|y combinator|yc)\b/gi;
-const HARDWARE_CONTEXT = /\b(fpga|gpu|tpu|cnn|ml|ai|hardware|particle|linear|neural|deep learning|inference|chip|asic)\b/i;
+// Only the word "accelerator" is voided, and only as a chip: founding, raising and YC always count.
+const HARDWARE_ACCEL =
+  /\b(fpga|gpu|tpu|npu|cnn|asic|hardware|particle|linear|ml|machine learning|neural(\s+network)?|deep learning|inference|ai)\s+accelerators?\b(?!\s+(program|cohort|batch|startup))/gi;
 const FOUNDER_WEAK = /\b(founder|founding|started|side project|side company|my own compan(y|ies))\b/gi;
+
+/** Closing lines like "Looking for...", "I'm looking for..." or "Open to relocation". */
+const LOOKING = /^(i'?m\s+|i am\s+)?(looking for|seeking|objective|open to)\b/i;
 
 function count(text: string, pattern: RegExp): number {
   return (text.match(pattern) ?? []).length;
@@ -71,14 +78,15 @@ function sections(text: string): Map<string, string[]> {
       continue;
     }
     if (!line) continue;
-    if (current !== "TOP" && /^(looking for|seeking|objective)\b/i.test(line)) current = "CLOSING";
+    if (current !== "TOP" && LOOKING.test(line)) current = "CLOSING";
     map.set(current, [...(map.get(current) ?? []), line]);
   }
   return map;
 }
 
 function founderSignal(text: string): Profile["founderSignal"] {
-  let strong = 0;
+  let foundingHits = 0;
+  let otherHits = 0;
   let weak = 0;
   const evidence: string[] = [];
   for (const raw of text.split("\n")) {
@@ -87,23 +95,36 @@ function founderSignal(text: string): Profile["founderSignal"] {
     // A club or chapter is not a company; funding needs funding words.
     const groupLine = GROUP_NEAR.test(line);
     const funding = NOT_FUNDING.test(line) ? 0 : count(line, FOUNDER_FUNDING);
-    const program = HARDWARE_CONTEXT.test(line) ? 0 : count(line, FOUNDER_PROGRAM);
-    const lineStrong = (groupLine ? 0 : count(line, FOUNDER_STRONG)) + funding + program;
-    strong += lineStrong;
+    const program = count(line.replace(HARDWARE_ACCEL, " "), FOUNDER_PROGRAM);
+    const founding = groupLine ? 0 : count(line, FOUNDER_STRONG);
+    const lineStrong = founding + funding + program;
+    foundingHits += founding;
+    otherHits += funding + program;
     if (!groupLine) weak += count(line, FOUNDER_WEAK);
     if (lineStrong > 0 && evidence.length < 3) evidence.push(line.split(/[.;]/)[0].trim());
   }
-  const score = Math.min(1, Math.min(0.6, strong * 0.2) + Math.min(0.3, weak * 0.08));
+  const strong = Math.min(0.9, Math.min(0.7, foundingHits * 0.35) + Math.min(0.6, otherHits * 0.25));
+  const score = Math.min(1, strong + Math.min(0.3, weak * 0.08));
   return { score: Math.round(score * 100) / 100, evidence };
 }
 
 const TITLE_LINE =
   /^(senior|sr\.?|staff|principal|lead)\s+(software|engineer|developer|designer|product|data|machine|ml|ai|research|manager|analyst|scientist|architect|frontend|backend|full)/i;
 
+const MANAGING = /(mentor|manag|supervis|hir(e|ing)|train|lead|led|coach|oversaw|onboard|teach|advis)\w*\W+(\w+\W+){0,3}$/i;
+
+/** An intern role they want ("intern role", "internship"), not interns they mentor or manage. */
+function seeksIntern(text: string): boolean {
+  for (const m of text.matchAll(/\binterns?(hips?)?\b/gi)) {
+    const before = text.slice(Math.max(0, (m.index ?? 0) - 30), m.index);
+    if (!MANAGING.test(before)) return true;
+  }
+  return false;
+}
+
 function pickSeniority(text: string, parts: Map<string, string[]>, intake: Intake): Profile["seniority"] {
-  const lookingFor = `${text.split("\n").filter((line) => /^(looking for|seeking|objective)/i.test(line.trim())).join(" ")} ${intake.why}`;
-  // "internship" or "as an intern"; never "mentor an intern".
-  if (/\binternships?\b|\b(as|be|become|being)\s+an?\s+intern\b|\b(summer|fall|spring|winter)\s+(\d{4}\s+)?intern\b/i.test(lookingFor)) return "intern";
+  const lookingFor = `${text.split("\n").filter((line) => LOOKING.test(line.trim())).join(" ")} ${intake.why}`;
+  if (seeksIntern(lookingFor)) return "intern";
   if (/new grad|new graduate|early career/i.test(lookingFor)) return "new_grad";
   // Seniority needs job-title context: a title line in the experience section with dates.
   const titles = (parts.get("EXPERIENCE") ?? []).filter((l) => !l.startsWith("-") && /\b(19|20)\d\d\b|present/i.test(l));
@@ -152,28 +173,35 @@ function headlineFrom(parts: Map<string, string[]>): string {
   return title ? title.split(",")[0].trim() : "";
 }
 
+/** Project names with the first clause of their bullet, so matching can use what the thing does. */
 function shippedFrom(parts: Map<string, string[]>): string[] {
   const lines = [...(parts.get("PROJECTS") ?? []), ...(parts.get("FOUNDER WORK") ?? []), ...(parts.get("SELECTED WORK") ?? [])];
-  const names: string[] = [];
-  for (const line of lines) {
-    if (line.startsWith("-")) continue;
+  const items: string[] = [];
+  lines.forEach((line, i) => {
+    if (line.startsWith("-")) return;
     const name = line.replace(/^Founder side project:\s*/i, "").split(/[,:]/)[0].trim();
-    if (name && name.length <= 40 && !/^(open source|wrote|spoke)/i.test(name)) names.push(name);
-  }
-  return names.slice(0, 4);
+    if (!name || name.length > 40 || /^(open source|wrote|spoke)/i.test(name)) return;
+    const bullet = lines[i + 1]?.startsWith("-") ? lines[i + 1].replace(/^-\s*/, "") : "";
+    const description = bullet.split(/[.;]/)[0].trim().slice(0, 70).replace(/\s+\S*$/, (m) => (bullet.length > 70 ? "" : m));
+    items.push(description ? `${name} (${description})` : name);
+  });
+  return items.slice(0, 4);
 }
 
 const US_CODE = /^(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)$/;
 const COUNTRY = /^(united states|usa|us|canada|mexico|m\u00e9xico|uk|united kingdom|england|ireland|india|germany|france|spain|espa\u00f1a|brazil|australia|singapore|japan|china|korea|netherlands|portugal|italy)$/i;
-const KNOWN_CITY = /^(san francisco|new york|nyc|brooklyn|manhattan|austin|seattle|boston|chicago|los angeles|denver|atlanta|miami|dallas|houston|portland|philadelphia|toronto|london|berlin|remote)$/i;
-const BOROUGH: Record<string, string> = { brooklyn: "New York", manhattan: "New York", queens: "New York", nyc: "New York" };
+const KNOWN_CITY = /^(san francisco bay area|bay area|san francisco|new york|nyc|brooklyn|manhattan|austin|seattle|boston|chicago|los angeles|denver|atlanta|miami|dallas|houston|portland|philadelphia|toronto|london|berlin|remote)$/i;
+const BOROUGH: Record<string, string> = {
+  brooklyn: "New York", manhattan: "New York", queens: "New York", nyc: "New York",
+  "san francisco bay area": "San Francisco", "bay area": "San Francisco",
+};
 
 /** The city is the first contact segment shaped like a place: "City, ST", "City, Country" or a known city. */
 function cityFrom(segment: string): string {
   const parts = segment.split(",").map((p) => p.trim());
   const city = parts[0] ?? "";
   if (!city || city.length > 30 || /@|https?:|www\.|\d/.test(segment)) return "";
-  const placeShaped = parts.length >= 2 && (US_CODE.test(parts[1]) || COUNTRY.test(parts[1]));
+  const placeShaped = parts.length >= 2 && (US_CODE.test(parts[1]) || isUsStateName(parts[1]) || COUNTRY.test(parts[1]));
   if (!placeShaped && !(parts.length === 1 && KNOWN_CITY.test(city))) return "";
   return BOROUGH[city.toLowerCase()] ?? city;
 }

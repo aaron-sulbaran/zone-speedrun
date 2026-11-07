@@ -53,14 +53,17 @@ export function placeMatches(place: string, location: string | null): boolean {
   return alias ? alias.test(location) : new RegExp(`(^|[^a-z])${escapeRegex(key)}([^a-z]|$)`, "i").test(location);
 }
 
+export const isUsStateName = (s: string): boolean => STATE_NAMES_EXACT.test(s.trim());
+
 const STATE_NAMES =
-  /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia)\b/i;
+  /\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming|district of columbia)\b/i;
+const STATE_NAMES_EXACT = new RegExp(`^(${STATE_NAMES.source.slice(3, -3)}|georgia)$`, "i");
 const STATE_CODES =
   /,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/;
 const US_CITIES =
-  /\b(san francisco|sf bay|bay area|new york|nyc|manhattan|brooklyn|austin|seattle|boston|chicago|los angeles|denver|boulder|atlanta|miami|dallas|houston|san diego|san jose|palo alto|mountain view|sunnyvale|menlo park|san mateo|redwood city|oakland|portland|philadelphia|pittsburgh|nashville|salt lake city|santa monica|costa mesa|torrance|el segundo|venice|union square)\b/i;
+  /\b(san francisco|sf bay|bay area|new york|nyc|manhattan|brooklyn|austin|seattle|boston|chicago|los angeles|denver|boulder|atlanta|miami|dallas|houston|san diego|san jose|palo alto|mountain view|sunnyvale|menlo park|san mateo|redwood city|oakland|portland|philadelphia|pittsburgh|nashville|salt lake city|santa monica|costa mesa|torrance|el segundo|union square)\b/i;
 const GENERIC_REMOTE =
-  /^(fully\s+)?(remote|anywhere)\b[\s\-\u2013,(]*(multiple locations|anywhere|us|usa|u\.s\.|united states|north america)?[)\s]*$/i;
+  /^(fully\s+)?(remote|anywhere)\b(\s*(or|\/)\s*hybrid)?[\s\-\u2013,(]*(multiple locations|anywhere|us|usa|u\.s\.|united states|north america|(pst|est|cst|mst|pt|et|ct|mt)(\s+(working\s+)?(hours|time(zone)?))?)?[)\s]*$/i;
 
 /** A remote role fits a US visitor when it is blank, generic, or names the US, a US state or city, or North America. */
 export function remoteFitsUs(location: string | null, places: string[]): boolean {

@@ -13,7 +13,7 @@ const STOP = new Set(
   "a an the and or but of to in on at for with from into by as is are was be been it its i me my we our you your they their this that these those there here where when who what which while than then so if not no do does did have has had can could would should will just very more most some any each over about also all one two get got make made want wants like need me".split(" "),
 );
 const GENERIC = new Set(
-  "back build work team teams role real small thing things great good code ship ships shipped quickly close sit talk fast help looking able using".split(" "),
+  "ship shipp ships back build work team teams role real small thing things great good code ship ships shipped quickly close sit talk fast help looking able using".split(" "),
 );
 const SHIPPED_GENERIC = new Set("tool app suite library assistant prototype pilots project system platform redesign".split(" "));
 const DOMAIN = new Set(
@@ -21,10 +21,11 @@ const DOMAIN = new Set(
 );
 
 /** Every flagged reason is one of the visitor's own words, so the ranker can cap repeats. */
-export const ownWords = new WeakSet<Reason>();
+export const ownWords = new WeakMap<Reason, number>();
 
 const tokens = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}+#]+/gu) ?? [];
 const stem = (w: string): string => (w.length > 4 ? w.replace(/(ing|ed|es|s)$/, "") : w.replace(/s$/, ""));
+const isGeneric = (w: string): boolean => GENERIC.has(w) || GENERIC.has(stem(w));
 const stems = (text: string): Set<string> => new Set(tokens(text).map(stem));
 
 type Field = { cite: "title" | "excerpt" | "blurb"; text: string; where: string };
@@ -50,7 +51,7 @@ export function personalReasons(
   const reasons: Reason[] = [];
   const fields = fieldsOf(role, company);
   const skillTokens = new Set(profile.skills.flatMap(tokens).map(stem));
-  const whyWords = [...new Set(tokens(intake.why).filter((w) => w.length >= 2 && !STOP.has(w) && !GENERIC.has(w) && !GENERIC.has(stem(w)) && !/^\d+$/.test(w)))];
+  const whyWords = [...new Set(tokens(intake.why).filter((w) => w.length >= 2 && !STOP.has(w) && !isGeneric(w) && !/^\d+$/.test(w)))];
 
   let score = 0;
   for (const field of fields) {
@@ -59,7 +60,7 @@ export function personalReasons(
     const meaningful = found.some((w) => DOMAIN.has(w) || skillTokens.has(stem(w)));
     if (found.length >= 2 || meaningful) {
       const reason: Reason = { text: copy.why(phraseFor(intake.why, found)), cites: [field.cite] };
-      ownWords.add(reason);
+      ownWords.set(reason, found.length * 0.5);
       reasons.push(reason);
       score += found.length * 0.5;
       break;
@@ -67,13 +68,18 @@ export function personalReasons(
   }
 
   shipped: for (const item of profile.shipped) {
-    const words = tokens(item).filter((w) => w.length >= 3 && !STOP.has(w) && !GENERIC.has(w) && !SHIPPED_GENERIC.has(w));
+    // "Name (what it does)": the name is shown, the description words are matched.
+    const [name, ...rest] = item.split(" (");
+    const nameTokens = new Set(rest.length > 0 ? tokens(name) : []);
+    const words = tokens(item).filter(
+      (w) => w.length >= 3 && !STOP.has(w) && !isGeneric(w) && !SHIPPED_GENERIC.has(w) && !nameTokens.has(w),
+    );
     for (const field of fields) {
       const present = stems(field.text);
       const word = words.find((w) => present.has(stem(w)));
       if (word) {
-        const reason: Reason = { text: copy.shipped(item, word, field.where), cites: [field.cite] };
-        ownWords.add(reason);
+        const reason: Reason = { text: copy.shipped(name, word, field.where), cites: [field.cite] };
+        ownWords.set(reason, 0);
         reasons.push(reason);
         break shipped;
       }

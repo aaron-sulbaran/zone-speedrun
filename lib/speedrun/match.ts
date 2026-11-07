@@ -41,6 +41,8 @@ const ROUTES: FounderRoute[] = [
   { kind: "alpha", url: "https://speedrun.a16z.com/alpha" },
 ];
 const copy = speedrunCopy.matches;
+const SPEEDRUN_BOOST = 5;
+const TIER_BOOST = 12;
 
 const SENIOR_TITLE = /\b(senior|sr\.?|staff|principal|lead|manager|director|head|vp|chief|founding)\b/i;
 const NEW_GRAD_TITLE = /new grad|early career|graduate|associate|\b2027\b/i;
@@ -117,7 +119,8 @@ function placeFit(places: string[], remoteOk: boolean, role: SnapshotRole): Plac
 type Scored = { role: SnapshotRole; company: SnapshotCompany | undefined; score: number; reasons: Reason[]; tier: number };
 type Ctx = { profile: Profile; intake: Intake; newest: number; hardwareSkills: boolean };
 
-const SOFTWARE_TITLE = /software|backend|back-end|frontend|front-end|full.?stack|mobile|\bios\b|android|platform|infrastructure|\bdata\b|\bml\b|machine learning|\bai\b|\bweb\b|cloud|devops|\bsre\b|developer|\bapi\b/i;
+const SOFTWARE_TITLE = /software|backend|back-end|frontend|front-end|full.?stack|mobile|\bios\b|android|platform|infrastructure|\bml\b|machine learning|\bai\b|\bweb\b|cloud|devops|\bsre\b|\bapi\b/i;
+const WEAK_SOFTWARE_TITLE = /developer|\bdata\b|engineer/i;
 const HARDWARE_TITLE = /mechanical|electrical|hardware|systems? engineer|naval|manufactur|embedded|firmware|avionics|propulsion|structur|\bgnc\b|power systems|civil|chemical|\brf\b|thermal|aerospace|test engineer|field engineer|mission/i;
 const HARDWARE_SKILL = /firmware|embedded|fpga|pcb|\bcad\b|verilog|vhdl|circuit|mechanical|electrical|solidworks|robotics|\bplc\b/i;
 
@@ -135,7 +138,8 @@ function scoreRole(
   if (ai === "blurb") score -= 1.5;
   // Software titles lead for engineering and AI targets, unless the resume shows hardware skills.
   if ((fn === "engineering" || fn === "ai") && !ctx.hardwareSkills) {
-    if (SOFTWARE_TITLE.test(role.title)) score += 2;
+    if (SOFTWARE_TITLE.test(role.title)) score += 4;
+    else if (WEAK_SOFTWARE_TITLE.test(role.title)) score += 1;
     else if (HARDWARE_TITLE.test(role.title)) score -= 3;
   }
   const reasons: Reason[] = [
@@ -159,10 +163,13 @@ function scoreRole(
     score += place.kind === "city" ? 1.5 : 1;
     reasons.push({ text: place.kind === "city" ? copy.reasons.city(place.location, place.place) : copy.reasons.remote, cites: ["location"] });
   }
-  if (role.tier === "speedrun") score += 1;
-  score += Math.max(0, 0.5 - (ctx.newest - dayOf(role.postedAt)) / (1000 * 60 * 60 * 24 * 120));
-  // The first target outranks every bonus. For an AI-first visitor that means AI in the title or description.
-  const tier = fnIndex === 0 && ai !== "blurb" ? 1 : 0;
+  // A warm intro to a speedrun founder is the network's whole promise, so speedrun roles lead when they fit.
+  if (role.tier === "speedrun") score += SPEEDRUN_BOOST;
+  const ageDays = (ctx.newest - dayOf(role.postedAt)) / (1000 * 60 * 60 * 24);
+  score += ageDays <= 30 ? 0.5 : ageDays <= 120 ? 0.5 * (1 - (ageDays - 30) / 90) : -Math.min(3, (ageDays - 120) / 60);
+  // The first target outranks every bonus.
+  // Strong evidence only: the title names the function (for AI, the title or the description does).
+  const tier = fnIndex === 0 && (fn === "ai" ? ai !== "blurb" : fits) ? 1 : 0;
   return { role, company, score, reasons, tier };
 }
 
@@ -199,8 +206,8 @@ function toMatch(scored: Scored): Match {
 }
 
 function better(a: Scored, b: Scored): boolean {
-  if (a.tier !== b.tier) return a.tier > b.tier;
-  if (a.score !== b.score) return a.score > b.score;
+  const ra = a.score + TIER_BOOST * a.tier, rb = b.score + TIER_BOOST * b.tier;
+  if (ra !== rb) return ra > rb;
   const da = dayOf(a.role.postedAt), db = dayOf(b.role.postedAt);
   return da !== db ? da > db : a.role.id < b.role.id;
 }
@@ -213,7 +220,7 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   const targets: Fn[] = intake.targets.length > 0 ? intake.targets : profile.functions;
   // What the visitor typed wins over what the resume implies.
   const places = (intake.places.length > 0 ? intake.places : profile.locations).filter(Boolean);
-  const remoteOk = intake.places.length > 0 ? intake.places.some(isRemotePlace) : true;
+  const remoteOk = intake.places.length > 0 ? intake.places.some(isRemotePlace) : profile.remoteOk;
   const ctx: Ctx = {
     profile,
     intake,
@@ -264,14 +271,25 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   companyMatches.sort((a, b) => b.score - a.score || a.company.name.localeCompare(b.company.name));
 
   const shown = [...matches, ...companyMatches].slice(0, limit);
-  // The same own-words line never repeats on more than two cards.
+  // At least one speedrun card in the top three whenever a speedrun role fits.
+  const promoted = matches.find((m) => m.role?.tier === "speedrun");
+  if (limit >= 3 && promoted && !shown.slice(0, 3).includes(promoted)) {
+    const at = shown.indexOf(promoted);
+    if (at >= 0) shown.splice(at, 1);
+    shown.splice(2, 0, promoted);
+    shown.length = Math.min(shown.length, limit);
+  }
+  // The same own-words line never repeats on more than two cards; a dropped line takes its points with it.
   const seen = new Map<string, number>();
   for (const match of shown) {
     match.reasons = match.reasons.filter((reason) => {
-      if (!ownWords.has(reason)) return true;
+      const points = ownWords.get(reason);
+      if (points === undefined) return true;
       const n = (seen.get(reason.text) ?? 0) + 1;
       seen.set(reason.text, n);
-      return n <= 2;
+      if (n <= 2) return true;
+      match.score = Math.round((match.score - points) * 100) / 100;
+      return false;
     });
   }
   return {

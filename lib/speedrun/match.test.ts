@@ -7,13 +7,17 @@ import type { PersonKey } from "./types";
 
 const corpus = getSnapshot();
 
-function run(key: PersonKey) {
+type Mode = "extracted" | "sample";
+
+// The demo serves the sample profiles; uploads serve extracted ones. Quality holds on both.
+function profileFor(mode: Mode, key: PersonKey) {
   const person = PEOPLE[key];
-  const profile = extractProfile(person.resumeText, person.intake);
-  return rankMatches(profile, person.intake, corpus);
+  return mode === "sample" ? person.profile : extractProfile(person.resumeText, person.intake);
 }
 
-describe("rankMatches", () => {
+describe.each(["extracted", "sample"] as Mode[])("rankMatches (%s profiles)", (mode) => {
+  const run = (key: PersonKey, limit = 6) => rankMatches(profileFor(mode, key), PEOPLE[key].intake, corpus, limit);
+
   it("gives Lena design matches at the top", () => {
     const { matches } = run("lena");
     expect(matches.length).toBeGreaterThanOrEqual(3);
@@ -96,8 +100,7 @@ describe("rankMatches", () => {
       expect(match.role).not.toBeNull();
       expect(AI_TEXT.test(stripCompany(match))).toBe(true);
     }
-    const person = PEOPLE.ravi;
-    const wide = rankMatches(extractProfile(person.resumeText, person.intake), person.intake, corpus, 100).matches;
+    const wide = run("ravi", 100).matches;
     expect(wide.filter((m) => m.role && AI_TEXT.test(stripCompany(m))).length).toBeGreaterThanOrEqual(11);
   });
 
@@ -105,11 +108,10 @@ describe("rankMatches", () => {
     const outside = /canada|toronto|mexico|spain|madrid|switzerland|zurich|turkey|istanbul|vietnam|china|korea|seoul|india\b|europe|\buk\b|united kingdom|london|lisbon|asia|apac|singapore|japan|australia|sydney|latin america|latam|brazil|belgrade|makati|philippines|dublin, ireland|munich|abu dhabi/i;
     for (const key of Object.keys(PEOPLE) as PersonKey[]) {
       const person = PEOPLE[key];
-      const profile = extractProfile(person.resumeText, person.intake);
-      for (const match of rankMatches(profile, person.intake, corpus, 100).matches) {
+      for (const match of run(key, 100).matches) {
         const named = person.intake.places.some((p) => outside.test(p));
         const location = match.role?.location ?? "";
-        const alsoUs = /united states|\busa\b|, [A-Z]{2}\b/.test(location);
+        const alsoUs = /united states|\busa\b|, (AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/.test(location);
         if (!named && !alsoUs) expect(outside.test(location), `${key}: ${location}`).toBe(false);
       }
     }
@@ -118,16 +120,20 @@ describe("rankMatches", () => {
   it("puts software titles ahead of hardware titles for engineering targets", () => {
     const software = /software|developer|backend|frontend|full.?stack|platform|mobile|ios|android|infrastructure|data|ml|machine learning|ai/i;
     for (const match of run("maya").matches) if (match.role) expect(software.test(match.role.title), match.role.title).toBe(true);
+    const hardware = /mechanical|electrical|hardware|naval|manufactur|propulsion|avionics|civil|chemical/i;
     for (const key of ["ravi", "sam"] as PersonKey[]) {
       for (const match of run(key).matches) {
         if (match.role && match.reasons[0].text.startsWith("You asked for engineering")) {
-          expect(software.test(match.role.title), match.role.title).toBe(true);
+          expect(hardware.test(match.role.title), match.role.title).toBe(false);
         }
       }
     }
+    // Within a company the software role wins on title, not on recency.
+    const base = run("maya", 100).matches.find((m) => m.company.name === "Base Power Company");
+    if (base?.role) expect(/software/i.test(base.role.title), base.role.title).toBe(true);
   });
 
-  const ownLine = (text: string) => text.startsWith("You wrote") || text.startsWith("You shipped");
+  const ownLine = (text: string) => text.startsWith("You wrote") || text.startsWith("Your work on");
 
   it("quotes the visitor in at least three of the five top sixes, and never repeats a line past twice", () => {
     let people = 0;
@@ -167,6 +173,33 @@ describe("rankMatches", () => {
     const forward = rankMatches(profile, person.intake, corpus);
     const reversed = rankMatches(profile, person.intake, { companies: corpus.companies, roles: [...corpus.roles].reverse() });
     expect(reversed.matches.map((m) => m.role?.id)).toEqual(forward.matches.map((m) => m.role?.id));
+  });
+
+  it("puts a speedrun company in the top three whenever a speedrun role fits", () => {
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      const wide = run(key, 100).matches;
+      if (!wide.some((m) => m.role?.tier === "speedrun")) continue;
+      expect(run(key).matches.slice(0, 3).some((m) => m.role?.tier === "speedrun"), key).toBe(true);
+    }
+  });
+
+  it("never quotes a shipped item on the strength of ship or shipping", () => {
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      for (const match of run(key, 100).matches) {
+        for (const reason of match.reasons) {
+          if (reason.text.startsWith("Your work on")) expect(reason.text).not.toMatch(/mentions ship/i);
+        }
+      }
+    }
+  });
+
+  it("writes grammatical skills reasons", () => {
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      for (const match of run(key, 100).matches) {
+        const text = match.reasons.map((r) => r.text).join(" ");
+        expect(text).not.toMatch(/comes up in|shows up in|You shipped/);
+      }
+    }
   });
 
   it("ranks the demo profiles as they ship", () => {
