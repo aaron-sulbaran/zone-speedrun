@@ -84,4 +84,58 @@ describe("rankMatches", () => {
     expect(result.matches).toEqual([]);
     expect(result.narrowing.shown).toBe(0);
   });
+
+  it("decides AI from the title or description, never from a company name", () => {
+    const { matches } = run("ravi");
+    const names = (m: (typeof matches)[number]) =>
+      [m.role!.company, m.company.name].reduce((t, n) => t.replace(new RegExp(n.replace(/[()]/g, ""), "gi"), " "), `${m.role!.title} ${m.role!.excerpt}`);
+    // Ravi's second target is engineering; only the matches placed under AI must mention it.
+    const asAi = matches.filter((m) => m.reasons[0].text.startsWith("You asked for AI"));
+    expect(asAi.length).toBeGreaterThanOrEqual(3);
+    expect(matches.slice(0, 3)).toEqual(asAi.slice(0, 3));
+    for (const match of asAi) {
+      expect(match.role).not.toBeNull();
+      expect(/\b(ai|ml|machine learning|llms?|language models?|generative|neural|nlp)\b/i.test(names(match))).toBe(true);
+    }
+  });
+
+  it("keeps remote roles in other regions away from US visitors", () => {
+    const foreign = /europe|emea|\buk\b|united kingdom|london|lisbon|asia|apac|singapore|india|japan|australia|sydney|latin america|latam|brazil|belgrade|makati|philippines|dublin|munich|abu dhabi/i;
+    for (const key of ["sam", "lena"] as PersonKey[]) {
+      for (const match of run(key).matches) {
+        expect(foreign.test(match.role?.location ?? "")).toBe(false);
+      }
+    }
+  });
+
+  it("does not depend on corpus order", () => {
+    const person = PEOPLE.dev;
+    const profile = extractProfile(person.resumeText, person.intake);
+    const forward = rankMatches(profile, person.intake, corpus);
+    const reversed = rankMatches(profile, person.intake, { companies: corpus.companies, roles: [...corpus.roles].reverse() });
+    expect(reversed.matches.map((m) => m.role?.id)).toEqual(forward.matches.map((m) => m.role?.id));
+  });
+
+  it("ranks the demo profiles as they ship", () => {
+    for (const key of Object.keys(PEOPLE) as PersonKey[]) {
+      const person = PEOPLE[key];
+      const { matches } = rankMatches(person.profile, person.intake, corpus);
+      expect(matches.length).toBeGreaterThan(0);
+      for (const match of matches) {
+        expect(match.reasons.length).toBeGreaterThan(0);
+        expect(match.reasons.every((r) => r.cites.length > 0)).toBe(true);
+      }
+    }
+  });
+
+  it("writes plain titles and articles in reasons", () => {
+    for (const key of ["maya", "ravi", "sam", "lena", "dev"] as PersonKey[]) {
+      for (const match of run(key).matches) {
+        const text = match.reasons.map((r) => r.text).join(" ");
+        expect(text).not.toMatch(/\ba (AI|ML|SRE|Early|Engineer|Unified)\b/);
+        expect(text).not.toMatch(/ - [A-Z][a-z]+ \(Remote\)/);
+        expect(text).not.toMatch(/You said/);
+      }
+    }
+  });
 });
