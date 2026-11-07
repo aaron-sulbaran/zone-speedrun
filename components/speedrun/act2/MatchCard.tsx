@@ -33,7 +33,7 @@ export function MatchCard({ match }: { match: Match }) {
       data-match-card=""
       className="rounded-xl border border-sr-soft bg-sr-surface p-5 transition-transform duration-200 ease-sr hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <Logo name={company.name} logo={company.logo} />
         <div className="min-w-0">
           <h4 className="text-lg font-semibold leading-tight">{company.name}</h4>
