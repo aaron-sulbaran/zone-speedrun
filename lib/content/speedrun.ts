@@ -39,7 +39,15 @@ export const speedrunCopy = {
   join: {},
   build: {},
   matches: {},
-  board: {},
+  board: {
+    next: {
+      applied: "Wait for a reply",
+      assessment: "Finish the assessment",
+      screen: "Prepare for the screen",
+      interview: "Prepare for the interview",
+      offer: "Decide on the offer",
+    },
+  },
   brief: {},
   decisions: {},
   close: {},

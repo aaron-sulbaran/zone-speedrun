@@ -1,7 +1,7 @@
 // Made-up resumes for the five sample people. Plain text, as if pasted from a PDF.
 
 export const MAYA_RESUME = `Maya Torres
-Austin, TX | maya.torres@example.com | github.com/mayatorres-sample
+Austin, TX | maya.torres@example.com | github.example/mayatorres
 
 EDUCATION
 University of Texas at Austin, B.S. Computer Science, expected May 2029
@@ -37,7 +37,7 @@ Intramural ultimate frisbee.
 Looking for a summer 2027 software engineering internship where I can work on a real codebase, get code review from people who care, and ship something users touch.`;
 
 export const RAVI_RESUME = `Ravi Menon
-Seattle, WA | ravi.menon@example.com | github.com/ravimenon-sample
+Seattle, WA | ravi.menon@example.com | github.example/ravimenon
 
 EDUCATION
 University of Washington, B.S. Computer Science, June 2026
@@ -71,7 +71,7 @@ Python, PyTorch, Hugging Face, FastAPI, SQL, Docker, evaluation design, prompt e
 Looking for an applied AI team that ships models into a real product, measures whether they work, and lets a new grad own a piece end to end.`;
 
 export const SAM_RESUME = `Sam Whitfield
-Atlanta, GA | sam.whitfield@example.com | samwhitfield-sample.dev
+Atlanta, GA | sam.whitfield@example.com | sam.example
 
 EDUCATION
 Georgia Institute of Technology, B.S. Electrical and Computer Engineering, expected May 2027
@@ -102,22 +102,22 @@ Founder of the Tech Product Club, 80 members. Mentor for first-year engineering 
 Looking for a co-op or new grad role at an early-stage company, ideally a small team where I can build the product, talk to users and wear more than one hat.`;
 
 export const LENA_RESUME = `Lena Hartmann
-Brooklyn, NY | lena.hartmann@example.com | lenahartmann-sample.design
+Brooklyn, NY | lena.hartmann@example.com | lena.example/portfolio
 
 SUMMARY
 Product designer with two years of experience on consumer and small business tools. I work from research through prototype to shipped UI and I like pairing closely with engineers.
 
 EXPERIENCE
-Product Designer, Marigold Payments, Aug 2024 to present
+Product Designer, Marigold Payments, Aug 2025 to present
 - Redesigned the invoice flow for small merchants; support tickets about unpaid invoices fell by a third.
 - Built and maintained a component library of 60 components in Figma with tokens that match the code.
 - Ran six rounds of usability tests with five people each and presented findings to the founders.
 
-Junior Designer, Papercut Studio, Jun 2023 to Aug 2024
+Junior Designer, Papercut Studio, Jun 2024 to Aug 2025
 - Designed marketing sites and onboarding screens for four client startups.
 - Prototyped motion for a mobile app launch in Principle and handed specs to engineers.
 
-SELECTED WORK (portfolio at lenahartmann-sample.design)
+SELECTED WORK (portfolio at lena.example/portfolio)
 Pocket Ledger: a budgeting app concept, user research with twelve people, shipped as a working prototype.
 Trailhead: a redesign of a local hiking guide, focused on offline use and clear map labels.
 Seedling: an accessibility audit of a community garden's site, with fixes shipped. Contrast, focus order and form labels were the biggest wins, and the volunteers kept the changes after I left.
@@ -126,7 +126,7 @@ ACTIVITIES
 Volunteer designer for a neighborhood food pantry, redesigning its signage and weekly flyer. Mentor at a portfolio review night for design students, twice a year.
 
 EDUCATION
-Pratt Institute, B.F.A. Communication Design, 2023
+Pratt Institute, B.F.A. Communication Design, 2024
 
 SKILLS
 Figma, prototyping, design systems, user research, accessibility, HTML and CSS, basic React, motion
@@ -134,7 +134,7 @@ Figma, prototyping, design systems, user research, accessibility, HTML and CSS, 
 Looking for a product design role on a small team where design and engineering sit close, the work is shipped quickly, and my portfolio can speak for me.`;
 
 export const DEV_RESUME = `Dev Kapoor
-San Francisco, CA | dev.kapoor@example.com | github.com/devkapoor-sample
+San Francisco, CA | dev.kapoor@example.com | github.example/devkapoor
 
 SUMMARY
 Infrastructure engineer turned founder. Six years building large scale systems, two small companies of my own, and now looking at accelerators, investors and founding roles.

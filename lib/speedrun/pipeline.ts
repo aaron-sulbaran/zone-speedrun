@@ -1,58 +1,83 @@
-import type { AppRow, Exit, InboxEvent, Pipeline, Stage } from "./types";
+import { speedrunCopy } from "@/lib/content/speedrun";
+import type { AppRow, Exit, InboxEvent, Lane, Pipeline, Stage } from "./types";
 
 export const STAGES: Stage[] = ["applied", "assessment", "screen", "interview", "offer"];
 const NO_REPLY_DAYS = 21;
 const DAY_MS = 86_400_000;
-
-const NEXT_STEP: Record<Stage, string> = {
-  applied: "Wait for a reply",
-  assessment: "Finish the assessment",
-  screen: "Prepare for the screen",
-  interview: "Prepare for the interview",
-  offer: "Decide on the offer",
-};
+const ROW_KINDS = new Set(["applied", "assessment", "screen", "interview", "offer", "rejection"]);
 
 function daysBetween(from: string, to: string): number {
   return (new Date(to).getTime() - new Date(from).getTime()) / DAY_MS;
 }
 
-function groupKey(event: InboxEvent): string {
-  return `${event.lane}|${event.company.toLowerCase()}|${(event.role ?? "").toLowerCase()}`;
+const companyKey = (company: string) => company.toLowerCase().replace(/[^a-z0-9]+/g, "");
+const roleKey = (role: string | null) => (role ?? "").toLowerCase().trim();
+
+type Group = { company: string; role: string | null; events: InboxEvent[] };
+
+function lastDate(group: Group): string {
+  return group.events[group.events.length - 1].date;
+}
+
+/** One company can have several roles; an event with no role joins that company's latest row. */
+function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
+  const byCompany = new Map<string, Group[]>();
+  const sorted = events
+    .filter((event) => ROW_KINDS.has(event.kind))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  for (const event of sorted) {
+    const key = companyKey(event.company);
+    const groups = byCompany.get(key) ?? [];
+    byCompany.set(key, groups);
+    let target: Group | undefined;
+    if (event.role) {
+      target = groups.find((group) => roleKey(group.role) === roleKey(event.role));
+      if (!target) {
+        const open = groups.find((group) => group.role === null);
+        if (open) {
+          open.role = event.role;
+          target = open;
+        }
+      }
+    } else if (groups.length > 0) {
+      target = groups.reduce((latest, group) => (lastDate(group) >= lastDate(latest) ? group : latest));
+    }
+    if (!target) {
+      target = { company: event.company, role: event.role, events: [] };
+      groups.push(target);
+    }
+    target.events.push(event);
+  }
+  return byCompany;
 }
 
 export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
-  const groups = new Map<string, InboxEvent[]>();
-  let intros = 0;
-  for (const event of events) {
-    if (event.kind === "intro") intros += 1;
-    if (event.kind === "other" || event.kind === "noreply" || event.kind === "intro") continue;
-    const key = groupKey(event);
-    const list = groups.get(key);
-    if (list) list.push(event);
-    else groups.set(key, [event]);
-  }
-
+  const intros = events.filter((event) => event.kind === "intro").length;
   const rows: AppRow[] = [];
-  for (const list of groups.values()) {
-    const sorted = [...list].sort((a, b) => a.date.localeCompare(b.date));
-    const last = sorted[sorted.length - 1];
-    let furthest: Stage = "applied";
-    for (const event of sorted) {
-      const stage = STAGES.find((candidate) => candidate === event.kind);
-      if (stage && STAGES.indexOf(stage) > STAGES.indexOf(furthest)) furthest = stage;
+
+  for (const groups of groupByApplication(events).values()) {
+    const all = groups.flatMap((group) => group.events).sort((a, b) => a.date.localeCompare(b.date));
+    const lane: Lane = all[0].lane;
+    for (const group of groups) {
+      const last = group.events[group.events.length - 1];
+      let furthest: Stage = "applied";
+      for (const event of group.events) {
+        const stage = STAGES.find((candidate) => candidate === event.kind);
+        if (stage && STAGES.indexOf(stage) > STAGES.indexOf(furthest)) furthest = stage;
+      }
+      let exit: Exit = "open";
+      if (last.kind === "rejection") exit = "rejected";
+      else if (last.kind === "applied" && daysBetween(last.date, today) > NO_REPLY_DAYS) exit = "noreply";
+      rows.push({
+        company: group.company,
+        role: group.role,
+        lane,
+        furthest,
+        exit,
+        lastEventAt: last.date,
+        next: exit === "open" ? speedrunCopy.board.next[furthest] : null,
+      });
     }
-    let exit: Exit = "open";
-    if (last.kind === "rejection") exit = "rejected";
-    else if (last.kind === "applied" && daysBetween(last.date, today) > NO_REPLY_DAYS) exit = "noreply";
-    rows.push({
-      company: sorted[0].company,
-      role: sorted[0].role,
-      lane: sorted[0].lane,
-      furthest,
-      exit,
-      lastEventAt: last.date,
-      next: exit === "open" ? NEXT_STEP[furthest] : null,
-    });
   }
   rows.sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt) || a.company.localeCompare(b.company));
 

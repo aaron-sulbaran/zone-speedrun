@@ -1,4 +1,10 @@
-import { FICTIONAL_COMPANIES, FOUNDER_ORGS, FOUNDER_ROUNDS } from "./fictional";
+import {
+  FICTIONAL_COMPANIES,
+  FOUNDER_ACCELERATORS,
+  FOUNDER_ACCELERATOR_ROUNDS,
+  FOUNDER_FUNDS,
+  FOUNDER_FUND_ROUNDS,
+} from "./fictional";
 import type { InboxEmail, Person, PersonKey } from "./types";
 
 /** The fixed "today" for sample inboxes, so the demo never drifts. */
@@ -8,7 +14,7 @@ const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
 type Buckets = { assessment: number; screen: number; interview: number; offer: number };
-type Plan = { founderRows: number; jobs: Buckets; founder: Buckets; intros: number; roles: string[] };
+type Plan = { live?: boolean; founderRows: number; jobs: Buckets; founder: Buckets; intros: number; roles: string[] };
 
 const ZERO: Buckets = { assessment: 0, screen: 0, interview: 0, offer: 0 };
 const ENGINEERING_ROLES = [
@@ -24,7 +30,7 @@ const ROLE_POOLS = {
 } satisfies Record<PersonKey, string[]>;
 
 const PLANS: Record<PersonKey, Plan> = {
-  maya: { founderRows: 0, jobs: { assessment: 1, screen: 1, interview: 0, offer: 0 }, founder: ZERO, intros: 0, roles: ROLE_POOLS.maya },
+  maya: { live: true, founderRows: 0, jobs: { assessment: 1, screen: 0, interview: 0, offer: 0 }, founder: ZERO, intros: 0, roles: ROLE_POOLS.maya },
   ravi: { founderRows: 0, jobs: { assessment: 8, screen: 4, interview: 4, offer: 1 }, founder: ZERO, intros: 1, roles: ROLE_POOLS.ravi },
   sam: { founderRows: 0, jobs: { assessment: 7, screen: 3, interview: 6, offer: 2 }, founder: ZERO, intros: 2, roles: ROLE_POOLS.sam },
   lena: { founderRows: 0, jobs: { assessment: 2, screen: 3, interview: 3, offer: 1 }, founder: ZERO, intros: 1, roles: ROLE_POOLS.lena },
@@ -75,7 +81,7 @@ function jobsDraft(kind: string, t: Target, first: string, when: number): Draft 
     case "applied":
       return { when, from: careers, subject: `Thanks for applying to ${t.company}`, body: `Hi ${first},\n\nThanks for your interest in ${t.company}. We received your application and our team will review it. If your background is a match for what we need, we will be in touch.\n\n${roleLine}` };
     case "assessment":
-      return { when, from: talent, subject: `Next step: take-home for ${t.company}`, body: `Hi ${first},\n\nThanks for your patience. The next step is a short take-home assessment. Plan on about two hours and send it back within five days.\n\n${roleLine}` };
+      return { when, from: talent, subject: `Next step: take-home for ${t.company}`, body: `Hi ${first},\n\nThanks for your patience with your application. The next step is a short take-home assessment. Plan on about two hours and send it back within five days.\n\n${roleLine}` };
     case "screen":
       return { when, from: talent, subject: `Can we set up a phone screen?`, body: `Hi ${first},\n\nWe would love a 20 minute phone screen to learn more about you and answer questions about ${t.company}. Reply with a few times that work.\n\n${roleLine}` };
     case "interview":
@@ -121,9 +127,20 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
     rng,
     FICTIONAL_COMPANIES.flatMap((company) => plan.roles.map((role) => ({ company, role, founder: false }))),
   ).slice(0, jobsCount);
+  if (plan.live) {
+    // One recent thread that is still alive: applied a week ago, assessment sent three days ago.
+    const live = pairs.pop();
+    if (live) {
+      drafts.push(jobsDraft("applied", live, first, ANCHOR_MS - 8 * DAY_MS));
+      drafts.push(jobsDraft("assessment", live, first, ANCHOR_MS - 3 * DAY_MS));
+    }
+  }
   const founderPairs: Target[] = shuffle(
     rng,
-    FOUNDER_ORGS.flatMap((company) => FOUNDER_ROUNDS.map((role) => ({ company, role, founder: true }))),
+    [
+      ...FOUNDER_ACCELERATORS.flatMap((company) => FOUNDER_ACCELERATOR_ROUNDS.map((role) => ({ company, role, founder: true }))),
+      ...FOUNDER_FUNDS.flatMap((company) => FOUNDER_FUND_ROUNDS.map((role) => ({ company, role, founder: true }))),
+    ],
   ).slice(0, plan.founderRows);
 
   const groups: Array<[Target[], Buckets]> = [

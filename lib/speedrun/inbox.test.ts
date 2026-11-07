@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyEmail } from "./classify";
-import { FICTIONAL_COMPANIES, FOUNDER_ORGS } from "./fictional";
+import { FICTIONAL_COMPANIES, FOUNDER_FUNDS, FOUNDER_ORGS } from "./fictional";
 import { INBOX_TODAY, generateInbox } from "./inbox";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
@@ -75,6 +75,36 @@ describe("PEOPLE", () => {
       expect(firstLine.split(" ").length).toBeGreaterThanOrEqual(2);
       expect(person.profile.source).toBe("sample");
       expect(person.profile.firstName.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("gives every person a live thread past applied with a next step", () => {
+    for (const key of KEYS) {
+      const live = pipelineFor(key).rows.filter((row) => row.exit === "open" && row.furthest !== "applied" && row.next !== null);
+      expect(live.length).toBeGreaterThan(0);
+    }
+    const maya = pipelineFor("maya").rows.find((row) => row.furthest === "assessment" && row.exit === "open");
+    expect(maya?.next).toBe("Finish the assessment");
+  });
+
+  it("uses no fictional name that is a real company", () => {
+    const names = FICTIONAL_COMPANIES.map((name) => name.toLowerCase());
+    expect(names).not.toContain("greywing");
+    expect(names).not.toContain("thistledown");
+  });
+
+  it("pairs accelerators with batch rounds and funds with pitch rounds", () => {
+    for (const row of pipelineFor("dev").rows.filter((r) => r.lane === "founder")) {
+      const isFund = FOUNDER_FUNDS.includes(row.company);
+      expect(/pitch|seed/i.test(row.role ?? "")).toBe(isFund);
+    }
+  });
+
+  it("keeps contact lines on example hosts", () => {
+    for (const key of KEYS) {
+      const contact = PEOPLE[key].resumeText.split("\n")[1];
+      expect(contact).toMatch(/example/);
+      expect(contact).not.toMatch(/github\.com|-sample/);
     }
   });
 });
