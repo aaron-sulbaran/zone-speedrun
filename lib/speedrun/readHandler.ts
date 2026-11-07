@@ -1,7 +1,7 @@
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { RERANK_POOL, readResume, rerank } from "./ai";
-import type { LimitVerdict } from "./guard";
+import { BodyTooLargeError, type LimitVerdict } from "./guard";
 import { rankMatches, type MatchResult } from "./match";
 import { getSnapshot } from "./snapshot";
 import { FNS, type Profile } from "./types";
@@ -22,14 +22,14 @@ const bodySchema = z.object({
   }),
 });
 
+export { BodyTooLargeError };
+
 export type ReadError = "bad_input" | "too_large" | "unreadable" | "slow_down" | "live_off" | "bot" | "internal";
 
 export type ReadOutcome =
   | { status: 200; body: { profile: Profile; result: MatchResult; mode: "model" | "rules" } }
   | { status: 400 | 403 | 413 | 422 | 500 | 503; body: { error: ReadError } }
   | { status: 429; body: { error: "slow_down"; retryAfterMs: number } };
-
-export class BodyTooLargeError extends Error {}
 
 export type ReadInput = {
   contentLength: number | null;
@@ -45,31 +45,6 @@ export type ReadDeps = {
 };
 
 const fail = (status: 400 | 403 | 413 | 422 | 503, error: ReadError): ReadOutcome => ({ status, body: { error } });
-
-/** Reads at most `max` bytes, so a missing content-length cannot make the server buffer a huge body. */
-export async function readCappedJson(request: Request, max = MAX_BODY_BYTES): Promise<unknown> {
-  const reader = request.body?.getReader();
-  if (!reader) throw new Error("no body");
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      throw new BodyTooLargeError("too_large");
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let at = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, at);
-    at += chunk.byteLength;
-  }
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
 
 // Pure: every outside effect (the switch, bot check, limiter, model) arrives
 // through `deps`, and the resume text never leaves this function.

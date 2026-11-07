@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLimiter, liveFlags } from "./guard";
+import { BodyTooLargeError, createLimiter, liveFlags, readCappedJson } from "./guard";
 
 const TEN_MIN = 10 * 60 * 1000;
 
@@ -75,5 +75,25 @@ describe("liveFlags", () => {
     expect(liveFlags().email).toBe(false);
     vi.stubEnv("SPEEDRUN_EMAIL_FROM", "hi@example.com");
     expect(liveFlags().email).toBe(true);
+  });
+});
+
+describe("readCappedJson", () => {
+  const post = (body: BodyInit, headers?: HeadersInit) => new Request("http://x.test/", { method: "POST", body, headers });
+
+  it("parses a small body", async () => {
+    expect(await readCappedJson(post(JSON.stringify({ a: 1 })), 100)).toEqual({ a: 1 });
+  });
+
+  it("stops past the cap even without a content-length", async () => {
+    await expect(readCappedJson(post("x".repeat(200)), 100)).rejects.toBeInstanceOf(BodyTooLargeError);
+  });
+
+  it("refuses a declared length past the cap before reading", async () => {
+    await expect(readCappedJson(post("{}", { "content-length": "500" }), 100)).rejects.toBeInstanceOf(BodyTooLargeError);
+  });
+
+  it("rejects a body that is not JSON", async () => {
+    await expect(readCappedJson(post("nope"), 100)).rejects.toBeInstanceOf(SyntaxError);
   });
 });

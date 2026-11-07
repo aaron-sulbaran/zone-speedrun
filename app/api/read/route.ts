@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { liveModel } from "@/lib/speedrun/ai";
-import { createLimiter, liveFlags } from "@/lib/speedrun/guard";
-import { handleRead, readCappedJson } from "@/lib/speedrun/readHandler";
+import { createLimiter, liveFlags, readCappedJson } from "@/lib/speedrun/guard";
+import { handleRead, MAX_BODY_BYTES } from "@/lib/speedrun/readHandler";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const outcome = await handleRead(
       {
         contentLength: Number.isFinite(length) && length > 0 ? length : null,
-        json: () => readCappedJson(request),
+        json: () => readCappedJson(request, MAX_BODY_BYTES),
       },
       {
         live,

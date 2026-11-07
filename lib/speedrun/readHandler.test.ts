@@ -1,6 +1,6 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BodyTooLargeError, handleRead, MAX_BODY_BYTES, MAX_TEXT_CHARS, readCappedJson, type ReadDeps, type ReadInput } from "./readHandler";
+import { BodyTooLargeError, handleRead, MAX_BODY_BYTES, MAX_TEXT_CHARS, type ReadDeps, type ReadInput } from "./readHandler";
 
 const INTAKE = { targets: ["engineering"], places: [], why: "" };
 const RESUME =
@@ -70,21 +70,5 @@ describe("handleRead", () => {
     const out = await handleRead(input(ok), deps({ model }));
     expect(out.status === 200 && out.body.mode).toBe("rules");
     expect(model.doGenerateCalls).toHaveLength(1);
-  });
-});
-
-describe("readCappedJson", () => {
-  const post = (body: BodyInit) => new Request("http://x.test/", { method: "POST", body });
-
-  it("parses a small body", async () => {
-    expect(await readCappedJson(post(JSON.stringify({ a: 1 })))).toEqual({ a: 1 });
-  });
-
-  it("stops past the cap even without a content-length", async () => {
-    await expect(readCappedJson(post("x".repeat(200)), 100)).rejects.toBeInstanceOf(BodyTooLargeError);
-  });
-
-  it("rejects a body that is not JSON", async () => {
-    await expect(readCappedJson(post("nope"))).rejects.toBeInstanceOf(SyntaxError);
   });
 });

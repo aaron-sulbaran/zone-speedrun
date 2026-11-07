@@ -37,6 +37,35 @@ export function createLimiter(opts: LimiterOptions): (key: string, now: number) 
   };
 }
 
+export class BodyTooLargeError extends Error {}
+
+/** Reads at most `max` bytes, so a missing content-length cannot make the server buffer a huge body. */
+export async function readCappedJson(request: Request, max: number): Promise<unknown> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) throw new BodyTooLargeError("too_large");
+  const reader = request.body?.getReader();
+  if (!reader) throw new Error("no body");
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel();
+      throw new BodyTooLargeError("too_large");
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.byteLength;
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
 // Explicit switches, never key presence: on Vercel the AI Gateway signs in with
 // an automatic OIDC token, so a key check alone would turn spend on.
 export function liveFlags(): { reading: boolean; email: boolean } {
