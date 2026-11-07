@@ -47,22 +47,28 @@ const NUMBER_WORDS: Record<string, number> = {
   one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
 };
 
-// A student group the person founded is not a company. A team they grew inside one is fine.
-// The group has to be what they founded: "founded a startup with a team" and "co-founded Acme with my team" are
-// companies, while "founded the Startup Club" is a club.
-const GROUPS = "club|chapter|society|association|fraternity|sorority|team|hackathon|organization|(?<!(accelerator|incubator)\\s)program";
+// A student group the person founded is not a company, but a company's team ("team of 6", "grew the team"), its
+// accelerator batch ("YC's S24 program") or a hackathon product is not a group. "Founded a startup with a team" and
+// "co-founded Acme with my team" are companies, while "founded the Startup Club" is a club.
+const GROUPS = "club|chapter|society|association|fraternity|sorority|team|hackathon|organization|program";
+const NOT_GROUP = new RegExp(
+  `\\bteam of (\\d+|${Object.keys(NUMBER_WORDS).join("|")}|several)\\b|\\b(grew|built|hired|led|scaled|managed)\\s+(\\w+\\s+){0,2}team\\b|` +
+    `\\b(yc|y combinator|speedrun|a16z|techstars|accelerator|incubator)(['\\u2019]s)?(\\s+\\w+){0,2}\\s+program|\\bhackathon\\s+(platform|software|tools?|apps?|organizers?)\\b`,
+  "gi",
+);
 const GROUP_NEAR = new RegExp(
   `\\b(founded|founder of|co-?founded|started)\\s+(the\\s+|a\\s+|our\\s+|my\\s+)?((?!(with|and|for|from|alongside)\\b)[\\w'-]+\\s+){0,3}(${GROUPS})\\b`,
   "i",
 );
 const GROUP_WORD = new RegExp(`\\b(${GROUPS})\\b`, "i");
-const FOUNDER_STRONG = /\b(co-?founded|co-?founders?|solo founder|founded)\b/gi;
+const FOUNDER_VERB = /\b(co-?founded|founded)\b/gi;
+const FOUNDER_NOUN = /\b(co-?founders?|solo founder)\b/gi;
 // A founder title line: "Founder & CEO, Acme", "Founder, Acme (YC S24)", "CEO and Founder, Acme", "Acme | Founder".
 const FOUNDER_TITLE =
   /(^|[,|@\u2013-]\s*)founder(\s*(&|and|\/)\s*(ceo|cto|coo|president))?\s*([,|@(\u2013-]|\bat\b|$)|^(ceo|cto|coo|president)\s*(&|and|\/|,)\s*founder\b/i;
 const FOUNDER_FUNDING =
   /\braised\b[^.]{0,40}(\$\s?\d[\d.,]*\s?(m|k|b|million|billion)\b|seed|pre-seed|round|funding|capital|investors?|angels?|series [a-c]|million)/gi;
-const NOT_FUNDING = /food bank|food drive|blood drive|toy drive|charity|donat|fundrais|nonprofit|scholarship|sponsor/i;
+const NOT_FUNDING = /food bank|food drive|blood drive|toy drive|charity|donat|fundrais|nonprofit|scholarship|sponsorship|from (\w+ )?sponsors\b/i;
 const FOUNDER_PROGRAM = /\b(accelerators?|incubators?|y combinator|yc)\b/gi;
 // Only the word "accelerator" is voided, and only as a chip: founding, raising and YC always count.
 const HARDWARE_ACCEL =
@@ -104,12 +110,14 @@ function founderSignal(text: string): Profile["founderSignal"] {
   for (const raw of text.split("\n")) {
     const line = raw.replace(/^[-\s]+/, "").trim();
     if (!line || headingOf(line)) continue;
-    // A club or chapter is not a company; funding needs funding words.
-    const groupLine = GROUP_NEAR.test(line);
+    // A club is not a company, nor is a founder title on its line ("Co-founder, Women in CS Club"); funding needs funding words.
+    const plain = line.replace(NOT_GROUP, " ");
+    const groupLine = GROUP_NEAR.test(plain);
+    const grouped = GROUP_WORD.test(plain);
     const funding = NOT_FUNDING.test(line) ? 0 : count(line, FOUNDER_FUNDING);
     const program = count(line.replace(HARDWARE_ACCEL, " "), FOUNDER_PROGRAM);
-    const titled = FOUNDER_TITLE.test(line) && !GROUP_WORD.test(line) ? 1 : 0;
-    const founding = groupLine ? 0 : count(line, FOUNDER_STRONG) || titled;
+    const nouns = grouped ? 0 : count(line, FOUNDER_NOUN);
+    const founding = groupLine ? 0 : count(line, FOUNDER_VERB) + nouns || Number(!grouped && FOUNDER_TITLE.test(line));
     const lineStrong = founding + funding + program;
     foundingHits += founding;
     otherHits += funding + program;
@@ -124,46 +132,57 @@ function founderSignal(text: string): Profile["founderSignal"] {
 const TITLE_LINE =
   /^(senior|sr\.?|staff|principal|lead)\s+(software|engineer|developer|designer|product|data|machine|ml|ai|research|manager|analyst|scientist|architect|frontend|backend|full)/i;
 
-// Someone who mentors, hires or leads them, not someone who wants mentorship or to be mentored.
+// Someone who mentors, hires or leads them, not someone who wants mentorship, leadership growth or to be
+// mentored. "Coaching and an internship" lists what they want, so "and" breaks the link.
 const MANAGING =
-  /(?<!\b(be|get|getting|being)\s)\b(mentor(?!ship)|manag|supervis|hir(e|ing)|train(?!ing\b)|lead|led|coach|oversaw|onboard|teach|advis)\w*\W+(\w+\W+){0,3}$/i;
+  /(?<!\b(be|get|getting|being)\s)\b(mentor(?!ship)|manag|supervis|hir(e|ing)|train(?!ing\b)|lead(?!ership)|led|coach|oversaw|onboard|teach|advis)\w*\W+((?!and\b)\w+\W+){0,3}$/i;
 const PAST_BEFORE = /\b(was|were|been|previous(ly)?|past|prior|former|completed|finished|did)\b[^,;.]*$/i;
-// "After" marks the past only before a plural or a count: "after two internships", not "after junior year".
-const AFTER_BEFORE = /\bafter\b[^,;.]*$/i;
-const COUNT_BEFORE = /\b(two|three|four|five|six|several|multiple|many|few|couple|\d+)\s+(\w+\s+)?$/i;
+// "After" is past only with the internship as its object: "after my internship", not "after junior year, internships".
+const AFTER_OBJ = "\\bafter\\s+(my|the|our|this|two|three|four|five|several|multiple|\\d+)\\s+(\\w+\\s+)?";
+const AFTER_BEFORE = new RegExp(`${AFTER_OBJ}$`, "i");
+const AFTER_INTERN = new RegExp(`${AFTER_OBJ}internships?\\b`, "i");
+const FULL_TIME = /\b(full[- ]time|return offer)\b/i;
 const PAST_AFTER = /^[^,;.]*\b(behind me|last (summer|year|fall|spring|winter)|ago)\b/i;
+// "Ran the intern program" and "built our internship program" are staff; "an internship program" is an internship,
+// and so is "applying to the internship program" unless the resume is a senior's.
+const OWN_BEFORE = /\b(the|our|my)\s+(\w+\s+)?$/i;
+const SEEK_PREP = /\b(to|for|into|join(ing)?)\s+(the|our|my)\s+(\w+\s+)?$/i;
 const INTERN_THING = /^\s*(program|onboarding|class|cohort|team|mentor|coordinator|events?|hiring|manager)\b/i;
-// New grads someone works with: "mentor new grads", "hires early career engineers".
+// "A team that hires interns" or "companies that hire new grads" says what they want, unless they are senior.
+const ORG_THAT = /\b(compan(y|ies)|teams?|startups?|places?|employers?|firms?|labs?)\s+(that|which|who|where)\s+((?!i\b)\w+\s+){0,3}$/i;
+// New grads someone works with: "mentor new grads", "hires early career engineers". Not "roles for new grads".
 const NEW_GRAD = /\b(new grad(uate)?s?|early career)\b/gi;
 const PEOPLE_AFTER = /^\s*(engineers|developers|designers|hires|talent|candidates|folks|people|employees)\b/i;
+const SEEK_FOR = /\b(roles?|jobs?|positions?|openings?)\s+for\s+$/i;
+const SEEK_AFTER = /^\s*((\w+\s+){0,2}like me|welcome)\b/i;
 
-/** A new grad role they want, not new grads they mentor or hire. */
-function seeksNewGrad(text: string): boolean {
+/** A new grad role they want, not new grads they mentor or hire. `weak` lets "a team that hires new grads" count. */
+function seeksNewGrad(text: string, weak: boolean): boolean {
   for (const m of text.matchAll(NEW_GRAD)) {
     const at = m.index ?? 0;
     const before = text.slice(Math.max(0, at - 40), at);
     const after = text.slice(at + m[0].length, at + m[0].length + 30);
-    if (/s$/i.test(m[0]) || MANAGING.test(before) || PEOPLE_AFTER.test(after)) continue;
+    const org = ORG_THAT.test(before);
+    if (org && weak) return true;
+    if (org || MANAGING.test(before)) continue;
+    if (SEEK_FOR.test(before) || SEEK_AFTER.test(after)) return true;
+    if (/s$/i.test(m[0]) || PEOPLE_AFTER.test(after)) continue;
     return true;
   }
   return false;
 }
 
-/**
- * An intern role they want ("intern role", "internship", "open to internships"), not interns they work
- * with ("taught interns", "ran the intern program") or internships behind them ("after two internships").
- */
-function seeksIntern(text: string): boolean {
+/** An intern role they want ("internship", "open to internships"), not interns they work with ("taught interns",
+ * "ran the intern program") or internships behind them ("after two internships"). */
+function seeksIntern(text: string, weak: boolean): boolean {
   for (const m of text.matchAll(/\b(interns?|internships?)\b/gi)) {
     const at = m.index ?? 0;
     const before = text.slice(Math.max(0, at - 40), at);
     const after = text.slice(at + m[0].length, at + m[0].length + 40);
-    const word = m[0].toLowerCase();
-    if (word === "interns") continue;
-    if (MANAGING.test(before) || PAST_BEFORE.test(before) || PAST_AFTER.test(after)) continue;
-    if (AFTER_BEFORE.test(before) && (word === "internships" || COUNT_BEFORE.test(before))) continue;
-    // "Ran the intern program" is about the program; "an internship program" is still an internship.
-    if (word === "intern" && (/\bthe\s+$/i.test(before) || INTERN_THING.test(after))) continue;
+    const plural = m[0].toLowerCase() === "interns";
+    if (plural && weak && ORG_THAT.test(before)) return true;
+    if (plural || MANAGING.test(before) || PAST_BEFORE.test(before) || AFTER_BEFORE.test(before) || PAST_AFTER.test(after)) continue;
+    if (OWN_BEFORE.test(before) && INTERN_THING.test(after) && !(weak && SEEK_PREP.test(before))) continue;
     return true;
   }
   return false;
@@ -171,12 +190,16 @@ function seeksIntern(text: string): boolean {
 
 function pickSeniority(text: string, parts: Map<string, string[]>, intake: Intake): Profile["seniority"] {
   const lookingFor = `${text.split("\n").filter((line) => LOOKING.test(line.trim())).join(" ")} ${intake.why}`;
-  // New grad wording first: "a new grad role after two internships" is a new grad.
-  if (seeksNewGrad(lookingFor)) return "new_grad";
-  if (seeksIntern(lookingFor)) return "intern";
   // Seniority needs job-title context: a title line in the experience section with dates.
   const titles = (parts.get("EXPERIENCE") ?? []).filter((l) => !l.startsWith("-") && /\b(19|20)\d\d\b|present/i.test(l));
-  if (titles.some((l) => TITLE_LINE.test(l))) return "senior";
+  const senior = titles.some((l) => TITLE_LINE.test(l));
+  // New grad wording first: "a new grad role after two internships" is a new grad. "Full-time roles at companies
+  // that hire interns" is not an intern.
+  if (seeksNewGrad(lookingFor, !senior)) return "new_grad";
+  if (seeksIntern(lookingFor, !senior && !FULL_TIME.test(lookingFor))) return "intern";
+  if (senior) return "senior";
+  // "A full-time role after my internship": they are about to graduate.
+  if (FULL_TIME.test(lookingFor) && AFTER_INTERN.test(lookingFor)) return "new_grad";
   if (/\bnew grad(uate)?\b/i.test(text)) return "new_grad";
   const years = text.match(/\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\+? years?\b/i);
   if (years) {
