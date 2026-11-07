@@ -12,13 +12,17 @@ const EXITS: Exit[] = ["rejected", "noreply", "open"];
 const stageId = (stage: Stage) => `stage:${stage}`;
 const exitId = (exit: Exit, stage: Stage) => `exit:${exit}:${stage}`;
 
-export function toFlow(pipeline: Pipeline): FlowData {
+/** "auto" drops the lane column when only one lane has rows; "always" keeps it, for callers that relabel the lanes themselves. */
+export type FlowOptions = { laneColumn?: "auto" | "always" };
+
+export function toFlow(pipeline: Pipeline, { laneColumn = "auto" }: FlowOptions = {}): FlowData {
   const { rows } = pipeline;
   if (rows.length === 0) return { nodes: [], links: [] };
   const labels = speedrunCopy.flow;
   // One lane is just the whole search, so it gets no column of its own.
   const laneCount = LANES.filter((lane) => rows.some((row) => row.lane === lane)).length;
-  const firstStageColumn = laneCount > 1 ? 1 : 0;
+  const showLanes = laneColumn === "always" || laneCount > 1;
+  const firstStageColumn = showLanes ? 1 : 0;
   const stageColumn = (stage: Stage) => firstStageColumn + STAGES.indexOf(stage);
   const nodes: FlowNode[] = [];
   const links: FlowLink[] = [];
@@ -26,7 +30,7 @@ export function toFlow(pipeline: Pipeline): FlowData {
     if (value > 0) links.push({ source, target, value, tone });
   };
 
-  for (const lane of laneCount > 1 ? LANES : []) {
+  for (const lane of showLanes ? LANES : []) {
     const count = rows.filter((row: AppRow) => row.lane === lane).length;
     if (count === 0) continue;
     nodes.push({ id: `lane:${lane}`, label: labels.lanes[lane], kind: "lane", column: 0 });

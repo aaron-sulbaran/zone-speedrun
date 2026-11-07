@@ -73,7 +73,7 @@ export const AARON_MOCK: Pipeline = {
 
 /** The flow with the first column relabelled into Aaron's four tracks. */
 export function aaronFlow(): FlowData {
-  const base = toFlow(AARON_MOCK);
+  const base = toFlow(AARON_MOCK, { laneColumn: "always" });
   const labels = speedrunCopy.act1.lanes;
   const present = TRACK_SIZES.map(([track]) => track).filter((track) => AARON_ENTRIES.some((e) => e.track === track));
   return {

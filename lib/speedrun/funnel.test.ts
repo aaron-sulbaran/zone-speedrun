@@ -62,6 +62,12 @@ describe("toFlow", () => {
     expect(single.links.every((link) => ids.has(link.source) && ids.has(link.target))).toBe(true);
   });
 
+  it("keeps a lane column for one lane when asked to", () => {
+    const single = toFlow({ rows: rows.filter((r) => r.lane === "jobs"), stats: pipeline.stats }, { laneColumn: "always" });
+    expect(single.nodes.filter((node) => node.kind === "lane").map((node) => node.id)).toEqual(["lane:jobs"]);
+    expect(single.nodes.find((node) => node.id === "stage:applied")?.column).toBe(1);
+  });
+
   it("only links existing nodes", () => {
     const ids = new Set(flow.nodes.map((node) => node.id));
     expect(flow.links.every((link) => ids.has(link.source) && ids.has(link.target))).toBe(true);

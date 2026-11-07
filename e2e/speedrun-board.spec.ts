@@ -35,6 +35,7 @@ test("pasting an interview invite moves the funnel", async ({ page }) => {
   await page.getByLabel(COPY.paste.label).fill(INTERVIEW_EMAIL);
   await page.getByRole("button", { name: COPY.paste.button }).click();
   await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.found(COPY.kindLabels.interview, "Halcyon Works"));
+  await expect(page.getByLabel(COPY.paste.label)).toBeFocused();
   await expect(stat(page, "inProcess")).toHaveAttribute("data-value", String(before + 1));
   await expect(page.locator("[data-today-list]")).toContainText("Halcyon Works");
 });

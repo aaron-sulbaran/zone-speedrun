@@ -39,10 +39,14 @@ export function introEvents(events: InboxEvent[]): InboxEvent[] {
   return events.filter((event) => event.kind === "intro").sort((a, b) => b.date.localeCompare(a.date));
 }
 
-const HEADER = /^(from|subject|date|to|cc)\s*:\s*(.*)$/i;
+const HEADER = /^(from|subject|date|sent|to|cc|bcc|reply-to)\s*:\s*(.*)$/i;
+// "---------- Forwarded message ---------" and "Begin forwarded message:" sit above the real headers.
+const FORWARD_RULE = /^(-{2,}\s*(forwarded|original) message\s*-{2,}|begin forwarded message:?)$/i;
 // A copied Gmail sender line: a name and an address in angle brackets, nothing else.
-const BARE_SENDER = /^[^<>\n]{1,80}<[^\s<>@]+@[^\s<>@]+>$/;
+// The name is a few words (no commas or colons), so a sentence that happens to hold an address is not a sender.
+const BARE_SENDER = /^(?:(?:from|sender)\s*:\s*)?("?[\p{L}][\p{L}.'&-]*(?:\s+[\p{L}][\p{L}.'&-]*){0,4}"?\s*<[^\s<>@]+@[^\s<>@]+>)$/iu;
 
+/** Same sender, subject, day and text give the same id, so pasting an email twice is caught while a later reply with the same subject is not. */
 function stableId(...parts: string[]): string {
   let hash = 5381;
   for (const char of parts.join("\u0001")) hash = (Math.imul(hash, 33) + char.charCodeAt(0)) >>> 0;
@@ -58,7 +62,7 @@ export function parsePasted(text: string): InboxEmail | null {
   while (index < lines.length) {
     const line = lines[index].trim();
     const header = HEADER.exec(line);
-    if (line === "" && from === "" && subject === "") {
+    if ((line === "" || FORWARD_RULE.test(line)) && from === "" && subject === "") {
       index += 1;
       continue;
     }
@@ -71,7 +75,7 @@ export function parsePasted(text: string): InboxEmail | null {
   const rest = lines.slice(index);
   if (from === "") {
     const at = rest.slice(0, SENDER_SEARCH_LINES).findIndex((line) => BARE_SENDER.test(line.trim()));
-    if (at >= 0) from = rest.splice(at, 1)[0].trim();
+    if (at >= 0) from = (BARE_SENDER.exec(rest.splice(at, 1)[0].trim()) as RegExpExecArray)[1];
   }
   if (subject === "") {
     const first = rest.findIndex((line) => line.trim() !== "");
@@ -82,7 +86,7 @@ export function parsePasted(text: string): InboxEmail | null {
   from = from.slice(0, MAX_HEADER_CHARS);
   subject = subject.slice(0, MAX_HEADER_CHARS);
   const date = `${INBOX_TODAY}T12:00:00.000Z`;
-  return { id: stableId(from, subject, date), from, subject, body, date };
+  return { id: stableId(from, subject, date, body), from, subject, body, date };
 }
 
 export type PasteOutcome =

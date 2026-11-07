@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { readPaste } from "@/lib/speedrun/board";
 import type { InboxEvent } from "@/lib/speedrun/types";
@@ -12,6 +12,7 @@ const copy = speedrunCopy.board;
 export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd: (event: InboxEvent) => void }) {
   const [text, setText] = useState("");
   const [status, announce] = useAnnounce();
+  const areaRef = useRef<HTMLTextAreaElement>(null);
 
   const submit = () => {
     const outcome = readPaste(text, existing);
@@ -22,6 +23,8 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
     onAdd(outcome.event);
     announce(copy.paste.found(copy.kindLabels[outcome.event.kind], outcome.event.company));
     setText("");
+    // The button disables with the text, so focus returns to the box instead of dropping to the page.
+    areaRef.current?.focus();
   };
 
   return (
@@ -37,6 +40,7 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
       </label>
       <div className="sr-prism mt-3">
         <textarea
+          ref={areaRef}
           id="sr-paste"
           value={text}
           rows={5}

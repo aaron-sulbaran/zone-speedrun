@@ -23,6 +23,16 @@ describe("AARON_MOCK", () => {
     expect(AARON_MOCK.stats.applied).toBe(84);
   });
 
+  it("keeps the track lanes in column 0 and every stage to their right", () => {
+    const flow = aaronFlow();
+    const lanes = flow.nodes.filter((node) => node.kind === "lane");
+    expect(lanes.length).toBe(4);
+    expect(lanes.every((node) => node.column === 0)).toBe(true);
+    expect(flow.nodes.find((node) => node.id === "stage:applied")?.column).toBe(1);
+    const laneColumns = new Set(lanes.map((node) => node.column));
+    expect(flow.nodes.filter((node) => node.kind !== "lane").every((node) => !laneColumns.has(node.column))).toBe(true);
+  });
+
   it("flows from four lanes through the stages", () => {
     const flow = aaronFlow();
     expect(flow.links.length).toBeGreaterThanOrEqual(8);

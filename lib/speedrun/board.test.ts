@@ -97,6 +97,30 @@ describe("parsePasted", () => {
     expect(classifyEmail(email!).company).toBe("Halcyon Works");
   });
 
+  it("reads a Gmail forward block, without the From label in the company", () => {
+    const email = parsePasted(`---------- Forwarded message ---------\nFrom: ${FROM}\nDate: Thu, Nov 5, 2026 at 9:00 AM\nSubject: Interview invitation: Software Engineer\nTo: me@example.com\n\n${BODY}`);
+    expect(email?.from).toBe(FROM);
+    expect(email?.subject).toBe("Interview invitation: Software Engineer");
+    expect(classifyEmail(email!).company).toBe("Halcyon Works");
+  });
+
+  it("strips a From label from a bare sender line", () => {
+    const email = parsePasted(`Interview invitation: Software Engineer\nFrom: ${FROM}\n\n${BODY}`);
+    expect(email?.from).toBe(FROM);
+  });
+
+  it("does not take a sentence with an address in it for the sender", () => {
+    const email = parsePasted(`Interview invitation: Software Engineer\nSam, meet Jane Doe <jane@pinewick.example>\n\n${BODY}`);
+    expect(email?.from).toBe("");
+    expect(email?.body).toContain("meet Jane Doe");
+  });
+
+  it("reads an Outlook block with a Sent line", () => {
+    const email = parsePasted(`From: ${FROM}\nSent: Thursday, November 5, 2026 9:00 AM\nTo: Sam\nCc: Pat\nSubject: Interview invitation: Software Engineer\n\n${BODY}`);
+    expect(email?.subject).toBe("Interview invitation: Software Engineer");
+    expect(email?.from).toBe(FROM);
+  });
+
   it("clamps long headers", () => {
     const email = parsePasted(`From: ${"a".repeat(5000)}\nSubject: ${"b".repeat(5000)}\n\n${BODY}`);
     expect(email?.from.length).toBe(200);
@@ -109,7 +133,7 @@ describe("parsePasted", () => {
   });
 
   it("gives the same id to the same sender, subject and day", () => {
-    expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id).toBe(parsePasted(`From: ${FROM}\nSubject: Hi\n\ntwo`)?.id);
+    expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id).toBe(parsePasted(`From: ${FROM}\nSubject: Hi\n\none`)?.id);
     expect(parsePasted(`From: ${FROM}\nSubject: Hi\n\n`)?.id).not.toBe(parsePasted(`From: ${FROM}\nSubject: Other\n\n`)?.id);
   });
 });
@@ -123,6 +147,15 @@ describe("readPaste", () => {
     if (first.kind !== "added") return;
     expect(first.event.company).toBe("Halcyon Works");
     expect(readPaste(INVITE, [first.event]).kind).toBe("duplicate");
+  });
+
+  it("keeps a later email with the same subject, such as a rejection after a confirmation", () => {
+    const subject = "Your application";
+    const confirm = readPaste(`From: Halcyon Works Careers <noreply@halcyonworks.example>\nSubject: ${subject}\n\nThanks for applying. We received your application for the Software Engineer role.\nRole: Software Engineer`, []);
+    expect(confirm.kind).toBe("added");
+    if (confirm.kind !== "added") return;
+    const reject = readPaste(`From: Halcyon Works Careers <noreply@halcyonworks.example>\nSubject: ${subject}\n\nUnfortunately we will not be moving forward with your application.\nRole: Software Engineer`, [confirm.event]);
+    expect(reject.kind).toBe("added");
   });
 
   it("does not add what it cannot classify", () => {
