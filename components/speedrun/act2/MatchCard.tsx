@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUpRight } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { Match } from "@/lib/speedrun/match";
@@ -87,12 +88,15 @@ export function MatchCard({ match }: { match: Match }) {
           </button>
         )}
         {connect.includes("apply") && role && (
-          <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} className={BUTTON}>
-            {copy.connect.apply}
-            <span id={applyNoteId} className="sr-only">
+          <>
+            <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} className={`${BUTTON} inline-flex items-center gap-1`}>
+              {copy.connect.apply}
+              <ArrowUpRight aria-hidden="true" size={13} />
+            </a>
+            <span id={applyNoteId} hidden>
               {copy.connectSheet.apply}
             </span>
-          </a>
+          </>
         )}
         {connect.includes("follow") && (
           <button ref={followRef} type="button" aria-expanded={sheet === "follow"} aria-controls={sheetId} onClick={() => toggle("follow")} className={BUTTON}>
