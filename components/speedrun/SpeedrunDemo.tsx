@@ -8,6 +8,7 @@ import type { Intake, Profile } from "@/lib/speedrun/types";
 import { BuildLog } from "./act2/BuildLog";
 import { BuildPlaceholder } from "./act2/BuildPlaceholder";
 import { Hero, type DemoStats } from "./act2/Hero";
+import { Board } from "./act2/Board";
 import { JoinCard } from "./act2/JoinCard";
 import { Matches } from "./act2/Matches";
 
@@ -61,8 +62,8 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
         {step === "ready" && result && logDone && (
           <div className="space-y-16">
             <Matches result={result} />
-            {/* Slots for the board, the morning brief and the decisions. */}
-            <div data-slot="board" />
+            <Board state={state} dispatch={dispatch} />
+            {/* Slots for the morning brief and the decisions. */}
             <div data-slot="brief" />
             <div data-slot="decisions" />
           </div>
