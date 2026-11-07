@@ -6,6 +6,7 @@ import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { speedrunCopy } from "@/lib/content";
 import { MAX_PLACES, type DemoAction, type DemoState } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion, SR_EASE, SR_STEP_MS } from "@/lib/speedrun/motion";
+import type { UploadErrorKey } from "@/lib/speedrun/readClient";
 import { FNS, type PersonKey } from "@/lib/speedrun/types";
 import { Chip } from "./Chip";
 import { PeoplePicker } from "./PeoplePicker";
@@ -18,7 +19,14 @@ function toggled<T>(list: T[], item: T) {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
 }
 
-export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; dispatch: Dispatch<DemoAction>; onUpload?: (file: File) => void }) {
+type JoinCardProps = {
+  state: DemoState;
+  dispatch: Dispatch<DemoAction>;
+  onUpload?: (file: File) => void;
+  uploadError?: UploadErrorKey | null;
+};
+
+export function JoinCard({ state, dispatch, onUpload, uploadError = null }: JoinCardProps) {
   const copy = speedrunCopy.join;
   const { joinStep } = state;
   const intake = state.answers;
@@ -141,6 +149,7 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
               onConnect={(which, on) => dispatch({ type: which === "inbox" ? "connectInbox" : "connectCalendar", on })}
               liveReading={state.live.reading}
               onUpload={onUpload}
+              uploadError={uploadError}
             />
           )}
         </div>

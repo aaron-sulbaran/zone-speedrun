@@ -104,11 +104,22 @@ describe("demoReducer pickPerson", () => {
     expect(state).toEqual(initialDemoState({ reading: true, email: false }));
   });
 
-  it("moves to building on upload with the read profile", () => {
-    const state = demoReducer(initialDemoState(LIVE), { type: "uploaded", profile: PEOPLE.lena.profile });
+  it("moves to building on upload, then to ready from the response", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "uploaded" });
     expect(state.step).toBe("building");
-    expect(state.profile).toBe(PEOPLE.lena.profile);
     expect(state.personKey).toBeNull();
+    expect(state.profile).toBeNull();
+    const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, afterFilters: 0, shown: 0 } };
+    state = demoReducer(state, { type: "built", profile: PEOPLE.lena.profile, result });
+    expect(state.step).toBe("ready");
+    expect(state.profile).toBe(PEOPLE.lena.profile);
+  });
+
+  it("returns to the join step when an upload fails, and ignores a stray failure", () => {
+    const building = demoReducer(initialDemoState(LIVE), { type: "uploaded" });
+    expect(demoReducer(building, { type: "uploadFailed" }).step).toBe("join");
+    const sample = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" });
+    expect(demoReducer(sample, { type: "uploadFailed" })).toBe(sample);
   });
 });
 

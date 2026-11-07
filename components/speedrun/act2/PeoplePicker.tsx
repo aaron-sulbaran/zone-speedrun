@@ -2,6 +2,7 @@
 
 import { useRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
+import type { UploadErrorKey } from "@/lib/speedrun/readClient";
 import { PERSON_KEYS, type PersonKey } from "@/lib/speedrun/types";
 
 const FROSTED = "rounded-full bg-sr-hud px-4 py-2 text-sm font-semibold backdrop-blur transition-colors duration-200 ease-sr hover:bg-sr-strong disabled:opacity-40 motion-reduce:transition-none";
@@ -15,6 +16,7 @@ export function PeoplePicker({
   onConnect,
   liveReading,
   onUpload,
+  uploadError = null,
 }: {
   selected: PersonKey | null;
   onSelect: (key: PersonKey) => void;
@@ -22,6 +24,7 @@ export function PeoplePicker({
   onConnect: (which: keyof Connected, on: boolean) => void;
   liveReading: boolean;
   onUpload?: (file: File) => void;
+  uploadError?: UploadErrorKey | null;
 }) {
   const copy = speedrunCopy.join;
   const group = useRef<HTMLDivElement>(null);
@@ -39,10 +42,28 @@ export function PeoplePicker({
   return (
     <div>
       {liveReading && onUpload && (
-        <label className={`${FROSTED} mb-3 inline-block cursor-pointer`}>
-          {copy.steps.resume.uploadLabel}
-          <input type="file" accept=".pdf,.txt,.docx" className="sr-only" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
-        </label>
+        <div className="mb-4">
+          <label className={`${FROSTED} inline-block cursor-pointer focus-within:ring-2 focus-within:ring-sr-purple`}>
+            {copy.steps.resume.uploadLabel}
+            <input
+              type="file"
+              accept=".pdf,.txt,application/pdf,text/plain"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) onUpload(file);
+              }}
+            />
+          </label>
+          <span className="ml-3 text-xs text-sr-ink2">{copy.steps.resume.uploadTypes}</span>
+          <p className="mt-2 text-xs leading-snug text-sr-ink2">{copy.steps.resume.uploadNotice}</p>
+          {uploadError && (
+            <p role="alert" className="mt-2 text-sm font-semibold text-sr-ink">
+              {copy.steps.resume.uploadErrors[uploadError]}
+            </p>
+          )}
+        </div>
       )}
       <div ref={group} role="radiogroup" aria-label={copy.steps.resume.peopleLabel} onKeyDown={onArrows} className="grid gap-2 sm:grid-cols-2">
         {PERSON_KEYS.map((key, index) => {

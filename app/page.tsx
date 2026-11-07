@@ -7,6 +7,7 @@ import { Shift } from "@/components/speedrun/Shift";
 import { SrZone } from "@/components/speedrun/SrZone";
 import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
+import { liveFlags } from "@/lib/speedrun/guard";
 import { getSnapshot } from "@/lib/speedrun/snapshot";
 
 const SHARE_CARD = { url: "/opengraph-image", width: 1200, height: 630, alt: siteContent.meta.title };
@@ -36,18 +37,6 @@ export const metadata: Metadata = {
 };
 
 const FUND_SLUG = "speedrun";
-
-// Switches are explicit flags, never key presence: on Vercel the AI Gateway
-// signs in with an automatic token, so a key check alone would turn spend on.
-function liveFlags() {
-  return {
-    reading: process.env.SPEEDRUN_AI === "on",
-    email:
-      process.env.SPEEDRUN_EMAIL === "on" &&
-      Boolean(process.env.RESEND_API_KEY) &&
-      Boolean(process.env.SPEEDRUN_EMAIL_FROM),
-  };
-}
 
 export default function SpeedrunPage() {
   const snapshot = getSnapshot();
