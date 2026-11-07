@@ -19,14 +19,49 @@ function lastDate(group: Group): string {
   return group.events[group.events.length - 1].date;
 }
 
+/** True when the name's leading whole words spell the key: "Halden Robotics" starts with "halden", "Haldenrobotics" does not. */
+function startsWithWords(name: string, key: string): boolean {
+  let spelled = "";
+  for (const word of name.split(/\s+/)) {
+    spelled += companyKey(word);
+    if (spelled === key) return true;
+    if (!key.startsWith(spelled)) return false;
+  }
+  return false;
+}
+
+/**
+ * "Halden" and "Halden Robotics" are one company: a key folds into the longer key whose name starts with its words.
+ * When two different longer names share the prefix ("Acme Bank" and "Acme Robotics"), nothing folds.
+ */
+function foldedKeys(events: InboxEvent[]): Map<string, string> {
+  const names = new Map<string, Set<string>>();
+  for (const event of events) {
+    const key = companyKey(event.company);
+    names.set(key, (names.get(key) ?? new Set<string>()).add(event.company));
+  }
+  const folded = new Map<string, string>();
+  for (const key of names.keys()) {
+    if (!key) continue;
+    const longer = [...names]
+      .filter(([other, otherNames]) => other !== key && other.startsWith(key) && [...otherNames].some((name) => startsWithWords(name, key)))
+      .map(([other]) => other)
+      .sort((a, b) => b.length - a.length);
+    if (longer.length > 0 && longer.every((other) => longer[0].startsWith(other))) folded.set(key, longer[0]);
+  }
+  return folded;
+}
+
 /** One company can have several roles; an event with no role joins that company's latest row. */
 function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
   const byCompany = new Map<string, Group[]>();
   const sorted = events
     .filter((event) => ROW_KINDS.has(event.kind))
     .sort((a, b) => a.date.localeCompare(b.date));
+  const folded = foldedKeys(sorted);
   for (const event of sorted) {
-    const key = companyKey(event.company);
+    const own = companyKey(event.company);
+    const key = folded.get(own) ?? own;
     const groups = byCompany.get(key) ?? [];
     byCompany.set(key, groups);
     let target: Group | undefined;

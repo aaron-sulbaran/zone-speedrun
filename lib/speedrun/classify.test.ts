@@ -160,7 +160,7 @@ describe("classifyEmail", () => {
     });
 
     it("treats a single name matching the address as a person and handles country domains", () => {
-      expect(classifyEmail(email("Priya <priya@acme.co.uk>", "Phone screen", "Can we set up a phone screen for the role?")).company).toBe("Acme");
+      expect(classifyEmail(email("Priya <priya@qorvanthe.co.uk>", "Phone screen", "Can we set up a phone screen for the role?")).company).toBe("Qorvanthe");
     });
   });
 });

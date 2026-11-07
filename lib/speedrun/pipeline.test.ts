@@ -87,4 +87,28 @@ describe("buildPipeline", () => {
     expect(pipeline.rows[0].furthest).toBe("interview");
     expect(pipeline.rows[0].exit).toBe("rejected");
   });
+
+  it("folds a short company name into the longer name it starts", () => {
+    const pipeline = buildPipeline(
+      [event("applied", "2026-10-01", "Halden Robotics", null), event("interview", "2026-10-08", "Halden", null), event("rejection", "2026-10-12", "Haldenrobotics", null)],
+      "2026-11-01",
+    );
+    expect(pipeline.rows).toHaveLength(1);
+    expect(pipeline.rows[0].company).toBe("Halden Robotics");
+    expect(pipeline.rows[0].furthest).toBe("interview");
+    expect(pipeline.rows[0].exit).toBe("rejected");
+  });
+
+  it("keeps a short name apart when two longer names start with it", () => {
+    const pipeline = buildPipeline(
+      [event("applied", "2026-10-01", "Acme Bank", null), event("applied", "2026-10-02", "Acme Robotics", null), event("screen", "2026-10-05", "Acme", null)],
+      "2026-11-01",
+    );
+    expect(pipeline.rows.map((row) => row.company).sort()).toEqual(["Acme", "Acme Bank", "Acme Robotics"]);
+  });
+
+  it("does not fold names that share letters but not a word", () => {
+    const pipeline = buildPipeline([event("applied", "2026-10-01", "Nova", null), event("applied", "2026-10-02", "Novarise", null)], "2026-11-01");
+    expect(pipeline.rows).toHaveLength(2);
+  });
 });
