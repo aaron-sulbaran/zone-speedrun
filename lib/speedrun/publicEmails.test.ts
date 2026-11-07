@@ -13,8 +13,10 @@ const SCANNED_FILE = /\.(ts|tsx|mjs|js|json|css)$/;
 // Same shape as scripts/public-repo/verify.mjs.
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 
+const EXPORT_CONFIG = path.join(REPO_ROOT, "scripts/public-repo/public-export.json");
+
 function allowedPatterns(): RegExp[] {
-  const config = JSON.parse(readFileSync(path.join(REPO_ROOT, "scripts/public-repo/public-export.json"), "utf8")) as {
+  const config = JSON.parse(readFileSync(EXPORT_CONFIG, "utf8")) as {
     profiles: { site: { verify: { allowedContentEmailPatterns: string[] } } };
   };
   return config.profiles.site.verify.allowedContentEmailPatterns.map((pattern) => new RegExp(pattern, "i"));
@@ -31,7 +33,8 @@ function strayEmails(text: string, patterns: RegExp[]): string[] {
   return [...text.matchAll(EMAIL_PATTERN)].map((match) => match[0]).filter((email) => !patterns.some((pattern) => pattern.test(email)));
 }
 
-describe("speedrun public-mirror email allowlist", () => {
+// The public export denies the config file but exports this test, so the mirror skips it instead of throwing ENOENT.
+describe.skipIf(!existsSync(EXPORT_CONFIG))("speedrun public-mirror email allowlist", () => {
   const patterns = allowedPatterns();
 
   it("reads the allowlist from public-export.json", () => {
