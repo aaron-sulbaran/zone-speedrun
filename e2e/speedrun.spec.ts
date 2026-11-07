@@ -1,4 +1,4 @@
-import { speedrunCopy } from "../lib/content";
+import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
 
 test("renders logged out with noindex and the affiliation line", async ({ page }) => {
@@ -130,7 +130,8 @@ test.describe("act 2 join card", () => {
   });
 });
 
-for (const key of ["sam", "maya"] as const) {
+// Dev's join path has no inbox to connect, so the Gmail click is conditional.
+for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
   test(`no horizontal scroll at 390 after picking ${key}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/speedrun");
@@ -138,10 +139,14 @@ for (const key of ["sam", "maya"] as const) {
     await card.scrollIntoViewIfNeeded();
     for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
     await card.locator(`[data-person="${key}"]`).click();
-    await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
+    const gmail = card.getByRole("button", { name: speedrunCopy.join.connect.gmail });
+    if (await gmail.isVisible()) await gmail.click();
     await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
     await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
-    await expect(page.locator("[data-brief]")).toBeAttached({ timeout: 20_000 });
+    // Settled: the whole demo is on screen, decisions and close included.
+    await expect(page.locator("[data-brief]")).toBeVisible({ timeout: 20_000 });
+    await page.locator("[data-close]").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(500);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 }
@@ -152,11 +157,26 @@ test("the decisions and the close are on the page", async ({ page }) => {
   await section.scrollIntoViewIfNeeded();
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
   await expect(section.locator("[data-decision-card]")).toHaveCount(6);
+  await expect(page.locator("[data-close]").getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
+  const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
+  await expect(links).toHaveCount(3);
   await expect(links.nth(0)).toHaveAttribute("href", "/");
   await expect(links.nth(1)).toHaveAttribute("href", "/quick");
-  await expect(links.nth(2)).toHaveAttribute("href", "https://www.linkedin.com/in/aaron-sulbaran/");
+  await expect(links.nth(2)).toHaveAttribute("href", linkedin ?? "");
   await expect(links.nth(2)).toHaveAttribute("target", "_blank");
+  await expect(links.nth(2)).toHaveAttribute("rel", "noopener noreferrer");
+});
+
+test("the pinned affiliation steps aside at the close, which carries the line", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.locator("[data-close]").scrollIntoViewIfNeeded();
+  await expect(page.locator('[data-affiliation="pinned"]')).toHaveAttribute("aria-hidden", "true");
+  const gap = await page.evaluate(() => {
+    const close = document.querySelector("[data-close]")!.getBoundingClientRect();
+    return document.documentElement.scrollHeight - (close.bottom + window.scrollY);
+  });
+  expect(gap).toBeLessThanOrEqual(1);
 });
 
 test("the sitemap leaves /speedrun out", async ({ request }) => {

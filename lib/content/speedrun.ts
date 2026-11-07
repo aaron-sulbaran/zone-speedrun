@@ -398,13 +398,13 @@ export const speedrunCopy = {
       },
       {
         title: "Founders get routed, not buried.",
-        body: "When a resume reads like a founder's, the right next step is speedrun or the alpha fellowship, not another job list.",
+        body: "When a resume reads like a founder's, the right next step is speedrun or the alpha fellowship, not another job list. The links go straight to those applications.",
       },
     ],
     measureHeading: "What I'd measure",
     metrics: [
       { label: "Signup completion", line: "More people finish joining when joining pays off on day one." },
-      { label: "Day-7 return", line: "The brief's job. Your pages already count returning visitors." },
+      { label: "Day-7 return", line: "The brief's job." },
       { label: "Intros requested and accepted", line: "The network's real product." },
       { label: "Offers", line: "The only number that matters to the person." },
     ],
@@ -412,7 +412,8 @@ export const speedrunCopy = {
   close: {
     eyebrow: "Built by Aaron Sulbaran",
     body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read, with an AI model on top only when switched on. The inbox and the people are made up; the decisions are mine.",
-    // The LinkedIn address is read from the site's own socials, so it lives in one place.
+    // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
+    newTab: "opens in a new tab",
     links: [
       { key: "site", label: "My site", href: "/" },
       { key: "quick", label: "The 30-second version", href: "/quick" },

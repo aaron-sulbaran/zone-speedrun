@@ -7,7 +7,7 @@ const copy = speedrunCopy.decisions;
 export function Decisions() {
   return (
     <section data-decisions="" aria-labelledby="sr-decisions-heading" className="mx-auto w-full max-w-6xl px-6 pb-24">
-      <p className="font-srcond text-sm uppercase tracking-widest text-sr-purple">{copy.eyebrow}</p>
+      <p className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">{copy.eyebrow}</p>
       <h2 id="sr-decisions-heading" className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">
         {copy.heading}
       </h2>
