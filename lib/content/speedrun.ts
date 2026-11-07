@@ -1,6 +1,8 @@
 // Copy for /speedrun, a concept page for the speedrun talent team. Sections
 // beyond meta, affiliation and logoAlt are filled in by later tasks.
 
+import type { Fn } from "@/lib/speedrun/types";
+
 export const speedrunCopy = {
   meta: {
     title: "a concept for the speedrun talent team · Aaron Sulbaran",
@@ -35,8 +37,68 @@ export const speedrunCopy = {
     replay: "Replay the shift",
     line: "okay. y'all's style.",
   },
-  hero: {},
-  join: {},
+  hero: {
+    eyebrow: "Talent network \u00b7 a concept",
+    headline: [{ text: "you joined. " }, { text: "now what", em: true }, { text: "?" }] as { text: string; em?: boolean }[],
+    lede: "Today, joining gets you a confirmation and a week or two of quiet. Here, the network starts working the day you join: matches with reasons, a board built from your inbox, and a morning brief that only says what changed.",
+    stats: {
+      companies: "speedrun companies",
+      roles: "live speedrun roles",
+      snapshot: "snapshot of the jobs board",
+    },
+    cta: "Start the demo",
+    ctaSecondary: "Skip to the dashboard",
+  },
+  join: {
+    label: "Talent network \u00b7 Join",
+    steps: {
+      targets: { question: "What are you targeting?", helper: "Pick any that fit." },
+      places: {
+        question: "Where?",
+        helper: "Pick places or type one. Remote counts.",
+        inputLabel: "Add a place",
+        inputPlaceholder: "Type a place and press Enter",
+      },
+      why: {
+        question: "Why now, in a sentence?",
+        placeholder: "I want to build with a founding team.",
+        inputLabel: "Why now",
+      },
+      resume: {
+        question: "Bring your resume, or borrow one.",
+        helper: "Pick a sample person. Live reading of your own resume turns on soon.",
+        uploadLabel: "Upload a resume",
+        peopleLabel: "Sample people",
+      },
+    },
+    back: "Back",
+    next: "Continue",
+    finish: "Build my board",
+    pressEnter: "Press Enter",
+    nothingSent: "Demo only: nothing you type here leaves this page.",
+    connect: {
+      gmail: "Connect Gmail",
+      calendar: "Connect Calendar",
+      connected: "Connected",
+      connectNote:
+        "In production this reads your inbox and calendar, read-only, and never sends as you. In this demo it loads the sample person's inbox.",
+    },
+    targetLabels: {
+      engineering: "Software engineering",
+      ai: "AI engineering",
+      product: "Product",
+      design: "Design",
+      data: "Data",
+      operations: "Operations",
+      founder: "Founding",
+    } as Record<Fn, string>,
+    placeChips: ["Remote", "San Francisco", "New York", "Austin", "Los Angeles"],
+    building: "Building your board.",
+    ready: "Your board is ready.",
+    error: "That did not load.",
+    retry: "Try again",
+    stepWord: "Step",
+  },
   build: {},
   matches: {},
   board: {
