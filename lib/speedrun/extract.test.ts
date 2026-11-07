@@ -201,6 +201,15 @@ describe("extractProfile", () => {
     expect(city("San Francisco Bay Area | ana@example.com")).toEqual(["San Francisco"]);
   });
 
+  it("reads a labelled or sentence-style location line as the city alone", () => {
+    const city = (line: string) => extractProfile(`Ana\n${line}\nSKILLS\nPython`, { targets: ["engineering"], places: [], why: "" }).locations;
+    expect(city("Austin, TX")).toEqual(["Austin"]);
+    expect(city("Location: Austin, TX")).toEqual(["Austin"]);
+    expect(city("Based in San Francisco, CA")).toEqual(["San Francisco"]);
+    expect(city("Located in Seattle, WA")).toEqual(["Seattle"]);
+    expect(city("Engineer, CA")).toEqual([]);
+  });
+
   it("counts a founder title line with a funding line as a founder", () => {
     for (const text of [
       "Founder & CEO, Acme AI (YC W25)\nRaised a $3M seed round",

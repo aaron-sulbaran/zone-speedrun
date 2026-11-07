@@ -284,16 +284,20 @@ function shippedFrom(parts: Map<string, string[]>): string[] {
 const US_CODE = /^(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)$/;
 const COUNTRY = /^(united states|usa|us|canada|mexico|m\u00e9xico|uk|united kingdom|england|ireland|india|germany|france|spain|espa\u00f1a|brazil|australia|singapore|japan|china|korea|netherlands|portugal|italy)$/i;
 const KNOWN_CITY = /^(san francisco bay area|bay area|san francisco|new york|nyc|brooklyn|manhattan|austin|seattle|boston|chicago|los angeles|denver|atlanta|miami|dallas|houston|portland|philadelphia|toronto|london|berlin|remote)$/i;
+const TITLE_WORD = /\b(engineer|developer|manager|designer|analyst|intern|student|scientist|founder|director|consultant|architect|president|lead)\b/i;
 const BOROUGH: Record<string, string> = {
   brooklyn: "New York", manhattan: "New York", queens: "New York", nyc: "New York",
   "san francisco bay area": "San Francisco", "bay area": "San Francisco",
 };
 
 /** The city is the first contact segment shaped like a place: "City, ST", "City, Country" or a known city. */
-function cityFrom(segment: string): string {
+function cityFrom(rawSegment: string): string {
+  const segment = rawSegment.replace(/^\s*(location|based in|located in)\s*:?\s+/i, "");
   const parts = segment.split(",").map((p) => p.trim());
   const city = parts[0] ?? "";
-  if (!city || city.length > 30 || /@|https?:|www\.|\d/.test(segment)) return "";
+  // A first part with a colon, a job-title word, or more than three words (unless a known city) is a sentence or a title, not a city.
+  const notCity = city.includes(":") || TITLE_WORD.test(city) || (city.split(/\s+/).length > 3 && !KNOWN_CITY.test(city));
+  if (!city || city.length > 30 || notCity || /@|https?:|www\.|\d/.test(segment)) return "";
   const placeShaped = parts.length >= 2 && (US_CODE.test(parts[1]) || isUsStateName(parts[1]) || COUNTRY.test(parts[1]));
   if (!placeShaped && !(parts.length === 1 && KNOWN_CITY.test(city))) return "";
   return BOROUGH[city.toLowerCase()] ?? city;
