@@ -277,7 +277,8 @@ function kindOf(email: InboxEmail): EventKind {
   if (ASSESSMENT.test(text) && hasContext && asksForAssessment(text)) return "assessment";
   if (APPLIED.test(subject)) return "applied";
   if (ASSESSMENT.test(text) && hasContext) return "assessment";
-  if (hiringSender && TAKE_HOME_SUBJECT.test(subject) && !MARKETING.test(text)) return "assessment";
+  // A reply keeps the take-home subject while the thread moves on to an interview or a screen, so those win first.
+  if (hiringSender && TAKE_HOME_SUBJECT.test(subject) && !/^\s*re:/.test(subject) && !MARKETING.test(text)) return "assessment";
   const interviewText = text.replace(MOCK_INTERVIEW, "");
   const logistics = YOUR_INTERVIEW.test(interviewText) && LOGISTICS.test(interviewText) && !MARKETING.test(interviewText);
   const interviewContext = INTERVIEW_CONTEXT.test(interviewText) || ROLE_NAMED.test(original) || trusted || logistics;
