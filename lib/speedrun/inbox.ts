@@ -24,7 +24,7 @@ const ENGINEERING_ROLES = [
 const ROLE_POOLS = {
   maya: ["Software Engineering Intern", "Backend Intern", "Frontend Intern", "Mobile Intern", "Data Engineering Intern", "Platform Intern", "Full Stack Intern", "QA Automation Intern", "Developer Tools Intern", "Systems Intern"],
   ravi: ["Machine Learning Engineer", "AI Engineer", "Applied Scientist", "ML Platform Engineer", "Research Engineer", "NLP Engineer", "Evaluation Engineer", "AI Product Engineer", "Data Scientist", "Retrieval Engineer"],
-  sam: ["Product Engineer", "Software Engineer, New Grad", "Full Stack Engineer", "Embedded Software Engineer", "Software Engineer, Co-op", "Founding Engineer", "Frontend Engineer", "Hardware Test Engineer", "Solutions Engineer", "Growth Engineer"],
+  sam: ["Product Engineer", "Software Engineer, New Grad", "Full Stack Engineer", "Embedded Software Engineer", "Software Engineer, Co-op", "Founding Engineer", "Frontend Engineer", "Software Engineer, Product", "Solutions Engineer", "Growth Engineer"],
   lena: ["Product Designer", "UX Designer", "Visual Designer", "Brand Designer", "Design Systems Designer", "Interaction Designer", "Mobile Designer", "Motion Designer", "UX Researcher", "Design Engineer"],
   dev: ENGINEERING_ROLES.concat(["Founding Engineer", "Staff Engineer", "Engineering Manager", "Head of Platform", "Solutions Architect"]),
 } satisfies Record<PersonKey, string[]>;
@@ -194,15 +194,49 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
   return drafts;
 }
 
+// What moved overnight, so a morning brief has news to carry. Each move advances an
+// application that is already in the person's inbox (so applied counts do not change).
+// A move is dropped if its application is not there, as happens for a seed other than 1.
+type Overnight = { company: string; role: string; kind: "assessment" | "screen" | "interview" | "rejection"; at: string };
+const OVERNIGHT: Partial<Record<PersonKey, Overnight[]>> = {
+  ravi: [
+    { company: "Ostrava Labs", role: "Retrieval Engineer", kind: "assessment", at: "2026-11-06T21:30:00.000Z" },
+    { company: "Jetsam Works", role: "Applied Scientist", kind: "rejection", at: "2026-11-07T05:00:00.000Z" },
+  ],
+  sam: [
+    { company: "Cindermoor Cloud", role: "Software Engineer, New Grad", kind: "interview", at: "2026-11-06T22:00:00.000Z" },
+    { company: "Tarnmoor Robotics", role: "Founding Engineer", kind: "screen", at: "2026-11-07T04:00:00.000Z" },
+  ],
+  lena: [
+    { company: "Velmora Loft", role: "Product Designer", kind: "interview", at: "2026-11-06T20:00:00.000Z" },
+    { company: "Valewood", role: "Design Systems Designer", kind: "rejection", at: "2026-11-07T05:30:00.000Z" },
+  ],
+  dev: [
+    { company: "Nettlefield", role: "Founding Engineer", kind: "interview", at: "2026-11-06T23:00:00.000Z" },
+    { company: "Foxglove Labs", role: "Backend Engineer", kind: "rejection", at: "2026-11-07T03:30:00.000Z" },
+  ],
+};
+
+function overnightDrafts(person: Person, base: Draft[]): Draft[] {
+  const first = person.profile.firstName;
+  return (OVERNIGHT[person.key] ?? []).flatMap((move) => {
+    const target: Target = { company: move.company, role: move.role, founder: false };
+    const present = base.some((draft) => draft.subject === `Thanks for applying to ${move.company}` && draft.body.includes(`Role: ${move.role}`));
+    return present ? [jobsDraft(move.kind, target, first, Date.parse(move.at))] : [];
+  });
+}
+
 export function generateInbox(person: Person, seed = 1): InboxEmail[] {
   const rng = mulberry32(seed * 7919 + hashString(person.key));
-  return buildSchedule(person, rng)
-    .sort((a, b) => a.when - b.when)
-    .map((draft, index) => ({
-      id: `${person.key}-${String(index + 1).padStart(4, "0")}`,
-      from: draft.from,
-      subject: draft.subject,
-      body: draft.body,
-      date: new Date(draft.when).toISOString(),
-    }));
+  const base = buildSchedule(person, rng);
+  const sorted = [...base].sort((a, b) => a.when - b.when);
+  // The overnight moves come last, so every other id stays where it was.
+  const drafts = [...sorted, ...(seed === 1 ? overnightDrafts(person, base) : [])];
+  return drafts.map((draft, index) => ({
+    id: `${person.key}-${String(index + 1).padStart(4, "0")}`,
+    from: draft.from,
+    subject: draft.subject,
+    body: draft.body,
+    date: new Date(draft.when).toISOString(),
+  }));
 }

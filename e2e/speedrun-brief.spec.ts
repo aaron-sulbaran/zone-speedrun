@@ -1,4 +1,6 @@
 import { speedrunCopy } from "../lib/content";
+import { renderBriefEmail } from "../lib/speedrun/brief";
+import { sampleBrief } from "../lib/speedrun/briefSample";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 
@@ -20,8 +22,8 @@ test("the brief previews as an email with the first name in its subject", async 
   await joinAs(page, "sam");
   const subject = page.locator("[data-brief-subject]");
   await expect(subject).toContainText("Sam");
-  await expect(subject).toContainText(COPY.nothingNew("Sam"));
-  await expect(page.locator("[data-brief-item]").first()).toHaveAttribute("data-brief-item", "intro");
+  await expect(subject).toHaveText(renderBriefEmail(sampleBrief("sam"), "Sam").subject);
+  await expect(page.locator("[data-brief-item]").first()).toHaveAttribute("data-brief-item", "reply");
 });
 
 test("a quiet person gets the short brief", async ({ page }) => {

@@ -59,7 +59,24 @@ describe("composeBrief", () => {
         stats: { applied: 2, inProcess: 2, intros: 1, offers: 0 },
       },
     });
-    expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "due"]);
+    expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "new-role", "due"]);
+  });
+
+  it("lists what moved first, then the standing intro, role and deadline, and hears a rejection as a reply", () => {
+    const brief = composeBrief({
+      ...base, intros: [OLD_INTRO], roles: [role("2026-10-15T00:00:00.000Z")],
+      pipeline: {
+        rows: [
+          assessment("Nightfold"),
+          { company: "Halcyon Works", role: "Engineer", lane: "jobs", furthest: "applied", exit: "rejected", lastEventAt: "2026-11-07T01:00:00.000Z", next: null },
+        ],
+        stats: { applied: 2, inProcess: 1, intros: 1, offers: 0 },
+      },
+    });
+    expect(brief.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([
+      ["reply", false], ["intro", true], ["new-role", true], ["due", true],
+    ]);
+    expect(renderBriefEmail(brief, "Sam").subject).toBe("Sam, 1 thing moved overnight");
   });
 
   it("agrees with its own body when only standing items remain", () => {
@@ -89,8 +106,9 @@ describe("each sample person's brief", () => {
       expect(out.subject).toBe(renderBriefEmail(b, name).subject);
       expect(out.subject).toContain(name === "" ? "" : name);
       expect(a.items.filter((item) => item.kind === "due").length).toBeLessThanOrEqual(1);
-      expect(a.items.length).toBeLessThanOrEqual(3);
+      expect(a.items.length).toBeLessThanOrEqual(4);
       const moved = a.items.filter((item) => !item.standing).length;
+      expect(moved > 0).toBe(key !== "maya");
       if (moved === 0 && a.items.length > 0) expect(out.subject).toContain("nothing new overnight");
       if (moved > 0) expect(out.subject).toMatch(new RegExp(`${moved} things? moved overnight`));
       const snapshotRoles = getSnapshot().roles;
@@ -106,10 +124,15 @@ describe("each sample person's brief", () => {
     });
   }
 
+  it("gives the five people subjects that do not all share a shape", () => {
+    const shapes = new Set(PERSON_KEYS.map((key) => renderBriefEmail(sampleBrief(key), PEOPLE[key].profile.firstName).subject.replace(PEOPLE[key].profile.firstName, "")));
+    expect(shapes.size).toBeGreaterThan(2);
+  });
+
   it("covers Dev as the one digest, Maya as on-change and quiet", () => {
     expect(PERSON_KEYS.filter((key) => PEOPLE[key].cadence === "digest")).toEqual(["dev"]);
     expect(sampleBrief("maya", { roleIds: [] }).items).toHaveLength(0);
-    expect(sampleBrief("sam").items[0].kind).toBe("intro");
+    expect(sampleBrief("sam").items.map((item) => item.kind).slice(0, 3)).toEqual(["reply", "reply", "intro"]);
   });
 });
 

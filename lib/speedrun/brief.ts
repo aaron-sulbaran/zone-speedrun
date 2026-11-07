@@ -24,7 +24,7 @@ export type BriefInput = {
 
 const copy = speedrunCopy.brief;
 const DAY_MS = 86_400_000;
-const MAX_ITEMS = 3;
+const MAX_ITEMS = 4;
 const REPLY_STAGES = new Set(["assessment", "screen", "interview", "offer"]);
 
 function dayStart(iso: string): number {
@@ -61,7 +61,7 @@ export function composeBrief(input: BriefInput): Brief {
   const seen = new Set<string>();
   const add = (company: string, item: BriefItem) => {
     const key = company.toLowerCase();
-    if (seen.has(key) || items.length >= MAX_ITEMS) return;
+    if (seen.has(key)) return;
     seen.add(key);
     items.push(item);
   };
@@ -77,8 +77,9 @@ export function composeBrief(input: BriefInput): Brief {
   }
 
   const open = pipeline.rows.filter((row) => row.exit === "open");
-  const fresh = open
-    .filter((row) => REPLY_STAGES.has(row.furthest) && Date.parse(row.lastEventAt) >= since)
+  // A rejection is a reply too: someone wrote back, and it is better heard in the morning than found later.
+  const fresh = pipeline.rows
+    .filter((row) => row.exit !== "noreply" && (REPLY_STAGES.has(row.furthest) || row.exit === "rejected") && Date.parse(row.lastEventAt) >= since && Date.parse(row.lastEventAt) < until)
     .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
   for (const row of fresh) {
     add(row.company, { kind: "reply", text: copy.items.reply(row.company, row.role ?? copy.fallbackRole), href: null });
@@ -96,8 +97,14 @@ export function composeBrief(input: BriefInput): Brief {
   const role = pickRole(roles, cadence, since, until);
   if (role) add(role.company, role.item);
 
-  const order: BriefItem["kind"][] = ["intro", "reply", "due", "new-role"];
-  items.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
+  // What moved comes first, then what is still open: an intro, a role, a deadline.
+  const rank = (item: BriefItem) => {
+    const moved = ["intro", "reply", "new-role", "due"].indexOf(item.kind);
+    const standing = ["intro", "new-role", "due", "reply"].indexOf(item.kind);
+    return item.standing ? 10 + standing : moved;
+  };
+  items.sort((a, b) => rank(a) - rank(b));
+  items.splice(MAX_ITEMS);
   return { personKey: input.personKey ?? "you", date: today, cadence, items };
 }
 
