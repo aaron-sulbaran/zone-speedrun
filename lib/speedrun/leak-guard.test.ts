@@ -163,13 +163,13 @@ describe("speedrun leak guard (graph, fs, canary)", () => {
     const reader = (virtual: VirtualFiles) => (file: string) => (file in virtual ? virtual[file] : null);
 
     it("rejects a traversal import that leaves the boundary", () => {
-      const virtual = { [entry]: imp("@/lib/content/../recruiting/x") };
+      const virtual = { [entry]: imp("@/lib/content/../hidden-area/x") };
       const problems = auditGraph([entry], reader(virtual));
-      expect(problems.join("\n")).toContain("lib/recruiting/x");
+      expect(problems.join("\n")).toContain("lib/hidden-area/x");
     });
 
     it("rejects a relative traversal out of a speedrun folder", () => {
-      const virtual = { [entry]: imp("../../lib/recruiting/data") };
+      const virtual = { [entry]: imp("../../lib/hidden-area/data") };
       expect(auditGraph([entry], reader(virtual))).toHaveLength(1);
     });
 
@@ -182,7 +182,7 @@ describe("speedrun leak guard (graph, fs, canary)", () => {
     it("checks a file reached through another file", () => {
       const virtual = {
         [entry]: imp("@/lib/speedrun/a"),
-        "lib/speedrun/a.ts": imp("../recruiting/b") + imp("fs"),
+        "lib/speedrun/a.ts": imp("../hidden-area/b") + imp("fs"),
       };
       expect(auditGraph([entry], reader(virtual))).toHaveLength(2);
     });
