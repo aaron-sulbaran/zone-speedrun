@@ -10,7 +10,7 @@ function snapshotDay(fetchedAt: string) {
   return new Date(fetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-const PRIMARY = "min-w-[220px] rounded-lg bg-sr-ink pb-2 pl-14 pr-3 pt-6 text-right font-srcond text-sm font-normal uppercase tracking-wider text-sr-surface";
+const PRIMARY = "min-w-[220px] rounded-lg bg-sr-ink px-6 py-3 text-center font-srcond text-sm font-normal uppercase tracking-wider text-sr-surface";
 const GHOST = "min-w-[220px] rounded-lg px-6 py-3 text-center font-srcond text-sm uppercase tracking-wider shadow-[inset_0_0_0_2px_var(--sr-ink)]";
 const PRESS = "transition-transform duration-200 ease-sr hover:-translate-y-px active:scale-[.97] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100";
 
