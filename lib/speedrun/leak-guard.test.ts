@@ -19,7 +19,7 @@ const ALLOWED_ALIASES = [
 ];
 const ALLOWED_RELATIVE_DIRS = ["app/speedrun", "components/speedrun", "lib/speedrun", "lib/content", "public/speedrun"];
 const CODE_FILE = /\.(ts|tsx|mjs|js|json|css)$/;
-const IMPORT_PATTERN = /(?:from\s+|import\s*\(\s*|import\s+|require\(\s*)["']([^"']+)["']/g;
+const IMPORT_PATTERN = /(?:from\s+|import\s*\(\s*|import\s+|require\(\s*)["'`]([^"'`]+)["'`]/g;
 
 function listFiles(target: string): string[] {
   const absolute = path.join(REPO_ROOT, target);
@@ -44,17 +44,19 @@ function isAllowed(specifier: string, file: string): boolean {
   return ALLOWED_ALIASES.some((alias) => specifier === alias || specifier.startsWith(`${alias}/`));
 }
 
-// ---- Canonical boundary, transitive walk, fs ban, canary (R51) ----
+// ---- Canonical boundary, transitive walk, fs and process-spawning ban (R51) ----
+// There is no canary marker test: nothing private carries a fixed marker, so such a test could never fire. The walk and the fixtures below are the guard.
 
 const BOUNDARY_DIRS = ["app/speedrun", "components/speedrun", "lib/speedrun"];
 // Shared files outside the speedrun folders that the page may import, by canonical path without extension.
 const BOUNDARY_FILES = ["lib/content/speedrun", "lib/content", "lib/fonts", "lib/theme", "lib/holding", "components/SiteLogo"];
 const BOUNDARY_ASSET_DIRS = ["public/speedrun"];
-const ENTRY_POINTS = ["app/speedrun/page.tsx", "app/speedrun/api/brief/route.ts", "app/speedrun/api/match/route.ts", "app/speedrun/api/read/route.ts"];
+const COPY_FILE = "lib/content/speedrun.ts";
+const ENTRY_POINTS = ["app/speedrun/page.tsx", COPY_FILE, "app/speedrun/api/brief/route.ts", "app/speedrun/api/match/route.ts", "app/speedrun/api/read/route.ts"];
 const FS_READER_ALLOWED = ["scripts/speedrun-snapshot.mjs"];
-const FS_SPECIFIER = /^(?:node:)?fs(?:\/.*)?$/;
+// File reads, process spawning and createRequire are all ways to reach private files at run time.
+const FS_SPECIFIER = /^(?:node:)?(?:fs|child_process|module)(?:\/.*)?$/;
 const TEST_FILE = /\.test\.(ts|tsx)$/;
-const CANARY = "CANARY-PRIVATE-MARKER-7f3a9c1e";
 const EXTENSIONS = ["", ".ts", ".tsx", ".mjs", ".js", ".json", "/index.ts", "/index.tsx"];
 
 // Resolve a local specifier to a canonical repo-relative path (no extension, posix, ".." collapsed), or null for packages.
@@ -103,7 +105,7 @@ function auditGraph(entries: string[], read: (file: string) => string | null): s
       for (const match of source.matchAll(IMPORT_PATTERN)) {
         const specifier = match[1];
         if (FS_SPECIFIER.test(specifier) && !TEST_FILE.test(file) && !FS_READER_ALLOWED.includes(file)) {
-          problems.push(`${file} imports ${specifier} (only ${FS_READER_ALLOWED.join(", ")} may read files)`);
+          problems.push(`${file} imports ${specifier} (only ${FS_READER_ALLOWED.join(", ")} may read files or spawn processes)`);
         }
         const canonical = canonicalPath(specifier, file);
         if (canonical === null) continue;
@@ -113,20 +115,14 @@ function auditGraph(entries: string[], read: (file: string) => string | null): s
         }
         const target = resolveToFile(canonical, exists);
         // Shared files are checked as targets but not descended into: their own imports are outside this feature.
-        if (target && BOUNDARY_DIRS.some((dir) => target.startsWith(`${dir}/`))) queue.push(target);
+        if (target && (target === COPY_FILE || BOUNDARY_DIRS.some((dir) => target.startsWith(`${dir}/`)))) queue.push(target);
       }
     }
   }
   return problems;
 }
 
-function findCanary(files: VirtualFiles, marker: string): string[] {
-  return Object.entries(files)
-    .filter(([name, content]) => /\.(json|ts|tsx)$/.test(name) && content.includes(marker))
-    .map(([name]) => name);
-}
-
-describe("speedrun leak guard (graph, fs, canary)", () => {
+describe("speedrun leak guard (graph, fs, process)", () => {
   const readReal = (file: string) => {
     const absolute = path.join(REPO_ROOT, file);
     return existsSync(absolute) && statSync(absolute).isFile() ? readFileSync(absolute, "utf8") : null;
@@ -136,7 +132,7 @@ describe("speedrun leak guard (graph, fs, canary)", () => {
     expect(auditGraph(ENTRY_POINTS, readReal)).toEqual([]);
   });
 
-  it("no speedrun runtime file imports fs, apart from the snapshot script", () => {
+  it("no speedrun runtime file imports fs, child_process or module, apart from the snapshot script", () => {
     const runtime = ROOTS.flatMap(listFiles).filter((file) => /\.(ts|tsx|mjs|js)$/.test(file) && !TEST_FILE.test(file));
     const offenders: string[] = [];
     for (const file of runtime) {
@@ -146,14 +142,6 @@ describe("speedrun leak guard (graph, fs, canary)", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
-
-  it("carries no private canary marker in speedrun JSON or TS", () => {
-    const real: VirtualFiles = {};
-    for (const file of ROOTS.flatMap(listFiles).filter((entry) => /\.(json|ts|tsx)$/.test(entry) && entry !== "lib/speedrun/leak-guard.test.ts")) {
-      real[file] = readFileSync(path.join(REPO_ROOT, file), "utf8");
-    }
-    expect(findCanary(real, CANARY)).toEqual([]);
   });
 
   describe("fixtures prove the guard bites", () => {
@@ -187,9 +175,24 @@ describe("speedrun leak guard (graph, fs, canary)", () => {
       expect(auditGraph([entry], reader(virtual))).toHaveLength(2);
     });
 
-    it("finds a canary in speedrun JSON and TS and ignores other files", () => {
-      const virtual = { "lib/speedrun/snapshot.json": `{"note":"${CANARY}"}`, "lib/speedrun/x.ts": `const a = "${CANARY}";`, "lib/speedrun/ok.ts": "const a = 1;", "notes.md": CANARY };
-      expect(findCanary(virtual, CANARY).sort()).toEqual(["lib/speedrun/snapshot.json", "lib/speedrun/x.ts"]);
+    it("rejects child_process and module imports in runtime files", () => {
+      for (const specifier of ["node:child_process", "child_process", "module", "node:module"]) {
+        const virtual = { [entry]: imp(specifier) };
+        expect(auditGraph([entry], reader(virtual)), specifier).toHaveLength(1);
+      }
+    });
+
+    it("reads a backtick-quoted specifier", () => {
+      const quoted = ["import", "x", "from", "`../../lib/hidden-area/data`"].join(" ") + ";\n";
+      expect(auditGraph([entry], reader({ [entry]: quoted }))).toHaveLength(1);
+      const dynamic = ["const m = await ", "import", "(`node:fs`);\n"].join("");
+      expect(auditGraph([entry], reader({ [entry]: dynamic }))).toHaveLength(1);
+    });
+
+    it("walks the copy file and checks its imports canonically", () => {
+      const virtual = { [entry]: imp("@/lib/content/speedrun"), [COPY_FILE]: imp("@/lib/content/../hidden-area/x") };
+      expect(auditGraph([entry], reader(virtual)).join("\n")).toContain("lib/hidden-area/x");
+      expect(auditGraph([COPY_FILE], reader(virtual))).toHaveLength(1);
     });
   });
 });
