@@ -182,7 +182,7 @@ function kindOf(email: InboxEmail): EventKind {
   const interviewContext = INTERVIEW_CONTEXT.test(interviewText) || ROLE_NAMED.test(original) || trusted;
   if (INTERVIEW_DIRECT.test(interviewText) || (INTERVIEW_WEAK.test(interviewText) && interviewContext)) return "interview";
   if (SCREEN.test(text)) return "screen";
-  // A friend's personal mail counts as a person for intros: "Jordan Lee <jl.builds@gmail.com>".
+  // A named friend writing from webmail counts as a person for intros, whatever the handle.
   const writer = person || (NAME_LIKE.test(display) && GENERIC_MAIL.test(domain));
   const namedWriter = NAME_LIKE.test(display) && !GENERIC_LOCAL.test(local);
   if (
