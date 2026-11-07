@@ -49,6 +49,8 @@ const TIER_BOOST = 12;
 const LEVEL_BOOST = 1.5;
 // A speedrun card moves up into the top three only from this close, and never past a better tier.
 const PROMOTE_WINDOW = 2;
+// Below this many role matches (but above none), company-only cards may fill on function alone.
+const MIN_CARDS = 3;
 
 const ALLOWED_LEVELS: Record<Profile["seniority"], number[]> = {
   intern: [0], new_grad: [1, 2], junior: [1, 2], mid: [1, 2, 3], senior: [2, 3, 4],
@@ -242,26 +244,35 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
 
   // Companies with no role that passed the filters still show up, after every
   // role-backed match, when what they build lines up with what was asked for.
+  // When one or two roles survive, a company in no named city may still fill a card on function alone.
+  // With none surviving the filters leave nothing, and the board says so rather than pad.
+  const functionOnlySlots = ranked.length > 0 ? Math.max(0, MIN_CARDS - ranked.length) : 0;
+  const functionOnly = new Set<Match>();
   const companyMatches: Match[] = [];
   for (const company of companies) {
     if (best.has(company.slug)) continue;
     const place = places.length > 0 ? places.find((p) => !isRemotePlace(p) && placeMatches(p, company.location)) ?? null : null;
-    if (places.length > 0 && !place) continue;
+    if (places.length > 0 && !place && functionOnlySlots === 0) continue;
     for (const fn of targets) {
       const reasons = companyOnly(company, fn, place, ctx);
       if (!reasons) continue;
-      companyMatches.push({
+      const match: Match = {
         company: { name: company.name, slug: company.slug, logo: company.logo, cohort: company.cohort, stage: company.stage, blurb: company.blurb },
         role: null,
         score: Math.round((1 + reasons.length * 0.5) * 100) / 100,
         reasons,
         connect: ["intro", "follow"],
-      });
+      };
+      companyMatches.push(match);
+      if (places.length > 0 && !place) functionOnly.add(match);
       break;
     }
   }
   companyMatches.sort((a, b) => b.score - a.score || a.company.name.localeCompare(b.company.name));
-  capOwnWords(companyMatches, seen);
+  // Cards that fit a named city come first; function-only ones fill only the slots below three cards.
+  let slotsLeft = functionOnlySlots;
+  const keptCompanyMatches = companyMatches.filter((match) => !functionOnly.has(match) || slotsLeft-- > 0);
+  capOwnWords(keptCompanyMatches, seen);
 
   // A warm intro to a speedrun founder is the network's whole promise, so a speedrun card that fits about
   // as well as the third card takes its place. It never jumps a card that fits the first target better,
@@ -274,7 +285,7 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   const top = promoted && !ranked.slice(0, 3).some((s) => s.role.tier === "speedrun")
     ? [...ranked.slice(0, 2), promoted, ...ranked.slice(2).filter((s) => s !== promoted)]
     : ranked;
-  const shown = [...top.slice(0, limit).map(toMatch), ...companyMatches].slice(0, limit);
+  const shown = [...top.slice(0, limit).map(toMatch), ...keptCompanyMatches].slice(0, limit);
   return {
     matches: shown,
     routes: profile.founderSignal.score >= 0.6 ? ROUTES : [],
@@ -282,7 +293,7 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
       companies: companies.length,
       roles: roles.length,
       speedrunRoles: roles.filter((r) => r.tier === "speedrun").length,
-      afterFilters: afterFilters + companyMatches.length,
+      afterFilters: afterFilters + keptCompanyMatches.length,
       shown: shown.length,
     },
   };

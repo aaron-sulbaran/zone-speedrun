@@ -96,6 +96,16 @@ describe.each(["extracted", "sample"] as Mode[])("rankMatches (%s profiles)", (m
     expect(result.narrowing.shown).toBe(0);
   });
 
+  it("puts a speedrun company on a board that has fewer than three role matches", () => {
+    const { matches } = run("maya");
+    expect(matches.length).toBeGreaterThanOrEqual(3);
+    const companyOnly = matches.filter((m) => m.role === null);
+    expect(companyOnly.length).toBeGreaterThanOrEqual(1);
+    expect(companyOnly.length).toBeLessThanOrEqual(3 - matches.filter((m) => m.role !== null).length);
+    // Role cards still rank first.
+    expect(matches.findIndex((m) => m.role === null)).toBeGreaterThan(matches.map((m) => m.role !== null).lastIndexOf(true));
+  });
+
   const stripCompany = (m: ReturnType<typeof run>["matches"][number]) =>
     [m.role!.company, m.company.name].reduce((t, n) => t.replace(new RegExp(n.replace(/[()]/g, ""), "gi"), " "), `${m.role!.title} ${m.role!.excerpt}`);
   const AI_TEXT = /\b(ai|ml|machine learning|llms?|language models?|generative|neural|nlp)\b/i;
