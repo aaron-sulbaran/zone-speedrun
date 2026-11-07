@@ -1,112 +1,184 @@
 import { useId } from "react";
 import { speedrunCopy } from "@/lib/content";
-import type { FlowData, FlowLink } from "@/lib/speedrun/funnel";
-import { layoutFlow } from "@/lib/speedrun/flowLayout";
+import type { FlowData } from "@/lib/speedrun/funnel";
+import { layoutFlow, type FlowSize, type PlacedNode } from "@/lib/speedrun/flowLayout";
 import { FlowReveal } from "./FlowReveal";
 
 // The shared flow chart. "aaron" reads the site's tokens (the --flow-* set);
 // "speedrun" reads the --sr-* tokens, so it only looks right inside [data-speedrun].
+// Both orientations are rendered and CSS shows one: columns across from md up,
+// rows stacked top to bottom below it, so there is no sideways scroll on phones.
 
-const SIZE = { width: 960, height: 340, nodeWidth: 14, gap: 20 };
-const TOP = 26;
-const BOTTOM = 6;
+const WIDE = { width: 864, height: 340, nodeWidth: 6, gap: 20, maxPerUnit: 14 } satisfies FlowSize;
+const WIDE_LEFT = 100;
+const WIDE_TOP = 26;
+const TALL = { width: 340, height: 600, nodeWidth: 36, gap: 52, maxPerUnit: 12, orientation: "vertical" } satisfies FlowSize;
+const TALL_RIGHT = 64;
+const BAR = 6;
 
 const TONES = {
   aaron: {
     link: { flow: "var(--flow-link)", open: "var(--flow-open)", rejected: "var(--flow-rejected)", noreply: "var(--flow-noreply)" },
-    node: "var(--flow-node)",
+    node: "var(--color-accent)",
     text: "var(--color-foreground)",
     subtext: "var(--color-muted)",
+    halo: "var(--color-background)",
   },
   speedrun: {
     link: {
-      flow: "color-mix(in srgb, var(--sr-aqua) 80%, transparent)",
-      open: "color-mix(in srgb, var(--sr-aqua) 40%, transparent)",
-      rejected: "color-mix(in srgb, var(--sr-purple) 70%, transparent)",
+      flow: "color-mix(in srgb, var(--sr-ink) 70%, transparent)",
+      open: "color-mix(in srgb, var(--sr-ink) 30%, transparent)",
+      rejected: "var(--sr-purple)",
       noreply: "var(--sr-sec)",
     },
     node: "var(--sr-ink)",
     text: "var(--sr-ink)",
     subtext: "var(--sr-ink-2)",
+    halo: "var(--sr-bg)",
   },
 } as const;
 
-type Props = { data: FlowData; tone: "aaron" | "speedrun"; title: string; animate?: boolean };
+type Tone = keyof typeof TONES;
+type Props = { data: FlowData; tone: Tone; title: string; animate?: boolean };
 
-export function FlowChart({ data, tone, title, animate = false }: Props) {
+function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; title: string; vertical: boolean }) {
   const titleId = useId();
-  const { nodes, links } = layoutFlow(data, SIZE);
   const colors = TONES[tone];
+  const { nodes, links } = layoutFlow(data, vertical ? TALL : WIDE);
+  const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
+  const view = vertical ? `0 0 ${TALL.width + TALL_RIGHT} ${TALL.height}` : `0 0 ${WIDE_LEFT + WIDE.width} ${WIDE.height + WIDE_TOP + 6}`;
+  const halo = { stroke: colors.halo, strokeWidth: 4, paintOrder: "stroke" } as const;
+
+  const label = (node: PlacedNode) => {
+    if (vertical) {
+      return (
+        <text x={node.x} y={node.y + BAR + 13} fontSize={12} fill={colors.text} aria-hidden="true">
+          {node.label}
+          <tspan x={node.x} dy={14} fill={colors.subtext}>
+            {node.value}
+          </tspan>
+        </text>
+      );
+    }
+    const lane = node.column === 0;
+    const atEnd = node.column === lastColumn && !lane;
+    return (
+      <text
+        x={lane ? node.x - 8 : atEnd ? node.x + WIDE.nodeWidth : node.x}
+        y={lane ? node.y + node.h / 2 + 4 : node.y - 7}
+        textAnchor={lane || atEnd ? "end" : "start"}
+        fontSize={12}
+        fill={colors.text}
+        aria-hidden="true"
+        {...(lane ? {} : halo)}
+      >
+        {node.label}
+        <tspan dx={5} fill={colors.subtext}>
+          {node.value}
+        </tspan>
+      </text>
+    );
+  };
+
+  return (
+    <svg
+      viewBox={view}
+      role="img"
+      aria-labelledby={titleId}
+      className={vertical ? "mx-auto block h-auto w-full max-w-[26rem] md:hidden" : "hidden h-auto w-full md:block"}
+    >
+      <title id={titleId}>{title}</title>
+      <g transform={vertical ? undefined : `translate(${WIDE_LEFT} ${WIDE_TOP})`}>
+        {links.map((link) => (
+          <path
+            key={`${link.source}>${link.target}`}
+            className="flow-link"
+            d={link.path}
+            pathLength={1}
+            fill="none"
+            stroke={colors.link[link.tone]}
+            strokeWidth={link.width}
+          />
+        ))}
+        {nodes.map((node) => (
+          <g key={node.id}>
+            <rect x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
+            {label(node)}
+          </g>
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+function CountsTable({ data }: { data: FlowData }) {
   const head = speedrunCopy.flow.tableHead;
-  const count = (id: string) => {
-    const into = data.links.filter((l: FlowLink) => l.target === id).reduce((s, l) => s + l.value, 0);
-    const out = data.links.filter((l: FlowLink) => l.source === id).reduce((s, l) => s + l.value, 0);
+  const exits = speedrunCopy.flow.exits;
+  const value = (id: string) => {
+    const into = data.links.filter((l) => l.target === id).reduce((s, l) => s + l.value, 0);
+    const out = data.links.filter((l) => l.source === id).reduce((s, l) => s + l.value, 0);
     return Math.max(into, out);
   };
-  const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
-
-  const chart = (
-    <div className="overflow-x-auto" role="region" aria-label={title} tabIndex={0}>
-      <svg
-        viewBox={`0 0 ${SIZE.width} ${SIZE.height + TOP + BOTTOM}`}
-        role="img"
-        aria-labelledby={titleId}
-        className="block h-auto min-w-[680px] w-full"
-      >
-        <title id={titleId}>{title}</title>
-        <g transform={`translate(0 ${TOP})`}>
-          {links.map((link) => (
-            <path
-              key={`${link.source}>${link.target}`}
-              className="flow-link"
-              d={link.path}
-              pathLength={1}
-              fill="none"
-              stroke={colors.link[link.tone]}
-              strokeWidth={link.width}
-            />
-          ))}
-          {nodes.map((node) => {
-            const atEnd = node.column === lastColumn && node.column !== 0;
-            return (
-              <g key={node.id}>
-                <rect x={node.x} y={node.y} width={SIZE.nodeWidth} height={node.h} rx={2} fill={colors.node} />
-                <text
-                  x={atEnd ? node.x + SIZE.nodeWidth : node.x}
-                  y={node.y - 7}
-                  textAnchor={atEnd ? "end" : "start"}
-                  fontSize={12}
-                  fill={colors.text}
-                  aria-hidden="true"
-                >
-                  {node.label}
-                  <tspan dx={5} fill={colors.subtext}>
-                    {count(node.id)}
-                  </tspan>
-                </text>
-              </g>
-            );
-          })}
-        </g>
-      </svg>
-      <table className="sr-only">
+  const stages = data.nodes.filter((n) => n.kind === "stage").sort((a, b) => a.column - b.column);
+  const lanes = data.nodes.filter((n) => n.kind === "lane");
+  const exitCount = (stage: string, exit: string) => {
+    const node = data.nodes.find((n) => n.id === `exit:${exit}:${stage}`);
+    return node ? value(node.id) : 0;
+  };
+  return (
+    <div className="sr-only">
+      <table>
         <thead>
           <tr>
-            <th scope="col">{head.step}</th>
+            <th scope="col">{head.stage}</th>
+            <th scope="col">{head.reached}</th>
+            <th scope="col">{exits.rejected}</th>
+            <th scope="col">{exits.noreply}</th>
+            <th scope="col">{exits.open}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stages.map((stage) => {
+            const key = stage.id.replace("stage:", "");
+            return (
+              <tr key={stage.id}>
+                <th scope="row">{stage.label}</th>
+                <td>{value(stage.id)}</td>
+                <td>{exitCount(key, "rejected")}</td>
+                <td>{exitCount(key, "noreply")}</td>
+                <td>{exitCount(key, "open")}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{head.track}</th>
             <th scope="col">{head.count}</th>
           </tr>
         </thead>
         <tbody>
-          {nodes.map((node) => (
-            <tr key={node.id}>
-              <th scope="row">{node.label}</th>
-              <td>{count(node.id)}</td>
+          {lanes.map((lane) => (
+            <tr key={lane.id}>
+              <th scope="row">{lane.label}</th>
+              <td>{value(lane.id)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+}
 
+export function FlowChart({ data, tone, title, animate = false }: Props) {
+  const chart = (
+    <div>
+      <Svg data={data} tone={tone} title={title} vertical={false} />
+      <Svg data={data} tone={tone} title={title} vertical />
+      <CountsTable data={data} />
+    </div>
+  );
   return animate ? <FlowReveal>{chart}</FlowReveal> : chart;
 }

@@ -2,11 +2,11 @@ import { speedrunCopy } from "@/lib/content/speedrun";
 import { STAGES } from "./pipeline";
 import type { AppRow, Exit, Lane, Pipeline, Stage } from "./types";
 
-export type FlowNode = { id: string; label: string; kind: "lane" | "hub" | "stage" | "exit"; column: number };
+export type FlowNode = { id: string; label: string; kind: "lane" | "stage" | "exit"; column: number };
 export type FlowLink = { source: string; target: string; value: number; tone: "flow" | "rejected" | "noreply" | "open" };
 export type FlowData = { nodes: FlowNode[]; links: FlowLink[] };
 
-const STAGE_COLUMN_START = 2;
+const STAGE_COLUMN_START = 1;
 const LANES: Lane[] = ["jobs", "founder"];
 const EXITS: Exit[] = ["rejected", "noreply", "open"];
 
@@ -28,19 +28,18 @@ export function toFlow(pipeline: Pipeline): FlowData {
     const count = rows.filter((row: AppRow) => row.lane === lane).length;
     if (count === 0) continue;
     nodes.push({ id: `lane:${lane}`, label: labels.lanes[lane], kind: "lane", column: 0 });
-    link(`lane:${lane}`, "hub", count, "flow");
+    link(`lane:${lane}`, stageId("applied"), count, "flow");
   }
-  nodes.push({ id: "hub", label: labels.hub, kind: "hub", column: 1 });
 
   const reached = (stage: Stage) => rows.filter((row) => STAGES.indexOf(row.furthest) >= STAGES.indexOf(stage));
   const topIndex = Math.max(...rows.map((row) => STAGES.indexOf(row.furthest)));
 
   STAGES.slice(0, topIndex + 1).forEach((stage, index) => {
     nodes.push({ id: stageId(stage), label: labels.stages[stage], kind: "stage", column: stageColumn(stage) });
-    if (index === 0) link("hub", stageId(stage), rows.length, "flow");
     const next = STAGES[index + 1];
     if (next && index < topIndex) link(stageId(stage), stageId(next), reached(next).length, "flow");
-    for (const exit of EXITS) {
+    // An offer ends the flow; its rows have no exit after it.
+    for (const exit of stage === "offer" ? [] : EXITS) {
       const count = rows.filter((row) => row.furthest === stage && row.exit === exit).length;
       if (count === 0) continue;
       nodes.push({ id: exitId(exit, stage), label: labels.exits[exit], kind: "exit", column: stageColumn(stage) + 1 });

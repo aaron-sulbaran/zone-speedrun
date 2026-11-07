@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AARON_MOCK, aaronFlow } from "./aaronMock";
+import { speedrunCopy } from "@/lib/content/speedrun";
+import { AARON_ENTRIES, AARON_MOCK, aaronFlow, aaronSampleRows } from "./aaronMock";
 import { getSnapshot } from "./snapshot";
 
 describe("AARON_MOCK", () => {
@@ -29,7 +30,7 @@ describe("AARON_MOCK", () => {
     expect(lanes.map((node) => node.id).sort()).toEqual(
       ["lane:coop", "lane:fellowship", "lane:fulltime", "lane:internship"].sort(),
     );
-    const intoHub = flow.links.filter((link) => link.target === "hub");
+    const intoHub = flow.links.filter((link) => link.target === "stage:applied");
     expect(intoHub.reduce((sum, link) => sum + link.value, 0)).toBe(84);
     const byLane = Object.fromEntries(intoHub.map((link) => [link.source, link.value]));
     expect(byLane).toEqual({ "lane:internship": 39, "lane:coop": 25, "lane:fulltime": 17, "lane:fellowship": 3 });
@@ -37,4 +38,31 @@ describe("AARON_MOCK", () => {
       flow.links.filter((link) => link.target === id).reduce((sum, link) => sum + link.value, 0);
     expect([reached("stage:assessment"), reached("stage:screen"), reached("stage:interview"), reached("stage:offer")]).toEqual([15, 12, 8, 2]);
   });
+
+  it("builds the rows from the entries", () => {
+    expect(AARON_MOCK.rows).toEqual(AARON_ENTRIES.map((entry) => entry.row));
+  });
+
+  it("keeps the stat tiles equal to the mock's counts", () => {
+    const stats = Object.fromEntries(speedrunCopy.act1.stats.map((stat) => [stat.key, stat.value]));
+    const reached = (stage: string) => flowReached(stage);
+    expect(stats.applications).toBe(AARON_MOCK.rows.length);
+    expect(stats.assessments).toBe(reached("stage:assessment"));
+    expect(stats.interviews).toBe(reached("stage:interview"));
+    expect(stats.intros).toBe(AARON_MOCK.stats.intros);
+  });
+
+  it("picks an offer, a co-op and a full-time row for the card", () => {
+    const rows = aaronSampleRows();
+    expect(rows).toHaveLength(3);
+    expect(rows[0].row.furthest).toBe("offer");
+    expect(rows[1].track).toBe("coop");
+    expect(rows[2].track).toBe("fulltime");
+  });
 });
+
+function flowReached(id: string): number {
+  return aaronFlow()
+    .links.filter((link) => link.target === id)
+    .reduce((sum, link) => sum + link.value, 0);
+}

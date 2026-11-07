@@ -4,14 +4,21 @@ import type { AppRow, Exit, Pipeline, Stage } from "./types";
 
 // Aaron's fall search with the counts nudged for privacy. Every number here is
 // a literal; nothing is computed from private data. `AppRow.lane` only allows
-// "jobs" | "founder", so every row is a "jobs" row and the four tracks live in
-// a parallel list that `aaronFlow` uses to relabel the first column.
+// "jobs" | "founder", so every row is a "jobs" row and its track (internship,
+// co-op, full-time, fellowship) rides beside it in AARON_ENTRIES, the single
+// source of truth. The rows, the lane links and the sample rows all come from it.
 
 export type AaronTrack = "internship" | "coop" | "fulltime" | "fellowship";
+export type AaronEntry = { track: AaronTrack; row: AppRow };
 
-export const AARON_TRACKS: Record<AaronTrack, number> = { internship: 39, coop: 25, fulltime: 17, fellowship: 3 };
+const TRACK_SIZES: [AaronTrack, number][] = [
+  ["internship", 39],
+  ["coop", 25],
+  ["fulltime", 17],
+  ["fellowship", 3],
+];
 
-// [furthest, exit, how many]. Furthest reached cumulative: 84, 15, 12, 8, 2.
+// [furthest, exit, how many]. Furthest reached, cumulative: 84, 15, 12, 8, 2.
 const OUTCOMES: [Stage, Exit, number][] = [
   ["applied", "noreply", 44],
   ["applied", "rejected", 14],
@@ -26,9 +33,9 @@ const OUTCOMES: [Stage, Exit, number][] = [
 ];
 
 const STARTUPS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter) => `Startup ${letter}`);
-const ROLE_FOR_TRACK: Record<AaronTrack, string[]> = {
+const ROLES: Record<AaronTrack, string[]> = {
   internship: ["Product role", "Engineering role"],
-  coop: ["Co-op"],
+  coop: ["Engineering role", "Product role"],
   fulltime: ["Engineering role", "Product role"],
   fellowship: ["Fellowship"],
 };
@@ -40,27 +47,27 @@ function companyFor(track: AaronTrack, index: number): string {
 }
 
 const outcomes = OUTCOMES.flatMap(([furthest, exit, count]) => Array.from({ length: count }, () => ({ furthest, exit })));
-// Interleave so every track gets a spread of outcomes, deterministically.
-const order = outcomes.map((_, i) => (i * 37) % outcomes.length);
-const tracks = (Object.keys(AARON_TRACKS) as AaronTrack[]).flatMap((track) =>
-  Array.from({ length: AARON_TRACKS[track] }, () => track),
-);
+const tracks = TRACK_SIZES.flatMap(([track, count]) => Array.from({ length: count }, () => track));
 
-export const AARON_ROW_TRACKS: AaronTrack[] = tracks;
-
-export const AARON_MOCK: Pipeline = {
-  rows: order.map((outcomeIndex, i): AppRow => {
-    const track = tracks[i];
-    const roles = ROLE_FOR_TRACK[track];
-    return {
+export const AARON_ENTRIES: AaronEntry[] = tracks.map((track, i) => {
+  // 37 is coprime to 84, so this spreads the outcomes across tracks, deterministically.
+  const outcome = outcomes[(i * 37) % outcomes.length];
+  const roles = ROLES[track];
+  return {
+    track,
+    row: {
       company: companyFor(track, i),
       role: roles[i % roles.length],
       lane: "jobs",
-      ...outcomes[outcomeIndex],
+      ...outcome,
       lastEventAt: "2026-10-15",
       next: null,
-    };
-  }),
+    },
+  };
+});
+
+export const AARON_MOCK: Pipeline = {
+  rows: AARON_ENTRIES.map((entry) => entry.row),
   stats: { applied: 84, inProcess: 18, intros: 2, offers: 2 },
 };
 
@@ -68,20 +75,34 @@ export const AARON_MOCK: Pipeline = {
 export function aaronFlow(): FlowData {
   const base = toFlow(AARON_MOCK);
   const labels = speedrunCopy.act1.lanes;
-  const trackKeys = Object.keys(AARON_TRACKS) as AaronTrack[];
+  const present = TRACK_SIZES.map(([track]) => track).filter((track) => AARON_ENTRIES.some((e) => e.track === track));
   return {
     nodes: [
-      ...trackKeys.map((track) => ({ id: `lane:${track}`, label: labels[track], kind: "lane" as const, column: 0 })),
+      ...present.map((track) => ({ id: `lane:${track}`, label: labels[track], kind: "lane" as const, column: 0 })),
       ...base.nodes.filter((node) => node.kind !== "lane"),
     ],
     links: [
-      ...trackKeys.map((track) => ({
+      ...present.map((track) => ({
         source: `lane:${track}`,
-        target: "hub",
-        value: AARON_TRACKS[track],
+        target: "stage:applied",
+        value: AARON_ENTRIES.filter((e) => e.track === track).length,
         tone: "flow" as const,
       })),
       ...base.links.filter((link) => !link.source.startsWith("lane:")),
     ],
   };
+}
+
+/** Three rows for the funnel card: an offer, a co-op row and a full-time row. */
+export function aaronSampleRows(): AaronEntry[] {
+  const picked: AaronEntry[] = [];
+  const take = (test: (entry: AaronEntry) => boolean) => {
+    const found = AARON_ENTRIES.find((entry) => !picked.includes(entry) && test(entry));
+    if (found) picked.push(found);
+  };
+  const deep = (entry: AaronEntry) => entry.row.furthest !== "applied" && entry.row.furthest !== "offer";
+  take((entry) => entry.row.furthest === "offer");
+  take((entry) => entry.track === "coop" && deep(entry));
+  take((entry) => entry.track === "fulltime" && deep(entry));
+  return picked;
 }

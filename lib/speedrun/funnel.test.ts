@@ -22,14 +22,16 @@ const pipeline: Pipeline = { rows, stats: { applied: 9, inProcess: 3, intros: 0,
 describe("toFlow", () => {
   const flow = toFlow(pipeline);
 
-  it("sends every row out of the hub", () => {
-    const fromHub = flow.links.filter((link) => link.source === "hub");
-    expect(fromHub.reduce((sum, link) => sum + link.value, 0)).toBe(rows.length);
+  it("sends every row out of Applied", () => {
+    const fromApplied = flow.links.filter((link) => link.source === "stage:applied");
+    expect(fromApplied.reduce((sum, link) => sum + link.value, 0)).toBe(rows.length);
   });
 
-  it("feeds the hub from the lanes", () => {
-    const intoHub = flow.links.filter((link) => link.target === "hub");
-    expect(intoHub.reduce((sum, link) => sum + link.value, 0)).toBe(rows.length);
+  it("feeds Applied straight from the lanes", () => {
+    const intoApplied = flow.links.filter((link) => link.target === "stage:applied");
+    expect(intoApplied.every((link) => link.source.startsWith("lane:"))).toBe(true);
+    expect(intoApplied.reduce((sum, link) => sum + link.value, 0)).toBe(rows.length);
+    expect(flow.nodes.some((node) => node.id === "hub")).toBe(false);
   });
 
   it("has no zero value links", () => {
@@ -40,16 +42,15 @@ describe("toFlow", () => {
     const exits = flow.nodes.filter((node) => node.kind === "exit");
     expect(new Set(exits.map((node) => node.id)).size).toBe(exits.length);
     const applied = exits.find((node) => node.id === "exit:noreply:applied");
-    expect(applied?.column).toBe(3);
-    expect(flow.nodes.find((node) => node.id === "exit:open:offer")?.column).toBe(7);
+    expect(applied?.column).toBe(2);
+    expect(flow.nodes.some((node) => node.id.startsWith("exit:") && node.id.endsWith(":offer"))).toBe(false);
   });
 
-  it("places lanes, hub and stages in their columns", () => {
+  it("places lanes and stages in their columns", () => {
     const column = (id: string) => flow.nodes.find((node) => node.id === id)?.column;
     expect(column("lane:jobs")).toBe(0);
-    expect(column("hub")).toBe(1);
-    expect(column("stage:applied")).toBe(2);
-    expect(column("stage:offer")).toBe(6);
+    expect(column("stage:applied")).toBe(1);
+    expect(column("stage:offer")).toBe(5);
   });
 
   it("only links existing nodes", () => {

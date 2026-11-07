@@ -1,21 +1,35 @@
 import type { FlowData, FlowLink, FlowNode } from "./funnel";
 
-export type FlowSize = { width: number; height: number; nodeWidth: number; gap: number };
-export type PlacedNode = FlowNode & { x: number; y: number; h: number };
+export type FlowSize = {
+  width: number;
+  height: number;
+  /** Thickness of a node bar along the flow. */
+  nodeWidth: number;
+  /** Space between nodes stacked in one column (or row, when vertical). */
+  gap: number;
+  /** Columns run left to right (default) or become rows running top to bottom. */
+  orientation?: "horizontal" | "vertical";
+  /** Most pixels one application may take, so a small flow is not a slab. */
+  maxPerUnit?: number;
+};
+export type PlacedNode = FlowNode & { x: number; y: number; w: number; h: number; value: number };
 export type PlacedLink = FlowLink & { path: string; width: number };
 
 const num = (value: number) => Number(value.toFixed(2));
 
 /**
- * Pure flow layout. Columns are spaced evenly, a node's height is its
- * throughput times one shared scale, nodes in a column stack with `gap` and the
- * stack is centered. Each link is the centerline of a ribbon (a cubic bezier)
- * whose stroke width is `width`; the ribbon runs between the slots it takes on
- * its source and target nodes.
+ * Pure flow layout. Columns are spaced evenly along the main axis, a node's
+ * extent across it is its throughput times one shared scale, nodes in a column
+ * stack with `gap` and the stack is centered. Each link is the centerline of a
+ * ribbon (a cubic bezier) whose stroke width is `width`; it runs between the
+ * slots it takes on its source and target nodes.
  */
 export function layoutFlow(data: FlowData, size: FlowSize): { nodes: PlacedNode[]; links: PlacedLink[] } {
   if (data.nodes.length === 0) return { nodes: [], links: [] };
-  const { width, height, nodeWidth, gap } = size;
+  const { nodeWidth, gap, maxPerUnit = Infinity } = size;
+  const vertical = size.orientation === "vertical";
+  const mainLength = vertical ? size.height : size.width;
+  const crossLength = vertical ? size.width : size.height;
 
   const through = new Map<string, number>();
   for (const node of data.nodes) {
@@ -34,25 +48,36 @@ export function layoutFlow(data: FlowData, size: FlowSize): { nodes: PlacedNode[
     );
   }
 
-  let scale = Infinity;
+  let scale = maxPerUnit;
   for (const nodes of columns.values()) {
     const total = nodes.reduce((s, n) => s + (through.get(n.id) ?? 0), 0);
-    scale = Math.min(scale, (height - gap * (nodes.length - 1)) / total);
+    scale = Math.min(scale, (crossLength - gap * (nodes.length - 1)) / total);
   }
+  scale = Number.isFinite(scale) ? Math.max(0, scale) : 0;
 
   const maxColumn = Math.max(...columns.keys());
-  const step = maxColumn === 0 ? 0 : (width - nodeWidth) / maxColumn;
+  const step = maxColumn === 0 ? 0 : (mainLength - nodeWidth) / maxColumn;
   const placed = new Map<string, PlacedNode>();
   for (const [column, nodes] of columns) {
     const stack = nodes.reduce((s, n) => s + (through.get(n.id) ?? 0) * scale, 0) + gap * (nodes.length - 1);
-    let y = (height - stack) / 2;
+    let cross = (crossLength - stack) / 2;
     for (const node of nodes) {
-      const h = (through.get(node.id) ?? 0) * scale;
-      placed.set(node.id, { ...node, x: num(column * step), y: num(y), h: num(h) });
-      y += h + gap;
+      const value = through.get(node.id) ?? 0;
+      const extent = value * scale;
+      const main = column * step;
+      placed.set(node.id, {
+        ...node,
+        value,
+        x: num(vertical ? cross : main),
+        y: num(vertical ? main : cross),
+        w: num(vertical ? extent : nodeWidth),
+        h: num(vertical ? nodeWidth : extent),
+      });
+      cross += extent + gap;
     }
   }
 
+  const crossOf = (node: PlacedNode) => (vertical ? node.x : node.y);
   const index = new Map(data.links.map((link, i) => [link, i]));
   const sourceOffset = new Map<FlowLink, number>();
   const targetOffset = new Map<FlowLink, number>();
@@ -61,9 +86,13 @@ export function layoutFlow(data: FlowData, size: FlowSize): { nodes: PlacedNode[
     const slots = (links: FlowLink[], other: (l: FlowLink) => string, into: Map<FlowLink, number>) => {
       let offset = 0;
       [...links]
-        .sort((a, b) => (placed.get(other(a)) as PlacedNode).y - (placed.get(other(b)) as PlacedNode).y || (index.get(a) ?? 0) - (index.get(b) ?? 0))
+        .sort(
+          (a, b) =>
+            crossOf(placed.get(other(a)) as PlacedNode) - crossOf(placed.get(other(b)) as PlacedNode) ||
+            (index.get(a) ?? 0) - (index.get(b) ?? 0),
+        )
         .forEach((link) => {
-          into.set(link, here.y + offset);
+          into.set(link, crossOf(here) + offset);
           offset += link.value * scale;
         });
     };
@@ -75,12 +104,17 @@ export function layoutFlow(data: FlowData, size: FlowSize): { nodes: PlacedNode[
     const from = placed.get(link.source) as PlacedNode;
     const to = placed.get(link.target) as PlacedNode;
     const w = link.value * scale;
-    const x0 = from.x + nodeWidth;
-    const x1 = to.x;
-    const y0 = (sourceOffset.get(link) as number) + w / 2;
-    const y1 = (targetOffset.get(link) as number) + w / 2;
-    const mid = (x0 + x1) / 2;
-    return { ...link, width: num(w), path: `M${num(x0)} ${num(y0)}C${num(mid)} ${num(y0)},${num(mid)} ${num(y1)},${num(x1)} ${num(y1)}` };
+    const c0 = (sourceOffset.get(link) as number) + w / 2;
+    const c1 = (targetOffset.get(link) as number) + w / 2;
+    const m0 = (vertical ? from.y : from.x) + nodeWidth;
+    const m1 = vertical ? to.y : to.x;
+    const mid = (m0 + m1) / 2;
+    const point = (main: number, cross: number) => (vertical ? `${num(cross)} ${num(main)}` : `${num(main)} ${num(cross)}`);
+    return {
+      ...link,
+      width: num(w),
+      path: `M${point(m0, c0)}C${point(mid, c0)},${point(mid, c1)},${point(m1, c1)}`,
+    };
   });
 
   return { nodes: [...placed.values()], links };
