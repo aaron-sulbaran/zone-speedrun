@@ -10,6 +10,7 @@ async function reachPasteBox(page: Page) {
   await card.scrollIntoViewIfNeeded();
   for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
   await card.locator('[data-person="sam"]').click();
+  await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
   await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
   await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
   await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
