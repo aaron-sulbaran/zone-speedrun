@@ -81,10 +81,10 @@ export function JoinCard({ state, dispatch, onUpload }: { state: DemoState; disp
       onKeyDown={onKeyDown}
       className="mx-auto w-full max-w-2xl scroll-mt-24 rounded-3xl bg-sr-surface shadow-[0_16px_56px_var(--sr-soft)] focus:outline-none"
     >
-      <div className="flex items-center gap-3 px-6 pt-5 md:px-8">
+      <div className="flex items-center gap-2 px-6 pt-5 sm:gap-3 md:px-8">
         <SpeedrunLogo className="h-4 w-auto" />
-        <span className="font-srcond text-xs uppercase tracking-widest text-sr-ink2">{copy.label}</span>
-        <span className="ml-auto font-srcond text-xs tabular-nums tracking-widest text-sr-ink2" aria-label={`${copy.stepWord} ${joinStep + 1} / 4`}>
+        <span className="whitespace-nowrap font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">{copy.label}</span>
+        <span className="ml-auto whitespace-nowrap font-srcond text-[11px] tabular-nums tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest" aria-label={`${copy.stepWord} ${joinStep + 1} / 4`}>
           {pad(joinStep + 1)} / 04
         </span>
       </div>
