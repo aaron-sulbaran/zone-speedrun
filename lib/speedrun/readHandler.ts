@@ -39,7 +39,7 @@ export type ReadInput = {
 export type ReadDeps = {
   live: boolean;
   isBot: () => Promise<boolean>;
-  allow: () => LimitVerdict;
+  allow: () => Promise<LimitVerdict>;
   model: LanguageModel | null;
 };
 
@@ -50,7 +50,7 @@ const fail = (status: 400 | 403 | 413 | 422 | 503, error: ReadError): ReadOutcom
 export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<ReadOutcome> {
   if (!deps.live) return fail(503, "live_off");
   if (await deps.isBot()) return fail(403, "bot");
-  const verdict = deps.allow();
+  const verdict = await deps.allow();
   if (!verdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: verdict.retryAfterMs } };
   if (input.contentLength !== null && input.contentLength > BODY_CAPS.read) return fail(413, "too_large");
 

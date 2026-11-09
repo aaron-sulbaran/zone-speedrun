@@ -1,3 +1,5 @@
+import { limitStore } from "./sharedLimit";
+
 // The live-reading switches and a small limiter. Both are pure: the limiter
 // takes the clock as an argument and keeps only counters in memory.
 
@@ -94,13 +96,27 @@ export async function readCappedJson(request: Request, max: number): Promise<unk
 }
 
 // Explicit switches, never key presence: on Vercel the AI Gateway signs in with
-// an automatic OIDC token, so a key check alone would turn spend on.
-export function liveFlags(): { reading: boolean; email: boolean } {
-  return {
-    reading: process.env.SPEEDRUN_AI === "on",
-    email:
-      process.env.SPEEDRUN_EMAIL === "on" &&
-      Boolean(process.env.RESEND_API_KEY) &&
-      Boolean(process.env.SPEEDRUN_EMAIL_FROM),
-  };
+// an automatic OIDC token, so a key check alone would turn spend on. A switch
+// also needs the shared limit store; without it the feature stays off.
+
+// Placeholder until the allowlist parser lands: no entries, so email stays off.
+const parseAllowlist = (raw: string | undefined): string[] => (raw ? [] : []);
+
+const loggedGaps = new Set<string>();
+function logGap(feature: string, piece: "store" | "allowlist") {
+  const id = `${feature}:${piece}`;
+  if (loggedGaps.has(id)) return;
+  loggedGaps.add(id);
+  console.warn(`[speedrun] ${feature} switch is on but the ${piece} is missing, so it stays off`);
+}
+
+export function liveFlags(env: Record<string, string | undefined> = process.env): { reading: boolean; email: boolean } {
+  const hasStore = limitStore(env) !== null;
+  const readingSwitch = env.SPEEDRUN_AI === "on";
+  const emailSwitch = env.SPEEDRUN_EMAIL === "on" && Boolean(env.RESEND_API_KEY) && Boolean(env.SPEEDRUN_EMAIL_FROM);
+  const hasAllowlist = parseAllowlist(env.SPEEDRUN_BRIEF_ALLOW).length > 0;
+  if (readingSwitch && !hasStore) logGap("reading", "store");
+  if (emailSwitch && !hasStore) logGap("email", "store");
+  if (emailSwitch && !hasAllowlist) logGap("email", "allowlist");
+  return { reading: readingSwitch && hasStore, email: emailSwitch && hasStore && hasAllowlist };
 }

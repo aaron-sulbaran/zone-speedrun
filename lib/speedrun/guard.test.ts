@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BodyTooLargeError, createLimiter, liveFlags, readCappedJson } from "./guard";
 
+const STORE = { KV_REST_API_URL: "https://store.test", KV_REST_API_TOKEN: "token" };
 const TEN_MIN = 10 * 60 * 1000;
 
 describe("createLimiter", () => {
@@ -81,18 +82,47 @@ describe("liveFlags", () => {
     expect(liveFlags()).toEqual({ reading: false, email: false });
   });
 
-  it("turns reading on only with the explicit flag", () => {
-    vi.stubEnv("SPEEDRUN_AI", "on");
-    expect(liveFlags().reading).toBe(true);
+  it("needs the flag and both email settings", () => {
+    const base = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "present", ...STORE, SPEEDRUN_BRIEF_ALLOW: "a@example.com" };
+    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "" }).email).toBe(false);
+    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "hi@example.com" }).email).toBe(false);
   });
 
-  it("needs the flag and both email settings", () => {
-    vi.stubEnv("SPEEDRUN_EMAIL", "on");
-    vi.stubEnv("RESEND_API_KEY", "present");
-    vi.stubEnv("SPEEDRUN_EMAIL_FROM", "");
-    expect(liveFlags().email).toBe(false);
-    vi.stubEnv("SPEEDRUN_EMAIL_FROM", "hi@example.com");
-    expect(liveFlags().email).toBe(true);
+  it("reading is off with the switch on and no store", () => {
+    expect(liveFlags({ SPEEDRUN_AI: "on" }).reading).toBe(false);
+  });
+
+  it("reading is off with only half a store", () => {
+    expect(liveFlags({ SPEEDRUN_AI: "on", KV_REST_API_URL: "https://x.test" }).reading).toBe(false);
+  });
+
+  it("reading is on with the switch and a store", () => {
+    expect(liveFlags({ SPEEDRUN_AI: "on", ...STORE }).reading).toBe(true);
+  });
+
+  it("reading is off with a store and the switch off", () => {
+    expect(liveFlags({ ...STORE }).reading).toBe(false);
+  });
+
+  it("email is off with a store but an empty allowlist", () => {
+    const env = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "k", SPEEDRUN_EMAIL_FROM: "hi@example.com", ...STORE };
+    expect(liveFlags(env).email).toBe(false);
+    expect(liveFlags({ ...env, SPEEDRUN_BRIEF_ALLOW: "a@example.com" }).email).toBe(false);
+  });
+
+  it("logs one line per missing piece per instance, with no values in it", async () => {
+    vi.resetModules();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fresh = await import("./guard");
+    const env = { SPEEDRUN_AI: "on", SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "secret-key", SPEEDRUN_EMAIL_FROM: "hi@example.com" };
+    fresh.liveFlags(env);
+    fresh.liveFlags(env);
+    const lines = warn.mock.calls.map((call) => String(call[0]));
+    expect(lines).toHaveLength(3);
+    expect(lines.filter((line) => line.includes("store"))).toHaveLength(2);
+    expect(lines.filter((line) => line.includes("allowlist"))).toHaveLength(1);
+    expect(lines.every((line) => line.startsWith("[speedrun]") && !line.includes("secret-key"))).toBe(true);
+    warn.mockRestore();
   });
 });
 

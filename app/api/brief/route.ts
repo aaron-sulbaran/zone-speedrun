@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { handleBrief, readBriefBody, sendWithResend } from "@/lib/speedrun/briefHandler";
-import { createLimiter, liveFlags } from "@/lib/speedrun/guard";
+import { liveFlags } from "@/lib/speedrun/guard";
+import { createSharedLimiter, limitStore, upstashMaker } from "@/lib/speedrun/sharedLimit";
 
 export const dynamic = "force-dynamic";
 
-// 3 sends an hour per address, 50 a day per instance; and 3 an hour per caller.
-const limit = createLimiter({ windowMs: 60 * 60 * 1000, max: 3, dailyMax: 50 });
-const ipLimit = createLimiter({ windowMs: 60 * 60 * 1000, max: 3, dailyMax: 50 });
+// 3 sends an hour per address and 3 an hour per caller; 50 a day across the fleet,
+// carried by the caller limiter alone so each request counts once.
+const make = upstashMaker(limitStore(process.env));
+const limit = createSharedLimiter({ perKey: { prefix: "speedrun:brief:to", max: 3, window: "1 h" } }, { make });
+const ipLimit = createSharedLimiter(
+  { perKey: { prefix: "speedrun:brief:ip", max: 3, window: "1 h" }, daily: { prefix: "speedrun:brief:daily", max: 50 } },
+  { make },
+);
 
 function addressOf(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -30,8 +36,8 @@ export async function POST(request: Request) {
     live,
     // BotID only means something on Vercel; local runs and tests skip it.
     isBot: async () => (process.env.VERCEL === "1" ? (await checkBotId()).isBot : false),
-    allow: (key) => limit(key, Date.now()),
-    allowIp: () => ipLimit(addressOf(request), Date.now()),
+    allow: (key) => limit(key),
+    allowIp: () => ipLimit(addressOf(request)),
     send: (message) =>
       sendWithResend(message, { apiKey: process.env.RESEND_API_KEY ?? "", from: process.env.SPEEDRUN_EMAIL_FROM ?? "" }),
   });

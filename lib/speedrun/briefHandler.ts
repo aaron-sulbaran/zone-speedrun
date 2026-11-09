@@ -27,9 +27,9 @@ export type BriefDeps = {
   live: boolean;
   isBot: () => Promise<boolean>;
   /** Called with a digest of the address, so the limiter never holds the address itself. */
-  allow: (key: string) => LimitVerdict;
+  allow: (key: string) => Promise<LimitVerdict>;
   /** The caller's own address on the network, limited separately from the email address. */
-  allowIp: () => LimitVerdict;
+  allowIp: () => Promise<LimitVerdict>;
   send: (message: BriefMessage) => Promise<boolean>;
 };
 
@@ -44,11 +44,11 @@ export async function handleBrief(body: unknown, deps: BriefDeps): Promise<Brief
   if (!parsed.success) return fail(400, "bad_input");
   const { email, personKey, connected, roleIds } = parsed.data;
 
-  const ipVerdict = deps.allowIp();
+  const ipVerdict = await deps.allowIp();
   if (!ipVerdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: ipVerdict.retryAfterMs } };
 
   const digest = createHash("sha256").update(email.toLowerCase()).digest("hex");
-  const verdict = deps.allow(digest);
+  const verdict = await deps.allow(digest);
   if (!verdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: verdict.retryAfterMs } };
 
   const rendered = renderBriefEmail(sampleBrief(personKey, { connected, roleIds }), PEOPLE[personKey].profile.firstName);

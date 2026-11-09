@@ -8,7 +8,7 @@ const RESUME =
   "Ada Lovelace\nSKILLS\nTypeScript, Postgres, React\nEXPERIENCE\nBuilt a billing API in TypeScript and shipped it to customers.";
 
 function deps(over: Partial<ReadDeps> = {}): ReadDeps {
-  return { live: true, isBot: async () => false, allow: () => ({ ok: true, retryAfterMs: 0 }), model: null, ...over };
+  return { live: true, isBot: async () => false, allow: async () => ({ ok: true, retryAfterMs: 0 }), model: null, ...over };
 }
 
 function input(body: unknown, contentLength: number | null = null): ReadInput {
@@ -32,7 +32,7 @@ describe("handleRead", () => {
   });
 
   it("429 with retryAfterMs", async () => {
-    const out = await handleRead(input(ok), deps({ allow: () => ({ ok: false, retryAfterMs: 4000 }) }));
+    const out = await handleRead(input(ok), deps({ allow: async () => ({ ok: false, retryAfterMs: 4000 }) }));
     expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 4000 } });
   });
 

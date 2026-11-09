@@ -10,8 +10,8 @@ function deps(over: Partial<BriefDeps> = {}): BriefDeps {
   return {
     live: true,
     isBot: async () => false,
-    allow: () => ({ ok: true, retryAfterMs: 0 }),
-    allowIp: () => ({ ok: true, retryAfterMs: 0 }),
+    allow: async () => ({ ok: true, retryAfterMs: 0 }),
+    allowIp: async () => ({ ok: true, retryAfterMs: 0 }),
     send: vi.fn(async () => true),
     ...over,
   };
@@ -40,12 +40,12 @@ describe("handleBrief", () => {
   });
 
   it("429 with retryAfterMs when the limiter refuses", async () => {
-    const out = await handleBrief(BODY, deps({ allow: () => ({ ok: false, retryAfterMs: 5000 }) }));
+    const out = await handleBrief(BODY, deps({ allow: async () => ({ ok: false, retryAfterMs: 5000 }) }));
     expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 5000 } });
   });
 
   it("keys the limiter on a digest, never the address itself", async () => {
-    const allow = vi.fn(() => ({ ok: true, retryAfterMs: 0 }));
+    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
     await handleBrief({ email: "Ada@Example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
     await handleBrief({ email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
     const [first, second] = allow.mock.calls.map((call) => (call as unknown as [string])[0]);
@@ -55,8 +55,8 @@ describe("handleBrief", () => {
   });
 
   it("429 when the caller's own address is over its limit, before the email limiter", async () => {
-    const allow = vi.fn(() => ({ ok: true, retryAfterMs: 0 }));
-    const out = await handleBrief(BODY, deps({ allow, allowIp: () => ({ ok: false, retryAfterMs: 9000 }) }));
+    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
+    const out = await handleBrief(BODY, deps({ allow, allowIp: async () => ({ ok: false, retryAfterMs: 9000 }) }));
     expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 9000 } });
     expect(allow).not.toHaveBeenCalled();
   });
@@ -101,7 +101,7 @@ describe("handleBrief", () => {
 
   it("allows three sends an hour to one address and not a fourth", async () => {
     const limit = createLimiter({ windowMs: 3_600_000, max: 3, dailyMax: 50 });
-    const run = () => handleBrief(BODY, deps({ allow: (key) => limit(key, 1000) }));
+    const run = () => handleBrief(BODY, deps({ allow: async (key) => limit(key, 1000) }));
     expect([(await run()).status, (await run()).status, (await run()).status]).toEqual([200, 200, 200]);
     expect((await run()).status).toBe(429);
   });

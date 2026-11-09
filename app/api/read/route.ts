@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 import { checkBotId } from "botid/server";
 import { liveModel } from "@/lib/speedrun/ai";
-import { BODY_CAPS, createLimiter, liveFlags, readCappedJson } from "@/lib/speedrun/guard";
+import { BODY_CAPS, liveFlags, readCappedJson } from "@/lib/speedrun/guard";
 import { handleRead } from "@/lib/speedrun/readHandler";
+import { createSharedLimiter, limitStore, upstashMaker } from "@/lib/speedrun/sharedLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// 5 reads per 10 minutes per address, 300 a day per instance.
-const limit = createLimiter({ windowMs: 10 * 60 * 1000, max: 5, dailyMax: 300 });
+// 5 reads per 10 minutes per address, 300 a day across the fleet; no store means every read is refused.
+const limit = createSharedLimiter(
+  { perKey: { prefix: "speedrun:read", max: 5, window: "10 m" }, daily: { prefix: "speedrun:read:daily", max: 300 } },
+  { make: upstashMaker(limitStore(process.env)) },
+);
 
 function addressOf(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -29,7 +33,7 @@ export async function POST(request: Request) {
         live,
         // BotID only means something on Vercel; local runs and tests skip it.
         isBot: async () => (process.env.VERCEL === "1" ? (await checkBotId()).isBot : false),
-        allow: () => limit(addressOf(request), Date.now()),
+        allow: () => limit(addressOf(request)),
         model: live ? liveModel() : null,
       },
     );
