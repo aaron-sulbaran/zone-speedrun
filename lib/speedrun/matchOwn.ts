@@ -61,7 +61,7 @@ const stems = (text: string): Set<string> => new Set(tokens(text).map(stem));
 
 type Field = { cite: "title" | "excerpt" | "blurb"; text: string; where: string };
 
-/** The listing's fields with the company's own name taken out, so "Omi Health" alone never reads as health work. */
+/** The listing's fields with the company's own name taken out, so "Carrow Health" alone never reads as health work. */
 function fieldsOf(role: SnapshotRole | null, company: SnapshotCompany | undefined): Field[] {
   const names = [role?.company, company?.name].filter((n): n is string => !!n && n.trim().length > 1);
   const strip = (text: string) => names.reduce((acc, n) => acc.replace(new RegExp(escapeRegex(n.trim()), "gi"), " "), text);

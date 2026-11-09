@@ -17,7 +17,7 @@ export function withArticle(title: string): string {
 }
 
 /**
- * Drops the company tail, pipe tails and remote tags: "New Grad - Quora (Remote)" becomes "New Grad", and
+ * Drops the company tail, pipe tails and remote tags: "New Grad - Larkmoor (Remote)" becomes "New Grad", and
  * "Growth PM, Future Platforms | Housing" becomes "Growth PM, Future Platforms".
  */
 export function cleanTitle(title: string, companyName: string): string {

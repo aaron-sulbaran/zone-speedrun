@@ -80,7 +80,7 @@ describe("handleBrief", () => {
   });
 
   it("keeps a full request under the body cap", () => {
-    const body = JSON.stringify({ email: `${"a".repeat(240)}@example.com`, personKey: "sam", connected: true, roleIds: Array(6).fill("e1e241c5-bba0-67c9-13ed-8770b02ec398") });
+    const body = JSON.stringify({ email: `${"a".repeat(240)}@example.com`, personKey: "sam", connected: true, roleIds: Array(6).fill(getSnapshot().roles[0].id) });
     expect(new TextEncoder().encode(body).byteLength).toBeLessThan(BODY_CAPS.brief);
   });
 

@@ -13,7 +13,7 @@ import { PERSON_KEYS, type AppRow } from "./types";
 const copy = speedrunCopy.brief;
 const NO_ROWS = { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } };
 const role = (postedAt: string, tier: BriefRole["tier"] = "speedrun", id = "r1"): BriefRole => ({
-  id, title: "Engineer", company: "Forgepoint", tier, postedAt, url: "https://example.com/r",
+  id, title: "Engineer", company: "Quillmark", tier, postedAt, url: "https://example.com/r",
 });
 const row = (company: string, furthest: AppRow["furthest"], exit: AppRow["exit"], lastEventAt: string, extra: Partial<AppRow> = {}): AppRow => ({
   company, role: "Engineer", lane: "jobs", furthest, exit, lastEventAt, next: null, ...extra,
@@ -80,7 +80,7 @@ describe("composeBrief", () => {
     expect(text("2026-11-07T01:00:00.000Z")).toMatchObject({ text: expect.stringContaining("posted overnight") });
     expect(text("2026-11-07T01:00:00.000Z").standing).toBeUndefined();
     expect(text("2026-11-03T00:00:00.000Z")).toMatchObject({ text: expect.stringContaining("new this week"), standing: true });
-    expect(text("2026-10-15T00:00:00.000Z")).toMatchObject({ text: "Engineer at Forgepoint is open and fits you.", standing: true });
+    expect(text("2026-10-15T00:00:00.000Z")).toMatchObject({ text: "Engineer at Quillmark is open and fits you.", standing: true });
   });
 
   it("never counts a future-dated role as new, and takes speedrun tier only", () => {

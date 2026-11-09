@@ -13,7 +13,7 @@ describe("matchText", () => {
   });
 
   it("strips company suffixes and remote tags", () => {
-    expect(cleanTitle("Machine Learning Engineer, New Grad - Quora (Remote)", "Quora")).toBe("Machine Learning Engineer, New Grad");
+    expect(cleanTitle("Machine Learning Engineer, New Grad - Larkmoor (Remote)", "Larkmoor")).toBe("Machine Learning Engineer, New Grad");
     expect(cleanTitle("Designer (Remote)", "Acme")).toBe("Designer");
     expect(cleanTitle("Software Engineer Intern (Summer 2027)", "Acme")).toBe("Software Engineer Intern (Summer 2027)");
   });
@@ -25,7 +25,7 @@ describe("matchText", () => {
 
   it("handles acronyms with symbols, requisition ids and United States", () => {
     expect(withArticle("FP&A Analyst")).toBe("an FP&A Analyst");
-    expect(cleanTitle("Engineer I, Mechanical (R6302) - New Grad", "Shield AI")).toBe("Engineer I, Mechanical - New Grad");
+    expect(cleanTitle("Engineer I, Mechanical (R6302) - New Grad", "Tallow Aero")).toBe("Engineer I, Mechanical - New Grad");
     expect(cleanTitle("Analyst (Req 12345)", "Acme")).toBe("Analyst");
     expect(shortLocation("San Francisco, CA \u2022 New York, NY \u2022 United States", "San Francisco")).toBe("San Francisco, CA and 1 more");
   });
@@ -76,8 +76,8 @@ describe("matchText", () => {
   });
 
   it("drops a pipe tail that is not the company", () => {
-    expect(cleanTitle("Growth PM, Future Platforms | Housing", "EliseAI")).toBe("Growth PM, Future Platforms");
-    expect(cleanTitle("EliseAI | Growth PM", "EliseAI")).toBe("Growth PM");
+    expect(cleanTitle("Growth PM, Next Platforms | Lodging", "Vexley")).toBe("Growth PM, Next Platforms");
+    expect(cleanTitle("Vexley | Growth PM", "Vexley")).toBe("Growth PM");
     expect(cleanTitle("Software Engineer | Remote", "Acme")).toBe("Software Engineer");
   });
 
@@ -96,6 +96,6 @@ describe("matchText", () => {
     for (const title of ["Member of Technical Staff", "Founding Member of Technical Staff", "Member of Technical Staff - Android", "Technical Lead"]) {
       expect(titleFits(role(title), "engineering"), title).toBe(true);
     }
-    expect(titleFits(role("Growth PM, Future Platforms"), "product")).toBe(true);
+    expect(titleFits(role("Growth PM, Next Platforms"), "product")).toBe(true);
   });
 });
