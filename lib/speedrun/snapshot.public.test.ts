@@ -69,7 +69,13 @@ describe("public stand-in snapshot", () => {
   it.each(FNS)("gives a %s target at least one match", (fn: Fn) => {
     const profile: Profile = { ...PEOPLE.sam.profile, functions: [fn], seniority: fn === "founder" ? "senior" : "mid" };
     const intake: Intake = { targets: [fn], places: [], why: "" };
-    expect(rankMatches(profile, intake, parsed).matches.length).toBeGreaterThan(0);
+    const { matches } = rankMatches(profile, intake, parsed);
+    expect(matches.some((m) => m.role)).toBe(true);
+  });
+
+  it("gives Lena a role-backed card", () => {
+    const { matches } = rankMatches(PEOPLE.lena.profile, PEOPLE.lena.intake, parsed);
+    expect(matches.some((m) => m.role)).toBe(true);
   });
 
   it("keeps the demo usable for Sam", () => {

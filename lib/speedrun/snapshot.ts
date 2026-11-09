@@ -36,7 +36,7 @@ const roleSchema = z.object({
 
 const portfolioNameSchema = z.object({ name: z.string(), sector: z.string() });
 
-export const snapshotSchema =z.object({
+export const snapshotSchema = z.object({
   fetchedAt: z.string(),
   companies: z.array(companySchema),
   roles: z.array(roleSchema),
