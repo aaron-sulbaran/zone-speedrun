@@ -74,10 +74,10 @@
 
 ### e2e
 - **Two runs at most, at once.** Every e2e run goes through the slot script, so no more than two Playwright runs ever overlap.
-- **The command,** after `lsof -iTCP:3292 -sTCP:LISTEN` shows the port free (the slot script lives in the site's checkout and its lock directory is shared with every session on this Mac):
+- **The command,** after `lsof -iTCP:3292 -sTCP:LISTEN` shows the port free (`scripts/pwslot.sh` shares its lock directory with every session on this Mac):
 
   ```bash
-  "$HOME/Personal Projects/Personal Website/aaron-portfolio-website/.superpowers/sdd/2026-11-08-speedrun-onboarding/pwslot.sh" "$PWD" <scratchpad>/e2e-<task>.log env CI=1 E2E_PORT=3292 pnpm test:e2e e2e
+  scripts/pwslot.sh "$PWD" <scratchpad>/e2e-<task>.log env CI=1 E2E_PORT=3292 pnpm test:e2e e2e
   ```
 - **Off-limits:** never stop ports 3220, 3221, 3276, 3277 or 3290. Never set `SPEEDRUN_AI=on` or `SPEEDRUN_EMAIL=on`.
 

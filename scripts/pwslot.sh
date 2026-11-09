@@ -1,0 +1,23 @@
+#!/bin/zsh
+# Waits for a free Playwright slot (slot1 or slot2), runs the given command in
+# the given directory, and always releases the slot. Usage:
+#   pwslot.sh <dir> <log> <command...>
+# The lock directory is shared with the site's sessions, so the two-run cap holds across every repo on this Mac.
+SLOTS=/private/tmp/claude-501/-Users-asulbaran21-Personal-Projects-Personal-Website/1c9e7db2-62bc-4db0-af9a-bd2cfcb919a3/scratchpad/pw-slots
+mkdir -p "$SLOTS"
+dir=$1; log=$2; shift 2
+taken=""
+while [ -z "$taken" ]; do
+  for s in slot1 slot2; do
+    if mkdir "$SLOTS/$s" 2>/dev/null; then taken=$s; break; fi
+  done
+  [ -z "$taken" ] && sleep 15
+done
+trap 'rmdir "$SLOTS/$taken" 2>/dev/null; echo "released $taken"' EXIT
+echo "took $taken at $(date +%H:%M:%S)"
+cd "$dir" || exit 1
+start=$(date +%s)
+"$@" > "$log" 2>&1
+code=$?
+echo "exit $code after $(( $(date +%s) - start ))s"
+exit $code
