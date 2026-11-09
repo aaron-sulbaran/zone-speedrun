@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch, type KeyboardEvent } from "react";
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { speedrunCopy } from "@/lib/content";
 import { displayName, isStepValid, stepsFor, type Answers } from "@/lib/speedrun/onboarding";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import { createSubmitBeat } from "@/lib/speedrun/submitBeat";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import type { PersonKey } from "@/lib/speedrun/types";
 import { JoinStep, pad } from "./JoinStep";
@@ -29,11 +30,11 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   const stepKey = steps[joinStep];
   const last = joinStep === total - 1;
   const [selected, setSelected] = useState<PersonKey | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<"sample" | "upload" | null>(null);
   const cardRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const previous = useRef(joinStep);
-  const submitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const beat = useMemo(() => createSubmitBeat(), []);
   const advance = useCallback(() => dispatch({ type: "next" }), [dispatch]);
   const choice = useChoiceAdvance(advance, motion().choiceAdvanceMs);
 
@@ -54,31 +55,38 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
     );
   }, [joinStep]);
 
-  useEffect(() => () => void (submitTimer.current && clearTimeout(submitTimer.current)), []);
+  useEffect(() => () => beat.cancel(), [beat]);
   // The skip button (or any build) moves the demo on while this card is still exiting.
   useEffect(() => {
-    if (state.step !== "join" && submitTimer.current) {
-      clearTimeout(submitTimer.current);
-      submitTimer.current = null;
-    }
-  }, [state.step]);
+    if (state.step !== "join") beat.cancel();
+  }, [state.step, beat]);
+  // A failed upload ends the beat so the error shows. The key includes buildId because
+  // a fast failure can leave the same error value as before.
+  const failure = state.uploadError ? `${state.uploadError}:${state.buildId}` : null;
+  const [handledFailure, setHandledFailure] = useState<string | null>(null);
+  if (failure && failure !== handledFailure) {
+    setHandledFailure(failure);
+    setSubmitting(null);
+  }
+  useEffect(() => {
+    if (failure) beat.cancel();
+  }, [failure, beat]);
 
   const clearSubmit = () => {
-    if (submitTimer.current) clearTimeout(submitTimer.current);
-    submitTimer.current = null;
-    setSubmitting(false);
+    beat.cancel();
+    setSubmitting(null);
   };
   // The building beat; Start over, a phase change or unmount clears it before it fires.
-  const beginSubmit = (action: () => void) => {
-    setSubmitting(true);
-    submitTimer.current = setTimeout(action, motion().submittingMs);
+  const beginSubmit = (kind: "sample" | "upload", action: () => void) => {
+    setSubmitting(kind);
+    beat.begin(action, motion().submittingMs);
   };
   const proceed = () => {
-    if (!valid || submitting) return;
+    if (!valid || submitting !== null) return;
     choice.cancel();
     if (!last) return dispatch({ type: "next" });
     if (!selected) return;
-    beginSubmit(() => dispatch({ type: "pickPerson", key: selected }));
+    beginSubmit("sample", () => dispatch({ type: "pickPerson", key: selected }));
   };
   const choose = (patch: Partial<Answers>) => {
     dispatch({ type: "answer", patch });
@@ -114,7 +122,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   };
 
   const person = selected ? speedrunCopy.people[selected].name.split(" ")[0] : null;
-  const name = displayName(answers, person, speedrunCopy.phases.nameFallback);
+  const name = displayName(answers, submitting === "upload" ? null : person, speedrunCopy.phases.nameFallback);
   const question = copy.steps[stepKey].question;
 
   return (
@@ -149,18 +157,18 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
         {submitting ? (
           <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{copy.submitting(name)}</p>
         ) : (
-          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit(() => onUpload(file)))} />
+          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
         )}
       </div>
       <div data-join-footer="" className="sticky bottom-0 z-10 rounded-b-3xl border-t border-sr-soft bg-sr-foot px-6 py-4 backdrop-blur md:px-8">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={goBack} disabled={joinStep === 0 || submitting} className={GHOST}>
+          <button type="button" onClick={goBack} disabled={joinStep === 0 || submitting !== null} className={GHOST}>
             {copy.back}
           </button>
           <button
             type="button"
             onClick={proceed}
-            disabled={!valid || submitting}
+            disabled={!valid || submitting !== null}
             className="ml-auto rounded-2xl bg-sr-hud px-7 py-3 font-srcond text-base uppercase tracking-wider text-sr-ink shadow-[0_0_28px_var(--sr-purple)] backdrop-blur transition-[transform,background-color] duration-200 ease-sr hover:-translate-y-px hover:bg-sr-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple active:scale-[.97] disabled:opacity-40 disabled:shadow-none motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100"
           >
             {last ? copy.finish : copy.next}
