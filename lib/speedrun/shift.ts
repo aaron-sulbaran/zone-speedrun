@@ -1,7 +1,7 @@
 // The shift: a one-second sweep from Act 1 (my style) into Act 2 (theirs).
 // Pure phase logic; the Web Animations live in components/speedrun/Shift.tsx.
 
-export const SHIFT_MS = { cover: 480, hold: 120, reveal: 560, fadeOut: 240, fadeIn: 180 } as const;
+// Its durations are in lib/speedrun/motion.ts.
 
 export type ShiftPhase = "idle" | "covering" | "covered" | "revealing";
 export type ShiftEvent = "go" | "covered" | "revealed" | "abort";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SHIFT_MS, shiftReducer } from "./shift";
+import { MOTION } from "./motion";
+import { shiftReducer } from "./shift";
 
 describe("the shift", () => {
   it("starts a sweep from idle", () => {
@@ -21,6 +22,12 @@ describe("the shift", () => {
     expect(shiftReducer("revealing", "go")).toBe("revealing");
   });
 
+  it("never restarts from covering, covered or revealing, however many times go arrives", () => {
+    for (const phase of ["covering", "covered", "revealing"] as const) {
+      expect(shiftReducer(shiftReducer(phase, "go"), "go")).toBe(phase);
+    }
+  });
+
   it("ignores events that do not belong to the phase", () => {
     expect(shiftReducer("idle", "covered")).toBe("idle");
     expect(shiftReducer("idle", "revealed")).toBe("idle");
@@ -34,6 +41,6 @@ describe("the shift", () => {
   });
 
   it("keeps the whole sweep near a second", () => {
-    expect(SHIFT_MS.cover + SHIFT_MS.hold + SHIFT_MS.reveal).toBeLessThan(1300);
+    expect(MOTION.coverMs + MOTION.holdMs + MOTION.revealMs).toBeLessThan(1300);
   });
 });

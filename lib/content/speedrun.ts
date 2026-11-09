@@ -37,8 +37,20 @@ export const speedrunCopy = {
     turnLine1: "I'm not building this for me.",
     turnLine2: "I'm building it for y'all. So it should look like y'all.",
     button: "Build it in y'all's style",
-    replay: "Replay the shift",
     line: "okay. y'all's style.",
+  },
+  phases: {
+    announce: {
+      opener: "Back at the top.",
+      join: "Join the network.",
+      building: "Building your network.",
+      network: "Your network is ready.",
+    },
+    buildingHeading: "Building your network",
+    networkHeading: "Your network",
+    startOver: "Start over",
+    replayTop: "Replay from the top",
+    nameFallback: "you",
   },
   hero: {
     eyebrow: "Talent network \u00b7 a concept",

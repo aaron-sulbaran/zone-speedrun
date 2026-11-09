@@ -28,8 +28,8 @@ export function Hero({ stats, showCtas, onSkip }: { stats: DemoStats; showCtas: 
   ];
   return (
     <div className="mx-auto max-w-5xl px-6 pb-16 pt-12 md:pt-20">
-      <p className="font-srcond text-sm font-normal uppercase tracking-widest text-sr-ink2">{copy.eyebrow}</p>
-      <h2 className="mt-5 text-5xl font-black lowercase leading-[0.98] tracking-tight md:text-8xl">
+      <p data-cascade="" className="font-srcond text-sm font-normal uppercase tracking-widest text-sr-ink2">{copy.eyebrow}</p>
+      <h2 data-cascade="" data-phase-heading="" tabIndex={-1} className="mt-5 text-5xl font-black lowercase leading-[0.98] tracking-tight focus:outline-none md:text-8xl">
         {copy.headline.map((part, index) =>
           part.em ? (
             <em key={index} className="italic">
@@ -40,9 +40,9 @@ export function Hero({ stats, showCtas, onSkip }: { stats: DemoStats; showCtas: 
           ),
         )}
       </h2>
-      <p className="mt-6 max-w-2xl text-lg font-semibold leading-snug text-sr-ink2 md:text-xl">{copy.lede}</p>
+      <p data-cascade="" className="mt-6 max-w-2xl text-lg font-semibold leading-snug text-sr-ink2 md:text-xl">{copy.lede}</p>
       {showCtas && (
-      <div className="mt-8 flex flex-wrap gap-3">
+      <div data-cascade="" className="mt-8 flex flex-wrap gap-3">
         <button type="button" onClick={startDemo} className={`${PRIMARY} ${PRESS}`}>
           {copy.cta}
         </button>
@@ -51,7 +51,7 @@ export function Hero({ stats, showCtas, onSkip }: { stats: DemoStats; showCtas: 
         </button>
       </div>
       )}
-      <dl className="mt-14 flex flex-wrap gap-x-12 gap-y-6 border-t border-sr-soft pt-6">
+      <dl data-cascade="" className="mt-14 flex flex-wrap gap-x-12 gap-y-6 border-t border-sr-soft pt-6">
         {figures.map(({ label, node }) => (
           <div key={label} className="flex flex-col-reverse">
             <dt className="mt-1 font-srcond text-xs font-normal uppercase tracking-widest text-sr-ink2">{label}</dt>

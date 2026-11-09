@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
 import { BotIdClient } from "botid/client";
-import { Affiliation } from "@/components/speedrun/Affiliation";
 import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
 import { Opener } from "@/components/speedrun/act1/Opener";
-import { Close } from "@/components/speedrun/act2/Close";
-import { Decisions } from "@/components/speedrun/act2/Decisions";
-import { SpeedrunDemo } from "@/components/speedrun/SpeedrunDemo";
-import { Shift } from "@/components/speedrun/Shift";
-import { SrZone } from "@/components/speedrun/SrZone";
+import { SpeedrunExperience } from "@/components/speedrun/SpeedrunExperience";
 import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
 import { liveFlags } from "@/lib/speedrun/guard";
@@ -56,25 +51,19 @@ export default function SpeedrunPage() {
   };
   return (
     <main id="main">
-      <section data-act="1" className="px-6 pb-24 pt-32 md:px-12">
-        <Opener />
-        <AaronFunnel />
-        <Shift targetId="act-2" />
-      </section>
-      <section
-        id="act-2"
-        tabIndex={-1}
-        data-speedrun=""
-        className={`[overflow-y:clip] focus:outline-none ${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
-      >
-        {/* An inline script: /speedrun must be entered by a full page load, never a next/link, or it never runs. */}
-        <BotIdClient protect={BOT_PROTECTED} />
-        <SrZone targetId="act-2" />
-        <SpeedrunDemo live={liveFlags()} stats={stats} />
-        <Decisions />
-        <Close />
-        <Affiliation variant="pinned" />
-      </section>
+      {/* An inline script: /speedrun must be entered by a full page load, never a next/link, or it never runs. */}
+      <BotIdClient protect={BOT_PROTECTED} />
+      <SpeedrunExperience
+        opener={
+          <>
+            <Opener />
+            <AaronFunnel />
+          </>
+        }
+        live={liveFlags()}
+        stats={stats}
+        themeClassName={`${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}
+      />
     </main>
   );
 }

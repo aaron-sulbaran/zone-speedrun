@@ -30,7 +30,7 @@ async function expectShiftLands(page: import("@playwright/test").Page) {
   await expect(page.locator("#act-2")).toBeFocused({ timeout: 2000 });
   await page.waitForTimeout(2500);
   expect(await page.locator("[data-shift-strip]").isHidden()).toBe(true);
-  await expect(page.getByRole("button", { name: speedrunCopy.shift.replay })).toBeVisible();
+  await expect(page.getByRole("button", { name: speedrunCopy.phases.replayTop })).toBeVisible();
 }
 
 test("the shift lands on act 2", async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe("short viewport", () => {
     await page.goto("/speedrun");
     const turn = page.getByText(speedrunCopy.shift.turnLine1);
     const button = page.getByRole("button", { name: speedrunCopy.shift.button });
-    const replay = page.getByRole("button", { name: speedrunCopy.shift.replay });
+    const replay = page.getByRole("button", { name: speedrunCopy.phases.replayTop });
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect(turn).not.toBeInViewport();
     await page.evaluate(() => document.getElementById("main")?.scrollIntoView({ block: "start" }));
