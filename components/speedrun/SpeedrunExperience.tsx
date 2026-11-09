@@ -35,7 +35,6 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   const [skipped, setSkipped] = useState(false);
   const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
   const [playSignal, setPlaySignal] = useState(0);
-  const [replayPending, setReplayPending] = useState(false);
   const { phase, tab } = phaseState;
   const { go, announcement } = usePhaseChange(phase, dispatchPhase);
   const { lines, failed, retry, readUpload } = useDemoBuild(state, dispatch);
@@ -66,14 +65,17 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   };
 
   // The panel's replay: back to the opener, then play the switch once it shows.
-  useEffect(() => {
-    if (!replayPending || phase !== "opener") return;
-    setReplayPending(false);
-    setPlaySignal((n) => n + 1);
-  }, [replayPending, phase]);
   const replaySwitch = () => {
-    setReplayPending(true);
-    if (phase !== "opener") replayTop();
+    if (phase === "opener") return setPlaySignal((n) => n + 1);
+    go(
+      { type: "replayTop" },
+      {
+        onLeft: () => {
+          resetDemo();
+          setPlaySignal((n) => n + 1);
+        },
+      },
+    );
   };
 
   return (

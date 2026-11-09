@@ -11,7 +11,7 @@ import { motionJson, TUNING_PRESETS, TUNING_RANGES } from "@/lib/speedrun/tuning
 const keys = Object.keys(MOTION) as (keyof Motion)[];
 const labelOf = (key: string) => key.replace(/([A-Z])/g, " $1").toLowerCase();
 
-const buttonClass = "rounded-full border border-foreground/30 px-3 py-1 font-label text-xs text-foreground hover:bg-foreground/10";
+const buttonClass = "rounded-full border border-border px-3 py-1 font-label text-xs text-foreground hover:bg-glass";
 
 function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
   const { min, max, step } = TUNING_RANGES[name];
@@ -34,19 +34,20 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
 
 export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
   const [open, setOpen] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "ok" | "failed">("idle");
   useSyncExternalStore(subscribeMotion, getMotionOverrides, getMotionOverrides);
   const values = motion();
 
   const copy = () => {
-    navigator.clipboard.writeText(motionJson(values)).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
-    });
+    const settle = (next: "ok" | "failed") => {
+      setCopied(next);
+      window.setTimeout(() => setCopied("idle"), 1200);
+    };
+    navigator.clipboard.writeText(motionJson(values)).then(() => settle("ok"), () => settle("failed"));
   };
 
   return (
-    <div data-tuning-panel="" className="fixed bottom-4 right-4 z-[45] w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-foreground/20 bg-background/90 p-3 shadow-lg backdrop-blur-md">
+    <div data-tuning-panel="" className="fixed bottom-4 right-4 z-[45] w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-background p-3 shadow-lg">
       <button type="button" onClick={() => setOpen((on) => !on)} aria-expanded={open} className="flex w-full items-center justify-between font-label text-sm text-foreground">
         <span>Tune motion</span>
         <span>{open ? "Hide" : "Show"}</span>
@@ -73,7 +74,7 @@ export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
               Reset
             </button>
             <button type="button" className={buttonClass} onClick={copy}>
-              {copied ? "Copied" : "Copy values"}
+              {copied === "ok" ? "Copied" : copied === "failed" ? "Copy failed" : "Copy values"}
             </button>
           </div>
         </div>
