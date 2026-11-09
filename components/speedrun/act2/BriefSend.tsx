@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { speedrunCopy } from "@/lib/content";
+import { briefRequestBody } from "@/lib/speedrun/requests";
 import type { PersonKey } from "@/lib/speedrun/types";
 
 const copy = speedrunCopy.brief;
@@ -35,7 +36,7 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
       const response = await fetch("/speedrun/api/brief", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, personKey, connected, roleIds }),
+        body: briefRequestBody({ email, personKey, connected, roleIds }),
       });
       setStatus(response.ok ? "sent" : response.status === 429 ? "slow" : "failed");
       if (response.ok) setEmail("");

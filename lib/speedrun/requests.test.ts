@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_ANSWERS, toIntake } from "./onboarding";
-import { matchRequestBody } from "./requests";
+import { briefRequestBody, matchRequestBody } from "./requests";
 
 describe("matchRequestBody", () => {
   it("never carries the visitor's name", () => {
@@ -19,5 +19,19 @@ describe("matchRequestBody", () => {
   it("carries the student and founding answers", () => {
     const parsed = JSON.parse(matchRequestBody({ targets: [], places: [], why: "", seniority: "intern", founding: true }, "maya"));
     expect(parsed.intake).toMatchObject({ seniority: "intern", founding: true });
+  });
+});
+
+describe("briefRequestBody", () => {
+  const fields = { email: "visitor@example.com", personKey: "sam" as const, connected: true, roleIds: ["r1", "r2"] };
+
+  it("carries exactly the address, the sample person, the inbox flag and the role ids", () => {
+    expect(JSON.parse(briefRequestBody(fields))).toEqual(fields);
+  });
+
+  it("never carries a typed name, even one smuggled into the fields", () => {
+    const body = briefRequestBody({ ...fields, name: "Zelda Quinn", answers: { name: "Zelda Quinn" } } as typeof fields);
+    expect(body).not.toContain("Zelda");
+    expect(Object.keys(JSON.parse(body)).sort()).toEqual(["connected", "email", "personKey", "roleIds"]);
   });
 });

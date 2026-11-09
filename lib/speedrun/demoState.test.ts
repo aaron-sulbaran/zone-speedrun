@@ -258,3 +258,18 @@ describe("demoReducer board cards", () => {
     expect(state.events).toEqual([event]);
   });
 });
+
+describe("uploadRejected", () => {
+  it("shows the error on the join step without ever building, and bumps the id so a repeat is seen", () => {
+    const start = initialDemoState(LIVE);
+    const first = demoReducer(start, { type: "uploadRejected", error: "bad_input" });
+    expect(first).toMatchObject({ step: "join", uploadError: "bad_input", buildId: start.buildId + 1 });
+    const second = demoReducer(first, { type: "uploadRejected", error: "bad_input" });
+    expect(second.buildId).toBe(first.buildId + 1);
+  });
+
+  it("is ignored once a build is under way", () => {
+    const building = demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 });
+    expect(demoReducer(building, { type: "uploadRejected", error: "bad_input" })).toBe(building);
+  });
+});

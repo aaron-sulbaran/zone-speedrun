@@ -47,16 +47,20 @@ async function textOf(file: File): Promise<{ text: string } | Failure> {
   }
 }
 
-async function run(file: File, intake: Intake, signal: AbortSignal): Promise<ReadResponse> {
+async function localRead(file: File): Promise<{ text: string } | Failure> {
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: "too_large" };
   const read = await textOf(file);
   if ("ok" in read) return read;
   // Over the cap is a no the browser can give itself; the server would only say the same.
   if (read.text.length > MAX_TEXT_CHARS) return { ok: false, error: "too_large" };
+  return read;
+}
+
+async function send(text: string, intake: Intake, signal: AbortSignal): Promise<ReadResponse> {
   const response = await fetch("/speedrun/api/read", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text: read.text, intake: { ...intake, places: intake.places.slice(0, MAX_PLACES) } }),
+    body: JSON.stringify({ text, intake: { ...intake, places: intake.places.slice(0, MAX_PLACES) } }),
     signal,
   });
   const body = (await response.json().catch(() => null)) as
@@ -67,9 +71,12 @@ async function run(file: File, intake: Intake, signal: AbortSignal): Promise<Rea
   return { ok: false, error: error && KNOWN.includes(error) ? (error as UploadErrorKey) : "network" };
 }
 
-// One deadline for the whole wait: reading the file, loading the PDF library,
-// BotID's challenge (which never looks at an abort signal) and the response.
-export async function postResume(file: File, intake: Intake, deadlineMs = REQUEST_TIMEOUT_MS): Promise<ReadResponse> {
+async function run(file: File, intake: Intake, signal: AbortSignal): Promise<ReadResponse> {
+  const read = await localRead(file);
+  return "text" in read ? send(read.text, intake, signal) : read;
+}
+
+async function withDeadline<T>(deadlineMs: number, work: (signal: AbortSignal) => Promise<T | Failure>): Promise<T | Failure> {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<Failure>((resolve) => {
@@ -78,10 +85,26 @@ export async function postResume(file: File, intake: Intake, deadlineMs = REQUES
       resolve({ ok: false, error: "network" });
     }, deadlineMs);
   });
-  const attempt = run(file, intake, controller.signal).catch((): Failure => ({ ok: false, error: "network" }));
+  const attempt = work(controller.signal).catch((): Failure => ({ ok: false, error: "network" }));
   try {
     return await Promise.race([attempt, deadline]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** The browser-side half alone (type, size, empty text), so a rejection never has to start a build. */
+export function readResumeFile(file: File, deadlineMs = REQUEST_TIMEOUT_MS): Promise<{ text: string } | Failure> {
+  return withDeadline(deadlineMs, () => localRead(file));
+}
+
+/** The request half: posts text `readResumeFile` already vetted. */
+export function postResumeText(text: string, intake: Intake, deadlineMs = REQUEST_TIMEOUT_MS): Promise<ReadResponse> {
+  return withDeadline<ReadResponse>(deadlineMs, (signal) => send(text, intake, signal)) as Promise<ReadResponse>;
+}
+
+// One deadline for the whole wait: reading the file, loading the PDF library,
+// BotID's challenge (which never looks at an abort signal) and the response.
+export function postResume(file: File, intake: Intake, deadlineMs = REQUEST_TIMEOUT_MS): Promise<ReadResponse> {
+  return withDeadline<ReadResponse>(deadlineMs, (signal) => run(file, intake, signal)) as Promise<ReadResponse>;
 }

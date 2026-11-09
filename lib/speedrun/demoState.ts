@@ -39,6 +39,8 @@ export type DemoAction =
   | { type: "pickPerson"; key: PersonKey }
   | { type: "uploaded"; buildId: number }
   | { type: "uploadFailed"; buildId: number; error: UploadErrorKey }
+  /** The browser refused the file before any build began. */
+  | { type: "uploadRejected"; error: UploadErrorKey }
   | { type: "built"; buildId: number; profile: Profile; result: MatchResult }
   | { type: "addEvents"; events: InboxEvent[] }
   | { type: "moveCard"; card: BoardCard; to: number }
@@ -120,6 +122,9 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
     case "uploadFailed":
       return state.step === "building" && state.personKey === null && action.buildId === state.buildId ? { ...state, step: "join", uploadError: action.error } : state;
+    case "uploadRejected":
+      // The id moves so the card's per-failure key changes even when the same error repeats.
+      return state.step === "join" ? { ...state, buildId: state.buildId + 1, uploadError: action.error } : state;
     case "built":
       if (state.step !== "building" || action.buildId !== state.buildId) return state;
       return { ...state, step: "ready", profile: action.profile, result: action.result };

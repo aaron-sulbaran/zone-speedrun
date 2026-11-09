@@ -6,7 +6,7 @@ import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import type { MatchResult } from "@/lib/speedrun/match";
 import { toIntake } from "@/lib/speedrun/onboarding";
 import { PEOPLE } from "@/lib/speedrun/people";
-import { postResume } from "@/lib/speedrun/readClient";
+import { postResumeText, readResumeFile } from "@/lib/speedrun/readClient";
 import { matchRequestBody } from "@/lib/speedrun/requests";
 import type { Intake, PersonKey, Profile } from "@/lib/speedrun/types";
 import { visitorName } from "./visitorName";
@@ -65,9 +65,15 @@ export function useDemoBuild(state: DemoState, dispatch: Dispatch<DemoAction>) {
   // An upload skips the sample fetch: the read route answers with the profile and the ranked matches.
   const readUpload = useCallback(
     async (file: File) => {
+      // The browser's own checks come first, so a rejection shows its error without a trip through the building phase.
+      const idBefore = idRef.current;
+      const read = await readResumeFile(file);
+      // A Start over while the file was being read already moved on; its answer is stale.
+      if (idRef.current !== idBefore) return;
+      if (!("text" in read)) return dispatch({ type: "uploadRejected", error: read.error });
       const uploadId = ++idRef.current;
       dispatch({ type: "uploaded", buildId: uploadId });
-      const outcome = await postResume(file, toIntake(answers));
+      const outcome = await postResumeText(read.text, toIntake(answers));
       if (outcome.ok) {
         dispatch({ type: "built", buildId: uploadId, profile: outcome.profile, result: outcome.result });
         return;

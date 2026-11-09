@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pdfWith } from "./pdfFixture";
 import { EMPTY_ANSWERS, toIntake } from "./onboarding";
-import { cleanText, postResume } from "./readClient";
+import { cleanText, postResume, postResumeText, readResumeFile } from "./readClient";
 
 const INTAKE = { targets: ["engineering" as const], places: [], why: "" };
 const RESUME = "Ada Lovelace\nSKILLS\nTypeScript, Postgres\nEXPERIENCE\nBuilt a billing API.";
@@ -99,5 +99,25 @@ describe("postResume", () => {
     expect(await postResume(fileOf([RESUME], "cv.txt"), INTAKE)).toEqual({ ok: false, error: "slow_down" });
     stubFetch(async () => new Response("<html>", { status: 502 }));
     expect(await postResume(fileOf([RESUME], "cv.txt"), INTAKE)).toEqual({ ok: false, error: "network" });
+  });
+});
+
+describe("readResumeFile and postResumeText", () => {
+  it("answers a local rejection with no request: wrong type, too large, empty text", async () => {
+    const fetchMock = stubFetch();
+    expect(await readResumeFile(fileOf(["x"], "cv.docx"))).toEqual({ ok: false, error: "bad_input" });
+    expect(await readResumeFile(fileOf(["y".repeat(5 * 1024 * 1024)], "big.txt"))).toEqual({ ok: false, error: "too_large" });
+    expect(await readResumeFile(fileOf(["   \n "], "empty.txt", "text/plain"))).toEqual({ ok: false, error: "unreadable" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("hands back the text of a good file, then posts it", async () => {
+    const fetchMock = stubFetch();
+    const read = await readResumeFile(fileOf([RESUME], "cv.txt", "text/plain"));
+    expect(read).toEqual({ text: RESUME });
+    expect(fetchMock).not.toHaveBeenCalled();
+    const out = await postResumeText(RESUME, INTAKE);
+    expect(out.ok).toBe(true);
+    expect(bodyOf(fetchMock)).toMatchObject({ text: RESUME });
   });
 });
