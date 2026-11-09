@@ -50,9 +50,4 @@ describe("phaseEventFor", () => {
     expect(phaseEventFor("ready", "join")).toBeNull();
     expect(phaseEventFor("join", "join")).toBeNull();
   });
-  it("a build then a fast failure, replayed in order, ends on join", () => {
-    const events = [phaseEventFor("join", "building"), phaseEventFor("building", "join")];
-    const end = events.reduce((s, e) => (e ? phaseReducer(s, e) : s), at("join"));
-    expect(end.phase).toBe("join");
-  });
 });

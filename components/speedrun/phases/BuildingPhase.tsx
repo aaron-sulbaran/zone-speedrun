@@ -9,14 +9,22 @@ import { BuildLog } from "../act2/BuildLog";
 import { BuildPlaceholder } from "../act2/BuildPlaceholder";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
-type BuildingPhaseProps = { state: DemoState; lines: BuildLine[]; failed: boolean; onRetry: () => void; onDone: () => void };
+type BuildingPhaseProps = {
+  /** The visitor skipped the questions, so there is nothing to wait on. */
+  skipped: boolean;
+  state: DemoState;
+  lines: BuildLine[];
+  failed: boolean;
+  onRetry: () => void;
+  onDone: () => void;
+};
 
-export function BuildingPhase({ state, lines, failed, onRetry, onDone }: BuildingPhaseProps) {
+export function BuildingPhase({ skipped, state, lines, failed, onRetry, onDone }: BuildingPhaseProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [waiting, setWaiting] = useState(false);
   usePhaseEntrance(frameRef);
   // Reduced motion shows the log already finished; it waits for a press so it can be read.
-  const logDone = (skipped: boolean) => (prefersReducedMotion() && !skipped ? setWaiting(true) : onDone());
+  const logDone = (skippedLog: boolean) => (prefersReducedMotion() && !skipped && !skippedLog ? setWaiting(true) : onDone());
   return (
     <div ref={frameRef} data-phase-frame="" className="px-6 py-24">
       <h2 data-phase-heading="" tabIndex={-1} className="sr-only">
