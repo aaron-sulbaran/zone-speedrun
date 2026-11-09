@@ -204,7 +204,9 @@ function capOwnWords(cards: { score: number; reasons: Reason[] }[], seen: Map<st
   }
 }
 
-export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, limit = 6): MatchResult {
+export function rankMatches(ownProfile: Profile, intake: Intake, corpus: Corpus, limit = 6): MatchResult {
+  // What the visitor said about being a student wins over the level the profile implies.
+  const profile: Profile = intake.seniority ? { ...ownProfile, seniority: intake.seniority } : ownProfile;
   const companies = corpus.companies.filter((c) => c.slug !== FUND_SLUG);
   const bySlug = new Map(companies.map((c) => [c.slug, c]));
   const roles = corpus.roles.filter((r) => r.companySlug !== FUND_SLUG);
@@ -288,7 +290,7 @@ export function rankMatches(profile: Profile, intake: Intake, corpus: Corpus, li
   const shown = [...top.slice(0, limit).map(toMatch), ...keptCompanyMatches].slice(0, limit);
   return {
     matches: shown,
-    routes: profile.founderSignal.score >= 0.6 ? ROUTES : [],
+    routes: intake.founding === true || profile.founderSignal.score >= 0.6 ? ROUTES : [],
     narrowing: {
       companies: companies.length,
       roles: roles.length,

@@ -9,6 +9,8 @@ export const matchBodySchema = z.object({
     targets: z.array(z.enum(FNS)).max(7),
     places: z.array(z.string().max(60)).max(8),
     why: z.string().max(400),
+    seniority: z.enum(["intern", "new_grad"]).optional(),
+    founding: z.boolean().optional(),
   }),
   personKey: z.enum(PERSON_KEYS),
 });

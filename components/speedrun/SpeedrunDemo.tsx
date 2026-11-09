@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useReducer, useState } from "react";
 import { composeBuildLog } from "@/lib/speedrun/buildLog";
-import { demoReducer, initialDemoState, MAX_PLACES, type Live } from "@/lib/speedrun/demoState";
+import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion } from "@/lib/speedrun/motion";
-import { toIntake } from "@/lib/speedrun/onboarding";
+import { displayName, toIntake } from "@/lib/speedrun/onboarding";
+import { PEOPLE } from "@/lib/speedrun/people";
+import { matchRequestBody } from "@/lib/speedrun/requests";
 import { postResume } from "@/lib/speedrun/readClient";
 import type { MatchResult } from "@/lib/speedrun/match";
-import type { Intake, Profile } from "@/lib/speedrun/types";
+import type { Intake, PersonKey, Profile } from "@/lib/speedrun/types";
 import { BuildLog } from "./act2/BuildLog";
 import { BriefPreview } from "./act2/BriefPreview";
 import { BuildPlaceholder } from "./act2/BuildPlaceholder";
@@ -17,11 +19,11 @@ import { Egg } from "./act2/Egg";
 import { JoinCard } from "./act2/JoinCard";
 import { Matches } from "./act2/Matches";
 
-async function fetchMatches(intake: Intake, personKey: string, signal: AbortSignal) {
+async function fetchMatches(intake: Intake, personKey: PersonKey, signal: AbortSignal) {
   const response = await fetch("/speedrun/api/match", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ intake: { ...intake, places: intake.places.slice(0, MAX_PLACES) }, personKey }),
+    body: matchRequestBody(intake, personKey),
     signal,
   });
   if (!response.ok) throw new Error(String(response.status));
@@ -39,7 +41,11 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   // A failure belongs to one build (person and attempt), so a new build starts clean.
   const buildKey = `${personKey}:${attempt}`;
   const failed = failedKey === buildKey;
-  const lines = useMemo(() => (profile && result ? composeBuildLog(intake, profile, result) : []), [intake, profile, result]);
+  const sampleOwner = personKey ? PEOPLE[personKey].profile.firstName : null;
+  const lines = useMemo(
+    () => (profile && result ? composeBuildLog(intake, profile, result, { name: displayName(state.answers, sampleOwner, "you"), sampleOwner }) : []),
+    [intake, profile, result, state.answers, sampleOwner],
+  );
   const logDone = result !== null && loggedFor === result;
 
   useEffect(() => {

@@ -4,10 +4,12 @@ import { rankMatches } from "./match";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
 
-function logFor(key: "sam" | "dev") {
+const own = (profile: { firstName: string }) => ({ name: profile.firstName, sampleOwner: profile.firstName });
+
+function logFor(key: "sam" | "dev", who?: { name: string; sampleOwner: string | null }) {
   const person = PEOPLE[key];
   const result = rankMatches(person.profile, person.intake, getSnapshot());
-  return { person, result, lines: composeBuildLog(person.intake, person.profile, result) };
+  return { person, result, lines: composeBuildLog(person.intake, person.profile, result, who ?? { name: person.profile.firstName, sampleOwner: person.profile.firstName }) };
 }
 
 describe("composeBuildLog", () => {
@@ -68,7 +70,7 @@ describe("composeBuildLog", () => {
     for (const key of Object.keys(PEOPLE) as (keyof typeof PEOPLE)[]) {
       const person = PEOPLE[key];
       const result = rankMatches(person.profile, person.intake, getSnapshot());
-      const end = timingFor(composeBuildLog(person.intake, person.profile, result)).end;
+      const end = timingFor(composeBuildLog(person.intake, person.profile, result, own(person.profile))).end;
       expect(end, key).toBeGreaterThanOrEqual(6000);
       expect(end, key).toBeLessThanOrEqual(8000);
     }
@@ -76,21 +78,33 @@ describe("composeBuildLog", () => {
 
   it("still takes 6 s or more with empty answers", () => {
     const { person, result } = logFor("sam");
-    const lines = composeBuildLog({ targets: [], places: [], why: "" }, person.profile, result);
+    const lines = composeBuildLog({ targets: [], places: [], why: "" }, person.profile, result, own(person.profile));
     expect(timingFor(lines).end).toBeGreaterThanOrEqual(6000);
   });
 
   it("never shows a single skill", () => {
     const { person, result } = logFor("sam");
     const one = { ...person.profile, skills: ["Go"] };
-    const lines = composeBuildLog(person.intake, one, result);
+    const lines = composeBuildLog(person.intake, one, result, own(one));
     expect(lines.some((l) => l.text.startsWith("found:"))).toBe(false);
   });
 
   it("skips lines for answers the visitor left empty", () => {
     const { person, result } = logFor("sam");
-    const lines = composeBuildLog({ targets: [], places: [], why: "" }, person.profile, result);
+    const lines = composeBuildLog({ targets: [], places: [], why: "" }, person.profile, result, own(person.profile));
     expect(lines.some((l) => /^(targets|places|why):/.test(l.text))).toBe(false);
     expect(lines[lines.length - 1].tone).toBe("made");
+  });
+
+  it("names the visitor in the made-for line and opens with the sample owner's resume when they differ", () => {
+    const { lines } = logFor("sam", { name: "Alex", sampleOwner: "Sam" });
+    expect(lines[0].text).toBe("read Sam's sample resume");
+    expect(lines[0].tone).toBe("read");
+    expect(lines[lines.length - 1].text).toContain("made for Alex.");
+  });
+
+  it("has no sample line when the visitor shares the sample owner's name or reads nothing", () => {
+    expect(logFor("sam", { name: "Sam", sampleOwner: "Sam" }).lines.some((l) => l.text.includes("sample resume"))).toBe(false);
+    expect(logFor("sam", { name: "Alex", sampleOwner: null }).lines.some((l) => l.text.includes("sample resume"))).toBe(false);
   });
 });

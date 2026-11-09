@@ -1,6 +1,6 @@
 import { MockLanguageModelV4 } from "ai/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BodyTooLargeError, handleRead, MAX_TEXT_CHARS, type ReadDeps, type ReadInput } from "./readHandler";
+import { BodyTooLargeError, handleRead, MAX_TEXT_CHARS, readBodySchema, type ReadDeps, type ReadInput } from "./readHandler";
 import { BODY_CAPS } from "./guard";
 
 const INTAKE = { targets: ["engineering"], places: [], why: "" };
@@ -70,5 +70,18 @@ describe("handleRead", () => {
     const out = await handleRead(input(ok), deps({ model }));
     expect(out.status === 200 && out.body.mode).toBe("rules");
     expect(model.doGenerateCalls).toHaveLength(1);
+  });
+
+  it("accepts the student and founding answers and rejects a bad seniority", async () => {
+    const intake = { ...INTAKE, seniority: "intern", founding: true };
+    expect((await handleRead(input({ text: RESUME, intake }), deps())).status).toBe(200);
+    const bad = await handleRead(input({ text: RESUME, intake: { ...INTAKE, seniority: "senior" } }), deps());
+    expect(bad).toEqual({ status: 400, body: { error: "bad_input" } });
+  });
+
+  it("strips unknown keys, a name included, from the parsed intake", () => {
+    const parsed = readBodySchema.parse({ text: RESUME, intake: { ...INTAKE, name: "Zelda Quinn", founding: false } });
+    expect(parsed.intake).toEqual({ ...INTAKE, founding: false });
+    expect("name" in parsed.intake).toBe(false);
   });
 });

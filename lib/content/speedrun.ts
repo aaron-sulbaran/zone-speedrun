@@ -133,6 +133,7 @@ export const speedrunCopy = {
         `scanning ${companies} speedrun companies, ${speedrunRoles} of their roles and ${a16zRoles} more across the a16z portfolio`,
       fit: (afterFilters: number) => `${afterFilters} fit your answers`,
       worth: (shown: number) => `${shown} worth your time first`,
+      sample: (owner: string) => `read ${owner}'s sample resume`,
     },
   },
   matches: {

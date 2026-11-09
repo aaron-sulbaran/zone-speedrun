@@ -34,10 +34,13 @@ export function timingFor(lines: BuildLine[]) {
 }
 
 /** The lines the build panel types, in order, paced so the beat lands between 6 and 8 s. */
-export function composeBuildLog(intake: Intake, profile: Profile, result: MatchResult): BuildLine[] {
+export function composeBuildLog(
+  intake: Intake, profile: Profile, result: MatchResult, who: { name: string; sampleOwner: string | null },
+): BuildLine[] {
   const labels = speedrunCopy.matches.fnLabels;
   const { narrowing } = result;
   const drafts: Pick<BuildLine, "text" | "tone">[] = [];
+  if (who.sampleOwner !== null && who.sampleOwner !== who.name) drafts.push({ text: copy.sample(who.sampleOwner), tone: "read" });
   if (intake.targets.length > 0) drafts.push({ text: copy.targets(intake.targets.map((t) => labels[t]).join(", ")), tone: "read" });
   if (intake.places.length > 0) drafts.push({ text: copy.places(intake.places.join(", ")), tone: "read" });
   if (intake.why.trim()) drafts.push({ text: copy.why(whyFragment(intake.why)), tone: "read" });
@@ -46,7 +49,7 @@ export function composeBuildLog(intake: Intake, profile: Profile, result: MatchR
     { text: copy.scanning(narrowing.companies, narrowing.speedrunRoles, narrowing.a16zRoles), tone: "narrow" },
     { text: copy.fit(narrowing.afterFilters), tone: "narrow" },
     { text: copy.worth(narrowing.shown), tone: "narrow" },
-    { text: speedrunCopy.build.madeFor(profile.firstName), tone: "made" },
+    { text: speedrunCopy.build.madeFor(who.name), tone: "made" },
   );
   const naturalTyping = drafts.reduce((sum, d) => sum + (d.text.length / CHARS_PER_SECOND) * 1000, 0);
   const pauses = (drafts.length - 1) * PAUSE_MS;

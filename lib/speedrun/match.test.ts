@@ -370,3 +370,32 @@ describe("rankMatches promotion, levels and ordering", () => {
     expect(matches[0].reasons.some((r) => ownWords.has(r)), matches[0].reasons.map((r) => r.text).join(" / ")).toBe(false);
   });
 });
+
+describe("rankMatches with the visitor's student and founding answers", () => {
+  const sam = PEOPLE.sam.profile;
+  const maya = PEOPLE.maya.profile;
+  const internRole: SnapshotRole = {
+    id: "intern-1", company: "Intern Co", companySlug: null, title: "Software Engineering Intern", location: "Remote", workplace: "Remote",
+    fn: "engineering", seniority: "intern", tier: "a16z", cohort: null, compMin: null, compMax: null, compPeriod: null,
+    postedAt: "2026-11-01", url: "https://example.com/job", excerpt: "",
+  };
+  const base: Intake = { targets: ["engineering"], places: ["Remote"], why: "" };
+
+  it("ranks with the answered seniority over the profile's own", () => {
+    const corpusOfOne = { companies: [], roles: [internRole] };
+    expect(rankMatches(sam, base, corpusOfOne).matches).toHaveLength(0);
+    const withIntern = rankMatches(sam, { ...base, seniority: "intern" }, corpusOfOne);
+    expect(withIntern.matches.map((m) => m.role?.id)).toEqual(["intern-1"]);
+  });
+
+  it("matches today's result when seniority is absent", () => {
+    const person = PEOPLE.sam;
+    expect(rankMatches(sam, person.intake, corpus)).toEqual(rankMatches(sam, { ...person.intake }, corpus));
+  });
+
+  it("returns the founder routes when the visitor said they would found, whatever the resume says", () => {
+    expect(maya.founderSignal.score).toBeLessThan(0.6);
+    expect(rankMatches(maya, PEOPLE.maya.intake, corpus).routes).toEqual([]);
+    expect(rankMatches(maya, { ...PEOPLE.maya.intake, founding: true }, corpus).routes.map((r) => r.kind).sort()).toEqual(["alpha", "speedrun"]);
+  });
+});

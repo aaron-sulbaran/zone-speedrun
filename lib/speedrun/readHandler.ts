@@ -10,12 +10,14 @@ import { FNS, type Profile, type ReadError } from "./types";
 export const MAX_TEXT_CHARS = 20_000;
 const SHOWN = 6;
 
-const bodySchema = z.object({
+export const readBodySchema = z.object({
   text: z.string(),
   intake: z.object({
     targets: z.array(z.enum(FNS)).max(7),
     places: z.array(z.string().max(60)).max(8),
     why: z.string().max(400),
+    seniority: z.enum(["intern", "new_grad"]).optional(),
+    founding: z.boolean().optional(),
   }),
 });
 
@@ -58,7 +60,7 @@ export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<Read
   } catch (error) {
     return error instanceof BodyTooLargeError ? fail(413, "too_large") : fail(400, "bad_input");
   }
-  const body = bodySchema.safeParse(raw);
+  const body = readBodySchema.safeParse(raw);
   if (!body.success) return fail(400, "bad_input");
   const { intake } = body.data;
   const text = body.data.text.replace(/\u0000/g, "").trim();

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { pdfWith } from "./pdfFixture";
+import { EMPTY_ANSWERS, toIntake } from "./onboarding";
 import { cleanText, postResume } from "./readClient";
 
 const INTAKE = { targets: ["engineering" as const], places: [], why: "" };
@@ -25,6 +26,15 @@ describe("cleanText", () => {
 });
 
 describe("postResume", () => {
+  it("sends the intake with no name in the body", async () => {
+    const fetchMock = stubFetch();
+    const intake = toIntake({ ...EMPTY_ANSWERS, name: "Zelda Quinn", targets: ["engineering"], student: true, arrangements: ["during"], founding: true });
+    await postResume(fileOf([RESUME], "cv.txt", "text/plain"), intake);
+    const raw = fetchMock.mock.calls[0][1]?.body as string;
+    expect(raw).not.toContain("Zelda");
+    expect(bodyOf(fetchMock).intake).toMatchObject({ seniority: "intern", founding: true });
+  });
+
   it("posts only the text of a .txt file", async () => {
     const fetchMock = stubFetch();
     const out = await postResume(fileOf([RESUME], "cv.txt", "text/plain"), INTAKE);
