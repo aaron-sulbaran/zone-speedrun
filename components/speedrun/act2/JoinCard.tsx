@@ -155,7 +155,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
       </div>
       <div ref={bodyRef} className="px-6 pb-6 pt-6 md:px-8">
         {submitting ? (
-          <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{copy.submitting(name)}</p>
+          <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{speedrunCopy.build.heading(name)}</p>
         ) : (
           <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
         )}
