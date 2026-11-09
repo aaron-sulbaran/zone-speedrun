@@ -53,12 +53,14 @@ export function JoinStep({ stepKey, index, state, dispatch, selected, onSelect, 
     // The input disables itself at the cap, which would drop focus to the body.
     if (answers.places.length + 1 >= MAX_PLACES) {
       const card = event.currentTarget.closest<HTMLElement>("form");
-      (card?.querySelector<HTMLElement>("[data-chip]:not(:disabled)") ?? card)?.focus({ preventScroll: true });
+      (card?.querySelector<HTMLElement>('[data-chip][aria-pressed="true"]') ?? card?.querySelector<HTMLElement>("[data-chip]:not(:disabled)") ?? card)?.focus({ preventScroll: true });
     }
     addTypedPlace();
   };
 
   const placeChips = [...copy.placeChips, ...answers.places.filter((p) => !copy.placeChips.includes(p))];
+  // Focus lands on the first picked place, else the first one; never a disabled chip.
+  const placeFocus = placeChips.find((p) => answers.places.includes(p)) ?? placeChips[0];
 
   return (
     <>
@@ -83,8 +85,8 @@ export function JoinStep({ stepKey, index, state, dispatch, selected, onSelect, 
         {stepKey === "places" && (
           <>
             <div className="flex flex-wrap gap-2">
-              {placeChips.map((place, i) => (
-                <Chip key={place} focusFirst={i === 0} pressed={answers.places.includes(place)} disabled={placesFull && !answers.places.includes(place)} onToggle={() => set({ places: toggled(answers.places, place) })}>
+              {placeChips.map((place) => (
+                <Chip key={place} focusFirst={place === placeFocus} pressed={answers.places.includes(place)} disabled={placesFull && !answers.places.includes(place)} onToggle={() => set({ places: toggled(answers.places, place) })}>
                   {place}
                 </Chip>
               ))}

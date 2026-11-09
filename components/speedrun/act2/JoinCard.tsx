@@ -55,14 +55,30 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   }, [joinStep]);
 
   useEffect(() => () => void (submitTimer.current && clearTimeout(submitTimer.current)), []);
+  // The skip button (or any build) moves the demo on while this card is still exiting.
+  useEffect(() => {
+    if (state.step !== "join" && submitTimer.current) {
+      clearTimeout(submitTimer.current);
+      submitTimer.current = null;
+    }
+  }, [state.step]);
 
+  const clearSubmit = () => {
+    if (submitTimer.current) clearTimeout(submitTimer.current);
+    submitTimer.current = null;
+    setSubmitting(false);
+  };
+  // The building beat; Start over, a phase change or unmount clears it before it fires.
+  const beginSubmit = (action: () => void) => {
+    setSubmitting(true);
+    submitTimer.current = setTimeout(action, motion().submittingMs);
+  };
   const proceed = () => {
     if (!valid || submitting) return;
     choice.cancel();
     if (!last) return dispatch({ type: "next" });
     if (!selected) return;
-    setSubmitting(true);
-    submitTimer.current = setTimeout(() => dispatch({ type: "pickPerson", key: selected }), motion().submittingMs);
+    beginSubmit(() => dispatch({ type: "pickPerson", key: selected }));
   };
   const choose = (patch: Partial<Answers>) => {
     dispatch({ type: "answer", patch });
@@ -74,6 +90,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   };
   const startOver = () => {
     choice.cancel();
+    clearSubmit();
     setSelected(null);
     dispatch({ type: "reset" });
     requestAnimationFrame(focusFirst);
@@ -112,11 +129,11 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
     >
       <div className="flex items-center gap-2 px-6 pt-5 sm:gap-3 md:px-8">
         <SpeedrunLogo className="h-4 w-auto" />
-        <span className="whitespace-nowrap font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">{copy.label}</span>
+        <span className="hidden whitespace-nowrap font-srcond text-xs uppercase tracking-widest text-sr-ink2 sm:inline">{copy.label}</span>
         <span aria-hidden="true" className="ml-auto whitespace-nowrap font-srcond text-[11px] tabular-nums tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">
           {pad(joinStep + 1)} / {pad(total)}
         </span>
-        <button type="button" onClick={startOver} className="whitespace-nowrap font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 underline-offset-4 hover:text-sr-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple sm:text-xs">
+        <button type="button" onClick={startOver} className="-my-1 min-h-6 whitespace-nowrap px-1 py-1 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 underline-offset-4 hover:text-sr-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple sm:text-xs">
           {copy.startOver}
         </button>
         <p className="sr-only" aria-live="polite">{`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} ${total}. ${question}`}</p>
@@ -132,7 +149,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
         {submitting ? (
           <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{copy.submitting(name)}</p>
         ) : (
-          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload} />
+          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit(() => onUpload(file)))} />
         )}
       </div>
       <div data-join-footer="" className="sticky bottom-0 z-10 rounded-b-3xl border-t border-sr-soft bg-sr-foot px-6 py-4 backdrop-blur md:px-8">

@@ -58,11 +58,11 @@ export function JoinPhase({ state, dispatch, stats, onUpload, onSkip, held, arri
   }, [arrivalKey]);
 
   return (
-    <div ref={frameRef} data-phase-frame="" className="mx-auto max-w-[1200px] px-6 pb-20 pt-10 md:pt-16 lg:grid lg:grid-cols-[1fr_minmax(0,480px)] lg:items-start lg:gap-12">
+    <div ref={frameRef} data-phase-frame="" className="mx-auto max-w-[1200px] px-6 pb-20 pt-28 md:pt-32 lg:grid lg:grid-cols-[1fr_minmax(0,480px)] lg:items-start lg:gap-12">
       <Hero stats={stats} onSkip={onSkip} />
       <div>
         <JoinCard state={state} dispatch={dispatch} onUpload={onUpload} />
-        <div className="mt-5 flex justify-center lg:hidden">
+        <div data-cascade="" className="mt-5 flex justify-center lg:hidden">
           <SkipButton onSkip={onSkip} />
         </div>
       </div>

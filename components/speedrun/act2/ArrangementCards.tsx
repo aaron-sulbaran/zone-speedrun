@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+import { motion } from "@/lib/speedrun/motion";
 import { speedrunCopy } from "@/lib/content";
 import { ARRANGEMENTS, type Arrangement } from "@/lib/speedrun/onboarding";
 
@@ -18,9 +20,8 @@ export function ArrangementCards({ value, onToggle }: { value: Arrangement[]; on
             data-phase-focus={index === 0 ? "" : undefined}
             aria-pressed={on}
             onClick={() => onToggle(item)}
-            className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-base font-semibold shadow-[inset_0_0_0_1px_var(--sr-strong)] transition-[background-color,color] duration-[180ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
-              on ? "bg-sr-ink text-sr-surface" : "bg-sr-hud text-sr-ink hover:bg-sr-strong"
-            }`}
+            style={{ "--sr-chip-ms": `${motion().chipSweepMs}ms` } as CSSProperties}
+            className="sr-chip flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-base font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple"
           >
             <span aria-hidden="true" className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md font-srcond text-sm ${on ? "bg-sr-surface text-sr-ink" : "bg-sr-soft text-sr-ink2"}`}>
               {on ? "✓" : LETTERS[index]}
