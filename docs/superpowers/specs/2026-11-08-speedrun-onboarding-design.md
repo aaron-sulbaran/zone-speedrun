@@ -84,7 +84,7 @@ The display name is the typed name, else the picked sample person's first name (
 - **Onboarding answers** gain `name`, `student`, `arrangements` and `founding`. The step list is derived from the answers (the student branch adds step 4). Validation is per step and pure.
 - **Name** lives only in client state. It is never part of a request body: not the match route, not the read route, not the brief route. A test asserts the request bodies.
 - **Intake** gains two optional fields, sent to the match and read routes and accepted by their zod schemas:
-  - `seniority`: students who pick only internship arrangements map to `intern`; students who pick a full-time job after graduation map to `new_grad`; non-students send nothing and the résumé decides. Ranking uses `intake.seniority ?? profile.seniority`.
+  - `seniority`: students who pick any full-time arrangement (while in school or after graduation) map to `new_grad`; students who pick only internships or part-time work map to `intern`; non-students send nothing and the résumé decides. Ranking uses `intake.seniority ?? profile.seniority`.
   - `founding`: true shows the founder routes whatever the résumé's founder score.
 - **Phase changes** scroll the window to the top under the transition (instantly, never smooth), move focus to the new phase's heading, and never touch the URL. The browser's back button leaves the page, as on theirs.
 
