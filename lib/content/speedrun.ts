@@ -154,7 +154,7 @@ export const speedrunCopy = {
     placesFull: "That is the most places the demo takes.",
   },
   build: {
-    heading: (name: string) => `Building your board, ${name}.`,
+    heading: (name: string) => `Building your network, ${name}.`,
     label: "Building this for you",
     labelDone: "Built for you",
     skip: "Skip",

@@ -26,13 +26,19 @@ type NetworkPhaseProps = {
 
 const NEXT_BUTTON = "rounded-full bg-sr-ink px-6 py-3 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
-// Four tabs, one panel on screen. A tab change plays the step enter (forward or back by
+// Four tabs, all four panels mounted (drafts, sent state and toggles survive a switch), one visible. A tab change plays the step enter (forward or back by
 // tab order) on the panel only. The egg lives in SpeedrunExperience, so it works on every tab.
 export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onReplayTop }: NetworkPhaseProps) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const panels = useRef<Partial<Record<NetworkTab, HTMLDivElement | null>>>({});
   const shownTab = useRef(tab);
   usePhaseEntrance(frameRef);
+
+  // The Next button sits in a panel that is about to hide, so focus moves to the new tab.
+  const goTo = (next: NetworkTab) => {
+    onTab(next);
+    requestAnimationFrame(() => document.getElementById(tabId(next))?.focus({ preventScroll: true }));
+  };
 
   // Play the step enter when the tab changes, and keep the tablist in view.
   useLayoutEffect(() => {
@@ -41,35 +47,39 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
     shownTab.current = tab;
     const list = document.querySelector<HTMLElement>("[role=tablist]");
     if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start", behavior: "instant" });
-    const panel = panelRef.current;
+    const panel = panels.current[tab];
     if (!panel || prefersReducedMotion()) return;
     const { stepMs, stepPx } = motion();
     const from = NETWORK_TABS.indexOf(tab) > NETWORK_TABS.indexOf(previous) ? stepPx : -stepPx;
-    const enter = panel.animate([{ opacity: 0, transform: `translateX(${from}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: stepMs, easing: STEP_EASE });
+    const enter = panel.animate([{ opacity: 0, transform: `translateY(${from}px)` }, { opacity: 1, transform: "translateY(0)" }], { duration: stepMs, easing: STEP_EASE });
     return () => enter.cancel();
   }, [tab]);
 
   if (!state.result) return null;
-  const following = nextTab(tab);
   const name = visitorName(state);
   return (
     <div ref={frameRef} data-phase-frame="">
       <div className="px-6 pb-16 pt-24">
         <NetworkHeader name={name} onStartOver={onStartOver} onReplayTop={onReplayTop} />
         <NetworkTabs tab={tab} onTab={onTab} />
-        <div key={tab} ref={panelRef} role="tabpanel" id={panelId(tab)} aria-labelledby={tabId(tab)} className="mt-10">
-          {tab === "matches" && <Matches result={state.result} mentionedFounding={state.answers.founding === true} />}
-          {tab === "board" && <Board state={state} dispatch={dispatch} />}
-          {tab === "brief" && <BriefPreview state={state} name={name} />}
-          {tab === "decisions" && <Decisions />}
-          {following && (
-            <div className="mx-auto mt-12 flex w-full max-w-3xl">
-              <button type="button" onClick={() => onTab(following)} className={NEXT_BUTTON}>
-                {speedrunCopy.network.nextTo[tab as Exclude<NetworkTab, "decisions">]}
-              </button>
+        {NETWORK_TABS.map((id) => {
+          const following = nextTab(id);
+          return (
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="mt-10">
+              {id === "matches" && <Matches result={state.result!} mentionedFounding={state.answers.founding === true} />}
+              {id === "board" && <Board state={state} dispatch={dispatch} />}
+              {id === "brief" && <BriefPreview state={state} name={name} />}
+              {id === "decisions" && <Decisions />}
+              {following && (
+                <div className="mx-auto mt-12 flex w-full max-w-3xl">
+                  <button type="button" onClick={() => goTo(following)} className={NEXT_BUTTON}>
+                    {speedrunCopy.network.nextTo[id as Exclude<NetworkTab, "decisions">]}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
       <Close />
     </div>
