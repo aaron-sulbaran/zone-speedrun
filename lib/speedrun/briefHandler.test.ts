@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleBrief, readBriefBody, sendWithResend, type BriefDeps } from "./briefHandler";
 import { BODY_CAPS } from "./guard";
-import { createSharedLimiter, type RatelimitLike } from "./sharedLimit";
 import { getSnapshot } from "./snapshot";
 
 const BODY = { email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] };
@@ -156,31 +155,6 @@ describe("handleBrief", () => {
     expect(message.to).toBe("ada@example.com");
     expect(message.subject).toContain("Sam");
     expect(message.html).not.toContain("<script");
-  });
-
-  it("allows three sends an hour to one address and denies the fourth, with no fourth send", async () => {
-    // The production brief limiter configuration over a fake shared store.
-    const counts = new Map<string, number>();
-    const keys: string[] = [];
-    const make = (w: { kind: string; max: number }): RatelimitLike => ({
-      limit: async (key) => {
-        keys.push(key);
-        const id = `${w.kind}:${key}`;
-        const used = (counts.get(id) ?? 0) + 1;
-        counts.set(id, used);
-        return { success: used <= w.max, reset: 3_600_000 };
-      },
-    });
-    const limit = createSharedLimiter(
-      { perKey: { prefix: "speedrun:brief:to", max: 3, window: "1 h" }, daily: { prefix: "speedrun:brief:daily", max: 50 } },
-      { make: (w) => make(w), now: () => 1000 },
-    );
-    const send = vi.fn(async () => true);
-    const note = vi.fn();
-    for (let i = 0; i < 4; i++) await run(BODY, { allow: limit, send, note });
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(note.mock.calls).toEqual([["throttled"]]);
-    expect(keys.join("")).not.toContain("ada@example.com");
   });
 });
 

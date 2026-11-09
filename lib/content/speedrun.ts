@@ -433,7 +433,7 @@ export const speedrunCopy = {
       slowDown: "Too many sends just now. Try again later.",
       pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
       sampleOnly: "Only the sample briefs can be sent in this demo.",
-      listNote: "This demo only emails addresses Aaron has added to its list.",
+      listNote: "This demo only emails addresses on its list.",
     },
     footer:
       "You're getting this because you asked for it on aaronsulbaran.com/speedrun, a concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",
