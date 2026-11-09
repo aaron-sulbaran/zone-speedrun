@@ -11,16 +11,9 @@ const CASCADE_MS = 420;
 const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 
-export function Matches({ result, focusHeading = false, mentionedFounding = false }: { result: MatchResult; focusHeading?: boolean; mentionedFounding?: boolean }) {
+export function Matches({ result, mentionedFounding = false }: { result: MatchResult; mentionedFounding?: boolean }) {
   const copy = speedrunCopy.matches;
   const listRef = useRef<HTMLDivElement>(null);
-  const headingRef = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    if (focusHeading) headingRef.current?.focus();
-    // Only the first paint decides.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
@@ -39,7 +32,7 @@ export function Matches({ result, focusHeading = false, mentionedFounding = fals
 
   return (
     <section data-matches="" aria-labelledby="sr-matches-heading" className="mx-auto w-full max-w-3xl">
-      <h3 id="sr-matches-heading" ref={headingRef} tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-purple focus:outline-none">
+      <h3 id="sr-matches-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
         {copy.heading}
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
