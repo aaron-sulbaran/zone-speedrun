@@ -195,10 +195,6 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
 });
 
 test("Start over during the building beat cancels the build: clean step 1 and no match request", async ({ page }) => {
-  let matchRequests = 0;
-  page.on("request", (request) => {
-    if (request.url().includes("/speedrun/api/match")) matchRequests += 1;
-  });
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Casey", stopAtResume: true });
   const form = page.locator("#join");
@@ -208,38 +204,52 @@ test("Start over during the building beat cancels the build: clean step 1 and no
   await form.getByRole("button", { name: join.startOver }).click();
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(form.getByLabel(join.steps.name.inputLabel)).toHaveValue("");
+  // Wait out the 700ms beat: a beat that was not cancelled would fire the request now.
+  await expect(page.waitForRequest("**/speedrun/api/match", { timeout: 1500 })).rejects.toThrow();
   await expect(page.locator('[data-phase="join"]')).toHaveCount(1);
   await expect(page.locator('[data-phase="building"], [data-phase="network"]')).toHaveCount(0);
-  expect(matchRequests).toBe(0);
+  await expect(page.locator("#act-2 [data-demo]")).toHaveAttribute("data-step", "join");
+  await expect(counter(page)).toHaveText("01 / 07");
 });
 
 test("Start over with a match request in flight lands on a clean step 1 and the stale result never appears", async ({ page }) => {
+  // Press Start over from inside the page at the moment the match fetch starts, while the join frame is still in its exit.
+  await page.addInitScript((startOverLabel) => {
+    const realFetch = window.fetch;
+    window.fetch = function (this: typeof window, ...args: Parameters<typeof fetch>) {
+      const url = args[0] instanceof Request ? args[0].url : String(args[0]);
+      if (url.includes("/speedrun/api/match")) {
+        const start = [...document.querySelectorAll<HTMLButtonElement>("#join button")].find((b) => b.textContent === startOverLabel);
+        start?.click();
+        (window as unknown as { __startOverPressed: boolean }).__startOverPressed = Boolean(start);
+      }
+      return realFetch.apply(this, args);
+    };
+  }, join.startOver);
   await page.route("**/speedrun/api/match", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
-    await route.continue();
+    await route.continue().catch(() => {});
+  });
+  const failed: string[] = [];
+  page.on("requestfailed", (request) => {
+    if (request.url().includes("/speedrun/api/match")) failed.push(request.url());
   });
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Casey", stopAtResume: true });
   const form = page.locator("#join");
   await form.locator('[data-person="sam"]').click();
-  const requested = page.waitForRequest("**/speedrun/api/match");
   await form.getByRole("button", { name: join.finish }).click();
-  await requested;
-  // The request is out and the join frame is still in its exit; press Start over through the page so it lands inside that window.
-  const pressed = await page.evaluate((label) => {
-    const button = [...document.querySelectorAll<HTMLButtonElement>("#join button")].find((b) => b.textContent === label);
-    button?.click();
-    return Boolean(button);
-  }, join.startOver);
-  expect(pressed).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __startOverPressed?: boolean }).__startOverPressed), { timeout: 8000 }).toBe(true);
   await expect(page.locator('#act-2[data-phase="join"]')).toBeVisible({ timeout: 5000 });
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(form.getByLabel(join.steps.name.inputLabel)).toHaveValue("");
-  // Past the route delay: the old response has landed by now and must have been ignored.
-  await page.waitForTimeout(2500);
+  // The reset aborts the fetch, so the old response has nowhere to land.
+  await expect.poll(() => failed.length, { timeout: 5000 }).toBeGreaterThan(0);
+  await page.waitForTimeout(1800);
   await expect(page.locator('[data-phase="join"]')).toHaveCount(1);
   await expect(page.locator("[data-match-card]")).toHaveCount(0);
   await expect(page.locator('[data-phase="building"], [data-phase="network"]')).toHaveCount(0);
+  await expect(page.locator("#act-2 [data-demo]")).toHaveAttribute("data-step", "join");
   await expect(counter(page)).toHaveText("01 / 07");
 });
 
