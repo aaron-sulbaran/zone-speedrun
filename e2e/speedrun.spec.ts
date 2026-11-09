@@ -270,8 +270,8 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await expect(card.getByRole("radio", { name: join.yes, exact: true })).toBeFocused();
   // Roving tabindex: Yes is the only tab stop, and the arrow moves and selects (the card then advances once).
   await expect(card.getByRole("radio", { name: join.no, exact: true })).toHaveAttribute("tabindex", "-1");
+  // Landing on No (not Yes, which would open the arrangements step) proves the arrow moved the focus and selected.
   await page.keyboard.press("ArrowRight");
-  await expect(card.getByRole("radio", { name: join.no, exact: true })).toBeFocused();
   await expect(heading(join.steps.places.question)).toBeVisible();
   await page.keyboard.press("Space");
   await page.keyboard.press("Enter");

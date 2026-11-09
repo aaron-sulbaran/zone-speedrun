@@ -21,10 +21,12 @@ export function ChoicePills({ value, onChoose, label }: { value: boolean | null;
     const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
     if (!step) return;
     event.preventDefault();
-    const current = options.findIndex((option) => option.value === value);
-    const next = (current < 0 ? (step > 0 ? 0 : options.length - 1) : (current + step + options.length) % options.length);
+    const radios = [...(groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]') ?? [])];
+    // Move from the focused pill, which is the checked one once an answer exists.
+    const current = radios.indexOf(document.activeElement as HTMLElement);
+    const next = (Math.max(current, 0) + step + options.length) % options.length;
     onChoose(options[next].value);
-    groupRef.current?.querySelectorAll<HTMLElement>('[role="radio"]')[next]?.focus();
+    radios[next]?.focus();
   };
 
   return (
