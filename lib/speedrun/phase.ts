@@ -43,6 +43,7 @@ export function phaseReducer(state: PhaseState, event: PhaseEvent): PhaseState {
 /** The phase event a demo step change calls for, or null when the phase does not follow it. */
 export function phaseEventFor(before: "join" | "building" | "ready", after: "join" | "building" | "ready"): PhaseEvent | null {
   if (before === "join" && after === "building") return { type: "build" };
-  if (before === "building" && after === "join") return { type: "buildFailed" };
+  // Ready counts too: a match can land during the join exit, and Start over then resets it to join.
+  if (after === "join" && before !== "join") return { type: "buildFailed" };
   return null;
 }

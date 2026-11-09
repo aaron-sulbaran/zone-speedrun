@@ -47,7 +47,7 @@ describe("phaseEventFor", () => {
     expect(phaseEventFor("join", "building")).toEqual({ type: "build" });
     expect(phaseEventFor("building", "join")).toEqual({ type: "buildFailed" });
     expect(phaseEventFor("building", "ready")).toBeNull();
-    expect(phaseEventFor("ready", "join")).toBeNull();
+    expect(phaseEventFor("ready", "join")).toEqual({ type: "buildFailed" });
     expect(phaseEventFor("join", "join")).toBeNull();
   });
 });

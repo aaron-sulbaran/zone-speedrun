@@ -32,7 +32,9 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   const [held, setHeld] = useState(false);
   const [arrivalKey, setArrivalKey] = useState(0);
   // The skip button asked for the board outright, so its build log never waits for a press.
-  const [skipped, setSkipped] = useState(false);
+  // It belongs to one build id: any reset (the card's own Start over included) bumps the id and clears it.
+  const [skippedBuild, setSkippedBuild] = useState<number | null>(null);
+  const skipped = skippedBuild === state.buildId;
   const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
   const [playSignal, setPlaySignal] = useState(0);
   const { phase, tab } = phaseState;
@@ -49,12 +51,11 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
 
   // "Skip to the dashboard" has to land on one: Sam with the inbox already connected.
   const skip = () => {
-    setSkipped(true);
+    setSkippedBuild(state.buildId + 1);
     dispatch({ type: "pickPerson", key: "sam" });
     dispatch({ type: "connectInbox", on: true });
   };
   const resetDemo = () => {
-    setSkipped(false);
     dispatch({ type: "reset" });
   };
   const startOver = () => {
@@ -92,7 +93,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
         <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-screen [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
-            {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onDone={() => go({ type: "logDone" })} />}
+            {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}
             {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
             <Egg />
           </div>

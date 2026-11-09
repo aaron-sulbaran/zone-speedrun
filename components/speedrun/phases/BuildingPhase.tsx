@@ -17,10 +17,11 @@ type BuildingPhaseProps = {
   lines: BuildLine[];
   failed: boolean;
   onRetry: () => void;
+  onStartOver: () => void;
   onDone: () => void;
 };
 
-export function BuildingPhase({ name, skipped, state, lines, failed, onRetry, onDone }: BuildingPhaseProps) {
+export function BuildingPhase({ name, skipped, state, lines, failed, onRetry, onStartOver, onDone }: BuildingPhaseProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [waiting, setWaiting] = useState(false);
   usePhaseEntrance(frameRef);
@@ -43,7 +44,7 @@ export function BuildingPhase({ name, skipped, state, lines, failed, onRetry, on
           )}
         </>
       ) : (
-        <BuildPlaceholder failed={failed} onRetry={onRetry} />
+        <BuildPlaceholder failed={failed} onRetry={onRetry} onStartOver={onStartOver} />
       )}
     </div>
   );
