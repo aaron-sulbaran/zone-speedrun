@@ -14,7 +14,7 @@ type GoOptions = { instant?: boolean; onLeft?: () => void };
 // passes `instant` because its cover already hides the page. `onLeft` runs in the
 // same batch as the phase change, so a reset lands after the frame has exited.
 // After a phase changes the page returns to the top, focus lands on the new
-// phase's heading, and a polite line names the phase. Never driven by wheel or swipe.
+// phase's first control or heading, and a polite line names the phase. Never driven by wheel or swipe.
 export function usePhaseChange(phase: Phase, dispatchPhase: Dispatch<PhaseEvent>) {
   const [announcement, setAnnouncement] = useState("");
   const queueRef = useRef<ExitQueue<Change> | null>(null);
@@ -52,7 +52,9 @@ export function usePhaseChange(phase: Phase, dispatchPhase: Dispatch<PhaseEvent>
     if (shownRef.current === phase) return;
     shownRef.current = phase;
     window.scrollTo({ top: 0, behavior: "instant" });
-    document.querySelector<HTMLElement>("[data-phase-heading]")?.focus({ preventScroll: true });
+    // A phase with a first control (the join card's) focuses that; the rest focus their heading.
+    const target = document.querySelector<HTMLElement>("[data-phase-focus]") ?? document.querySelector<HTMLElement>("[data-phase-heading]");
+    target?.focus({ preventScroll: true });
     setAnnouncement(speedrunCopy.phases.announce[phase]);
   }, [phase]);
 

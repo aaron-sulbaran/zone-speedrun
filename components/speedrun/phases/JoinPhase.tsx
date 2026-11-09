@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, type Dispatch } from "react";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, SR_EASE } from "@/lib/speedrun/motion";
-import { Hero, type DemoStats } from "../act2/Hero";
+import { Hero, SkipButton, type DemoStats } from "../act2/Hero";
 import { JoinCard } from "../act2/JoinCard";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
@@ -58,10 +58,13 @@ export function JoinPhase({ state, dispatch, stats, onUpload, onSkip, held, arri
   }, [arrivalKey]);
 
   return (
-    <div ref={frameRef} data-phase-frame="">
-      <Hero stats={stats} showCtas onSkip={onSkip} />
-      <div className="px-6 pb-24">
+    <div ref={frameRef} data-phase-frame="" className="mx-auto max-w-[1200px] px-6 pb-20 pt-10 md:pt-16 lg:grid lg:grid-cols-[1fr_minmax(0,480px)] lg:items-start lg:gap-12">
+      <Hero stats={stats} onSkip={onSkip} />
+      <div>
         <JoinCard state={state} dispatch={dispatch} onUpload={onUpload} />
+        <div className="mt-5 flex justify-center lg:hidden">
+          <SkipButton onSkip={onSkip} />
+        </div>
       </div>
     </div>
   );

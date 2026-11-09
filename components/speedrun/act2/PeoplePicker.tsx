@@ -82,6 +82,7 @@ export function PeoplePicker({
               role="radio"
               aria-checked={on}
               data-person={key}
+              data-phase-focus={on || (!selected && index === 0) ? "" : undefined}
               tabIndex={on || (!selected && index === 0) ? 0 : -1}
               onClick={() => onSelect(key)}
               className={`rounded-2xl p-4 text-left transition-[background-color,box-shadow,transform] duration-200 ease-sr active:scale-[.98] motion-reduce:transition-none motion-reduce:active:scale-100 ${

@@ -1,6 +1,7 @@
 // Copy for /speedrun, a concept page for the speedrun talent team. Sections
 // beyond meta, affiliation and logoAlt are filled in by later tasks.
 
+import type { Arrangement } from "@/lib/speedrun/onboarding";
 import type { Fn } from "@/lib/speedrun/types";
 
 export const speedrunCopy = {
@@ -61,26 +62,44 @@ export const speedrunCopy = {
       roles: "live speedrun roles",
       snapshot: "snapshot of the jobs board",
     },
-    cta: "Start the demo",
-    ctaSecondary: "Skip to the dashboard",
+    ctaSecondary: "Skip the questions: see Sam's board",
   },
   join: {
     label: "Talent network \u00b7 Join",
     steps: {
-      targets: { question: "What are you targeting?", helper: "Pick any that fit." },
+      name: {
+        question: "What should we call you?",
+        helper: "It stays in your browser and makes the board yours.",
+        placeholder: "First name",
+        inputLabel: "First name",
+      },
+      targets: { question: "What are you looking for?", helper: "Select any that apply." },
+      student: { question: "Are you a full-time student?" },
+      arrangements: {
+        question: "What kind of work?",
+        helper: "Select any that apply.",
+        label: "Kinds of work",
+        options: {
+          between: "Internships between semesters",
+          during: "Part-time during the semester",
+          whileInSchool: "A full-time job while in school",
+          afterGrad: "A full-time job after graduation",
+        } as Record<Arrangement, string>,
+      },
       places: {
-        question: "Where?",
-        helper: "Pick places or type one. Remote counts.",
+        question: "Where do you want to work?",
+        helper: "Pick places or type one. Remote counts. Skip it for anywhere.",
         inputLabel: "Add a place",
         inputPlaceholder: "Type a place and press Enter",
       },
+      founding: { question: "Are you considering or in the process of founding?" },
       why: {
-        question: "Why now, in a sentence?",
+        question: "Anything founders should know?",
         placeholder: "I want to build with a founding team.",
-        inputLabel: "Why now",
+        inputLabel: "Anything founders should know",
       },
       resume: {
-        question: "Bring your resume, or borrow one.",
+        question: "Help founders match you faster.",
         helper: "Pick a sample person. Live reading of your own resume turns on soon.",
         helperLive: "Pick a sample person, or upload your own resume.",
         uploadLabel: "Upload a resume",
@@ -103,7 +122,12 @@ export const speedrunCopy = {
     },
     back: "Back",
     next: "Continue",
-    finish: "Build my board",
+    finish: "Build my network",
+    submitting: (name: string) => `Building your network, ${name}.`,
+    yes: "Yes",
+    no: "No",
+    startOver: "Start over",
+    tapAdvances: "Single tap advances, no Continue click.",
     pressEnter: "Press Enter",
     nothingSent: "Demo only: nothing you type here leaves this page.",
     connect: {
