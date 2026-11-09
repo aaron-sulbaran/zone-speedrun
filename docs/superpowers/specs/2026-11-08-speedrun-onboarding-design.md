@@ -50,7 +50,7 @@ The approved sweep, landing on a phase instead of a scroll position: his sea-blu
 ### Phase 2: join (their style)
 Their home hero layout. At `lg` and up: the hero on the left (eyebrow, headline, lede, stat tiles, as today) and the join card on the right. Below `lg`: a shortened hero (eyebrow and headline only) and the card under it, so the card's first question is on screen at 390 by 844. Under the stat tiles, a ghost button "Skip the questions: see Sam's board" for the 30-second visitor (it does what "Skip to the dashboard" does today).
 
-The card, in their anatomy: a header row with the speedrun logo, a label ("Talent network · Join"), the counter ("01 / 07") and a "Start over" link; the 8px prism progress fill; the purple eyebrow ("01 →"); the question; the input; a footer with a ghost Back (disabled on step 1), Continue (disabled until the step is valid), "Press Enter ↵", the "nothing you type here leaves this page" line and the inline not-affiliated line.
+The card, in their anatomy: a header row with the speedrun logo, a label ("Talent network · Join"), the counter ("01 / 07") and a "Start over" link; the 8px prism progress fill; the purple eyebrow ("01 →"); the question; the input; a footer with a ghost Back (disabled on step 1), Continue (disabled until the step is valid), "Press Enter ↵", a privacy line ("Your name stays in this browser. Nothing you type is saved."; ruling R18, since places and the one sentence do reach the match route) and the inline not-affiliated line.
 
 The questions **(my call: wording and order; they mirror their join, swapping contact details for what a demo can use)**:
 1. **What should we call you?** First name, text, required (1 to 40 characters). Helper: it stays in your browser and makes the board yours.
