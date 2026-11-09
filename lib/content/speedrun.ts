@@ -47,8 +47,6 @@ export const speedrunCopy = {
       building: "Building your network.",
       network: "Your network is ready.",
     },
-    startOver: "Start over",
-    replayTop: "Replay from the top",
     nameFallback: "you",
   },
   hero: {

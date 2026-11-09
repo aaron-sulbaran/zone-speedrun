@@ -1,31 +1,32 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
+import { answerOnboarding, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.board;
 
-// Under reduced motion the build log is skipped, so there is nothing to click through.
-async function joinAs(page: Page, key: "sam" | "dev", connected: boolean, reducedMotion = false) {
+// The board lives on its own tab; skipBuildLog also clicks Continue when reduced motion shows the finished log.
+async function joinAs(page: Page, key: "sam" | "dev", connected: boolean) {
   await page.goto("/speedrun");
-  const card = page.locator("#join");
-  await card.scrollIntoViewIfNeeded();
-  for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
-  await card.locator(`[data-person="${key}"]`).click();
-  if (connected) await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
-  await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
-  if (!reducedMotion) await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
+  await answerOnboarding(page, { name: "Sam", person: key, connectGmail: connected });
+  await skipBuildLog(page);
+  await openTab(page, speedrunCopy.network.tabs.board);
   await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
 }
 
-test("Skip to the dashboard lands on a connected dashboard with focus on the matches", async ({ page }) => {
+test("Skip to the dashboard lands on the network, and its board is connected", async ({ page }) => {
   await page.goto("/speedrun");
-  await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).click();
-  await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
-  await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
+  await playSwitch(page);
+  await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
+  await skipBuildLog(page);
+  await expect(networkHeading(page)).toBeFocused();
+  await expect(page.locator("#sr-matches-heading")).toBeVisible();
+  await openTab(page, speedrunCopy.network.tabs.board);
+  await expect(page.locator("[data-board]")).toBeVisible();
   await expect(page.locator("[data-connect-prompt]")).toHaveCount(0);
   await expect(page.locator("[data-today-list]")).toBeVisible();
+  await openTab(page, speedrunCopy.network.tabs.brief);
   await expect(page.locator("[data-brief]")).toBeVisible();
-  await expect(page.locator("#sr-matches-heading")).toBeFocused();
 });
 
 const stat = (page: Page, key: string) => page.locator(`[data-stat=${key}]`);
@@ -96,7 +97,7 @@ test("a paste that is not a hiring email leaves the board alone", async ({ page 
 test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
   test("the visible stat number is final on arrival and after a paste", async ({ page }) => {
-    await joinAs(page, "sam", true, true);
+    await joinAs(page, "sam", true);
     const visible = stat(page, "inProcess").locator('[aria-hidden="true"]');
     const before = await statValue(page, "inProcess");
     await expect(visible).toHaveText(String(before));

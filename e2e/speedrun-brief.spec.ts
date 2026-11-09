@@ -3,19 +3,16 @@ import { renderBriefEmail } from "../lib/speedrun/brief";
 import { sampleBrief } from "../lib/speedrun/briefSample";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
+import { answerOnboarding, openTab, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.brief;
 
 async function joinAs(page: Page, key: "sam" | "maya") {
   await page.goto("/speedrun");
-  const card = page.locator("#join");
-  await card.scrollIntoViewIfNeeded();
-  for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
-  await card.locator(`[data-person="${key}"]`).click();
-  await card.getByRole("button", { name: speedrunCopy.join.connect.gmail }).click();
-  await card.getByRole("button", { name: speedrunCopy.join.finish }).click();
-  await page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip }).click();
-  await expect(page.locator("[data-brief]")).toBeAttached({ timeout: 20_000 });
+  await answerOnboarding(page, { name: key === "sam" ? "Sam" : "Maya", person: key, connectGmail: true });
+  await skipBuildLog(page);
+  await openTab(page, speedrunCopy.network.tabs.brief);
+  await expect(page.locator("[data-brief]")).toBeVisible({ timeout: 20_000 });
 }
 
 test("the brief previews as an email with the first name in its subject", async ({ page }) => {

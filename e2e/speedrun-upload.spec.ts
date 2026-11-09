@@ -5,6 +5,7 @@ import { PEOPLE } from "../lib/speedrun/people";
 import { getSnapshot } from "../lib/speedrun/snapshot";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
+import { answerOnboarding, skipBuildLog } from "./speedrun-flow";
 
 // Needs a server built with SPEEDRUN_AI=on, so the upload step shows (E2E_BASE_URL points at it).
 // The request intercept below is what keeps this spec offline and spend-free: the read route never reaches
@@ -16,10 +17,8 @@ const FICTIONAL_RESUME = "Ada Example, software engineer. SKILLS TypeScript, Rea
 
 async function openResumeStep(page: Page) {
   await page.goto("/speedrun");
-  const card = page.locator("#join");
-  await card.scrollIntoViewIfNeeded();
-  for (let i = 0; i < 3; i++) await card.getByRole("button", { name: speedrunCopy.join.next }).click();
-  return card;
+  await answerOnboarding(page, { name: "Alex", stopAtResume: true });
+  return page.locator("#join");
 }
 
 test("a PDF is read in the browser, only its text is posted, and the board builds from the answer", async ({ page }) => {
@@ -38,6 +37,7 @@ test("a PDF is read in the browser, only its text is posted, and the board build
     buffer: Buffer.from(pdfWith(FICTIONAL_RESUME)),
   });
 
+  await skipBuildLog(page);
   await expect(page.locator("[data-match-card]").first()).toBeVisible({ timeout: 20_000 });
   expect(posts).toHaveLength(1);
   expect(posts[0].text).toContain("Ada Example, software engineer");
