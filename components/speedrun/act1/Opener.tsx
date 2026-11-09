@@ -7,7 +7,7 @@ export function Opener() {
   return (
     <header className="max-w-3xl">
       <p className="font-label text-label-sm uppercase text-muted">{copy.kicker}</p>
-      <h1 className="mt-6 font-display text-display-sm text-foreground">
+      <h1 data-phase-heading="" tabIndex={-1} className="focus:outline-none mt-6 font-display text-display-sm text-foreground">
         <span className="block">{copy.headline1}</span>
         <span className="block text-muted">{copy.headline2}</span>
       </h1>

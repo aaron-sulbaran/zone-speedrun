@@ -2,7 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
-import { INITIAL_PHASE, phaseReducer } from "@/lib/speedrun/phase";
+import { INITIAL_PHASE, phaseEventFor, phaseReducer } from "@/lib/speedrun/phase";
 import { PinnedAffiliation } from "./PinnedAffiliation";
 import { Switch } from "./Shift";
 import { SrZone } from "./SrZone";
@@ -30,10 +30,9 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   // The phase follows the demo: a pick or an upload starts the build, a failed upload returns to the join.
   const previousStep = useRef(state.step);
   useEffect(() => {
-    const before = previousStep.current;
+    const event = phaseEventFor(previousStep.current, state.step);
     previousStep.current = state.step;
-    if (before === "join" && state.step === "building") go({ type: "build" });
-    else if (before === "building" && state.step === "join") go({ type: "buildFailed" });
+    if (event) go(event);
   }, [state.step, go]);
 
   // "Skip to the dashboard" has to land on one: Sam with the inbox already connected.
@@ -42,12 +41,10 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
     dispatch({ type: "connectInbox", on: true });
   };
   const startOver = () => {
-    dispatch({ type: "reset" });
-    go({ type: "startOver" });
+    go({ type: "startOver" }, { onLeft: () => dispatch({ type: "reset" }) });
   };
   const replayTop = () => {
-    dispatch({ type: "reset" });
-    go({ type: "replayTop" });
+    go({ type: "replayTop" }, { onLeft: () => dispatch({ type: "reset" }) });
   };
 
   return (

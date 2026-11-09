@@ -24,6 +24,7 @@ export function JoinPhase({ state, dispatch, stats, onUpload, onSkip, held, arri
   const frameRef = useRef<HTMLDivElement>(null);
   const hiddenRef = useRef<HTMLElement[]>([]);
   const startedWithoutCover = useRef(!held);
+  const mountKey = useRef(arrivalKey);
   usePhaseEntrance(frameRef, held);
 
   const cascadeTargets = () => {
@@ -42,7 +43,7 @@ export function JoinPhase({ state, dispatch, stats, onUpload, onSkip, held, arri
 
   useEffect(() => {
     const targets = hiddenRef.current;
-    if (arrivalKey === 0 || targets.length === 0) return;
+    if (arrivalKey === mountKey.current || targets.length === 0) return;
     hiddenRef.current = [];
     const { cascadeMs, cascadeStaggerMs } = motion();
     const running = targets.map((el, i) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_PHASE, NETWORK_TABS, phaseReducer, type PhaseState } from "./phase";
+import { INITIAL_PHASE, NETWORK_TABS, phaseEventFor, phaseReducer, type PhaseState } from "./phase";
 
 const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches"): PhaseState => ({ phase, tab });
 
@@ -39,5 +39,20 @@ describe("phaseReducer", () => {
   it("replays the top from anywhere", () => {
     expect(phaseReducer(at("building"), { type: "replayTop" })).toEqual(at("opener"));
     expect(phaseReducer(at("network", "board"), { type: "replayTop" })).toEqual(at("opener", "matches"));
+  });
+});
+
+describe("phaseEventFor", () => {
+  it("maps the two demo transitions the phase follows", () => {
+    expect(phaseEventFor("join", "building")).toEqual({ type: "build" });
+    expect(phaseEventFor("building", "join")).toEqual({ type: "buildFailed" });
+    expect(phaseEventFor("building", "ready")).toBeNull();
+    expect(phaseEventFor("ready", "join")).toBeNull();
+    expect(phaseEventFor("join", "join")).toBeNull();
+  });
+  it("a build then a fast failure, replayed in order, ends on join", () => {
+    const events = [phaseEventFor("join", "building"), phaseEventFor("building", "join")];
+    const end = events.reduce((s, e) => (e ? phaseReducer(s, e) : s), at("join"));
+    expect(end.phase).toBe("join");
   });
 });

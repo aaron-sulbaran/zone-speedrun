@@ -135,6 +135,7 @@ export const speedrunCopy = {
     label: "Building this for you",
     labelDone: "Built for you",
     skip: "Skip",
+    continue: "See your network",
     madeFor: (first: string) => `made for ${first}. no one else in the network gets this board.`,
     lines: {
       targets: (targets: string) => `targets: ${targets}`,

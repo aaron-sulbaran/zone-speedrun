@@ -34,3 +34,10 @@ export function phaseReducer(state: PhaseState, event: PhaseEvent): PhaseState {
       return { phase: "opener", tab: "matches" };
   }
 }
+
+/** The phase event a demo step change calls for, or null when the phase does not follow it. */
+export function phaseEventFor(before: "join" | "building" | "ready", after: "join" | "building" | "ready"): PhaseEvent | null {
+  if (before === "join" && after === "building") return { type: "build" };
+  if (before === "building" && after === "join") return { type: "buildFailed" };
+  return null;
+}

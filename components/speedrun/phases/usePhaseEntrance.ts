@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, type RefObject } from "react";
+import { useLayoutEffect, type RefObject } from "react";
 import { CARD_EASE, motion, prefersReducedMotion } from "@/lib/speedrun/motion";
 
 // The card entrance every phase plays on mount: a short rise and fade.
 export function usePhaseEntrance(frameRef: RefObject<HTMLElement | null>, skip = false) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const frame = frameRef.current;
     if (skip || !frame || prefersReducedMotion()) return;
     const { cardInMs, cardInPx } = motion();

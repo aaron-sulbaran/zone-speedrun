@@ -22,6 +22,7 @@ export type Motion = {
   cardInMs: number;
   cardInPx: number;
   phaseExitMs: number;
+  phaseExitPx: number;
   stepMs: number;
   stepPx: number;
   choiceAdvanceMs: number;
@@ -42,6 +43,7 @@ export const MOTION: Motion = {
   cardInMs: 320,
   cardInPx: 14,
   phaseExitMs: 240,
+  phaseExitPx: 14,
   stepMs: 360,
   stepPx: 14,
   choiceAdvanceMs: 260,
