@@ -200,7 +200,7 @@ test("Start over during the building beat cancels the build: clean step 1 and no
   const form = page.locator("#join");
   await form.locator('[data-person="sam"]').click();
   await form.getByRole("button", { name: join.finish }).click();
-  await expect(form.getByRole("status")).toHaveText(join.submitting("Casey"));
+  await expect(form.getByRole("status")).toHaveText(speedrunCopy.build.heading("Casey"));
   await form.getByRole("button", { name: join.startOver }).click();
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(form.getByLabel(join.steps.name.inputLabel)).toHaveValue("");
@@ -268,15 +268,15 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(heading(join.steps.student.question)).toBeVisible();
   await expect(card.getByRole("radio", { name: join.yes, exact: true })).toBeFocused();
-  await page.keyboard.press("Tab");
+  // Roving tabindex: Yes is the only tab stop, and the arrow moves and selects (the card then advances once).
+  await expect(card.getByRole("radio", { name: join.no, exact: true })).toHaveAttribute("tabindex", "-1");
+  await page.keyboard.press("ArrowRight");
   await expect(card.getByRole("radio", { name: join.no, exact: true })).toBeFocused();
-  await page.keyboard.press("Space");
   await expect(heading(join.steps.places.question)).toBeVisible();
   await page.keyboard.press("Space");
   await page.keyboard.press("Enter");
   await expect(heading(join.steps.founding.question)).toBeVisible();
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowRight");
   await expect(heading(join.steps.why.question)).toBeVisible();
   await expect(card.getByLabel(join.steps.why.inputLabel)).toBeFocused();
   await page.keyboard.type("Build things.");
@@ -439,4 +439,20 @@ test("the pinned affiliation steps aside at the close, which carries the line", 
 test("the sitemap leaves /speedrun out", async ({ request }) => {
   const body = await (await request.get("/sitemap.xml")).text();
   expect(body).not.toContain("speedrun");
+});
+
+test("a failed sample build offers Start over, and it lands on a clean step 1", async ({ page }) => {
+  await page.route("**/speedrun/api/match", (route) => route.fulfill({ status: 429, contentType: "application/json", body: "{}" }));
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const form = page.locator("#join");
+  await form.locator('[data-person="sam"]').click();
+  await form.getByRole("button", { name: join.finish }).click();
+  const building = page.locator('[data-phase="building"]');
+  await expect(building.getByText(join.error)).toBeVisible({ timeout: 10_000 });
+  await expect(building.getByRole("button", { name: join.retry })).toBeVisible();
+  await building.getByRole("button", { name: join.startOver }).click();
+  await expect(page.locator('[data-phase="join"]')).toBeVisible({ timeout: 5000 });
+  await expect(counter(page)).toHaveText("01 / 07");
+  await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
 });
