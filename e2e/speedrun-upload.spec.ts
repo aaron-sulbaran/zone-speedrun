@@ -15,9 +15,11 @@ test.skip(process.env.E2E_SPEEDRUN_AI !== "1", "needs E2E_SPEEDRUN_AI=1 and E2E_
 
 const FICTIONAL_RESUME = "Ada Example, software engineer. SKILLS TypeScript, React, Postgres. Built a fictional billing tool.";
 
+const TYPED_NAME = "Zephyrine";
+
 async function openResumeStep(page: Page) {
   await page.goto("/speedrun");
-  await answerOnboarding(page, { name: "Alex", stopAtResume: true });
+  await answerOnboarding(page, { name: TYPED_NAME, stopAtResume: true });
   return page.locator("#join");
 }
 
@@ -42,6 +44,7 @@ test("a PDF is read in the browser, only its text is posted, and the board build
   expect(posts).toHaveLength(1);
   expect(posts[0].text).toContain("Ada Example, software engineer");
   expect(posts[0].file).toBeUndefined();
+  expect(JSON.stringify(posts[0]).toLowerCase()).not.toContain(TYPED_NAME.toLowerCase());
   expect(Object.keys(posts[0]).sort()).toEqual(["intake", "text"]);
 });
 

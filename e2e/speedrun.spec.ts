@@ -49,6 +49,19 @@ test("the opener shows first, with no phase of the styled section in the DOM", a
   await expect(page.getByText(speedrunCopy.shift.turnLine1)).toBeVisible();
 });
 
+test("with motion the same click starts the sweep on the strip", async ({ page }) => {
+  await page.goto("/speedrun");
+  const [animations, visibility] = await page.evaluate((label) => {
+    const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
+    const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
+    button.click();
+    return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
+  }, speedrunCopy.shift.button);
+  expect(animations).toBeGreaterThanOrEqual(1);
+  expect(visibility).toBe("visible");
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
+});
+
 test("the switch lands on the join card at the top of the page with the name input focused", async ({ page }) => {
   await page.goto("/speedrun");
   await switchButton(page).scrollIntoViewIfNeeded();
@@ -61,11 +74,22 @@ test("the switch lands on the join card at the top of the page with the name inp
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
 });
 
-test("a double click on the switch lands on the join card once", async ({ page }) => {
+test("a double click on the switch sweeps once and lands on the join card once", async ({ page }) => {
+  // The strip is animated twice per sweep (cover, reveal); a second, unguarded sweep would make it four.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __stripAnimations: number };
+    w.__stripAnimations = 0;
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+      if (this.matches("[data-shift-strip]")) w.__stripAnimations += 1;
+      return original.apply(this, args);
+    };
+  });
   await page.goto("/speedrun");
   await switchButton(page).dblclick();
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
+  expect(await page.evaluate(() => (window as unknown as { __stripAnimations: number }).__stripAnimations)).toBe(2);
   await expect(page.locator('[data-phase="join"]')).toHaveCount(1);
   await expect(page.locator("#join")).toHaveCount(1);
   await expect(counter(page)).toHaveText("01 / 07");
@@ -96,14 +120,16 @@ test("tapping Yes then No within the advance beat moves on once, on No", async (
   await page.locator("#join").getByRole("button", { name: join.targetLabels.product, exact: true }).click();
   await page.locator("#join").getByRole("button", { name: join.next }).click();
   await expect(page.locator("#join").getByRole("heading", { name: join.steps.student.question })).toBeVisible();
-  await page.evaluate(
+  const clicked = await page.evaluate(
     ([yes, no]) => {
       const radios = [...document.querySelectorAll<HTMLElement>('#join [role="radio"]')];
-      radios.find((radio) => radio.textContent === yes)?.click();
-      radios.find((radio) => radio.textContent === no)?.click();
+      const picks = [radios.find((radio) => radio.textContent === yes), radios.find((radio) => radio.textContent === no)];
+      picks.forEach((radio) => radio?.click());
+      return picks.filter(Boolean).length;
     },
     [join.yes, join.no],
   );
+  expect(clicked).toBe(2);
   const places = page.locator("#join").getByRole("heading", { name: join.steps.places.question });
   await expect(places).toBeVisible();
   // One advance, and on No: the arrangements step never appeared and the card stayed put.
@@ -168,12 +194,10 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
   await expect(counter(page)).toHaveText("01 / 07");
 });
 
-test("Start over pressed as the build begins lands on a clean step 1 and the stale result never appears", async ({ page }) => {
+test("Start over during the building beat cancels the build: clean step 1 and no match request", async ({ page }) => {
   let matchRequests = 0;
-  await page.route("**/speedrun/api/match", async (route) => {
-    matchRequests += 1;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await route.continue();
+  page.on("request", (request) => {
+    if (request.url().includes("/speedrun/api/match")) matchRequests += 1;
   });
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Casey", stopAtResume: true });
@@ -184,12 +208,39 @@ test("Start over pressed as the build begins lands on a clean step 1 and the sta
   await form.getByRole("button", { name: join.startOver }).click();
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(form.getByLabel(join.steps.name.inputLabel)).toHaveValue("");
-  await page.waitForTimeout(3000);
   await expect(page.locator('[data-phase="join"]')).toHaveCount(1);
   await expect(page.locator('[data-phase="building"], [data-phase="network"]')).toHaveCount(0);
-  await expect(page.locator("[data-match-card]")).toHaveCount(0);
-  await expect(counter(page)).toHaveText("01 / 07");
   expect(matchRequests).toBe(0);
+});
+
+test("Start over with a match request in flight lands on a clean step 1 and the stale result never appears", async ({ page }) => {
+  await page.route("**/speedrun/api/match", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const form = page.locator("#join");
+  await form.locator('[data-person="sam"]').click();
+  const requested = page.waitForRequest("**/speedrun/api/match");
+  await form.getByRole("button", { name: join.finish }).click();
+  await requested;
+  // The request is out and the join frame is still in its exit; press Start over through the page so it lands inside that window.
+  const pressed = await page.evaluate((label) => {
+    const button = [...document.querySelectorAll<HTMLButtonElement>("#join button")].find((b) => b.textContent === label);
+    button?.click();
+    return Boolean(button);
+  }, join.startOver);
+  expect(pressed).toBe(true);
+  await expect(page.locator('#act-2[data-phase="join"]')).toBeVisible({ timeout: 5000 });
+  await expect(counter(page)).toHaveText("01 / 07");
+  await expect(form.getByLabel(join.steps.name.inputLabel)).toHaveValue("");
+  // Past the route delay: the old response has landed by now and must have been ignored.
+  await page.waitForTimeout(2500);
+  await expect(page.locator('[data-phase="join"]')).toHaveCount(1);
+  await expect(page.locator("[data-match-card]")).toHaveCount(0);
+  await expect(page.locator('[data-phase="building"], [data-phase="network"]')).toHaveCount(0);
+  await expect(counter(page)).toHaveText("01 / 07");
 });
 
 test("the whole flow works by keyboard alone", async ({ page }) => {
@@ -221,6 +272,9 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await page.keyboard.type("Build things.");
   await page.keyboard.press("Enter");
   await expect(heading(join.steps.resume.question)).toBeVisible();
+  await expect(card.getByText(/^Step 7 of 7\./)).toBeAttached();
+  await expect(card.getByText(join.nothingSent)).toBeVisible();
+  await expect(card.locator('[data-affiliation="inline"]')).toBeVisible();
   await expect(card.locator('[data-person="maya"]')).toBeFocused();
   // Nothing is picked yet, so the first arrow press picks the first person.
   await page.keyboard.press("ArrowRight");
@@ -228,7 +282,7 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-phase="building"]')).toBeVisible({ timeout: 8000 });
   await expect(networkPhase(page).or(page.locator("[data-build-log]"))).toBeVisible({ timeout: 20_000 });
-  await page.locator("[data-phase-heading]").focus();
+  await expect(page.locator('[data-phase="building"] [data-phase-heading]')).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip })).toBeFocused();
   await page.keyboard.press("Enter");
@@ -265,12 +319,17 @@ test.describe("reduced motion", () => {
 
   test("the switch completes with no sweep", async ({ page }) => {
     await page.goto("/speedrun");
-    await switchButton(page).click();
+    // play() starts the strip's animation synchronously inside the click, so read it in the same tick.
+    const [animations, visibility] = await page.evaluate((label) => {
+      const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
+      const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
+      button.click();
+      return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
+    }, speedrunCopy.shift.button);
+    expect([animations, visibility]).toEqual([0, "hidden"]);
     await expect(joinPhase(page)).toBeVisible({ timeout: 4000 });
     await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
-    const strip = page.locator("[data-shift-strip]");
-    await expect(strip).toBeHidden();
-    expect(await strip.evaluate((el) => el.getAnimations().length)).toBe(0);
+    await expect(page.locator("[data-shift-strip]")).toBeHidden();
   });
 
   test("the skip path lands on the network with no Continue press", async ({ page }) => {
