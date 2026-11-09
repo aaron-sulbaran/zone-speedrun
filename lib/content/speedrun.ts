@@ -146,7 +146,7 @@ export const speedrunCopy = {
       founder: "Founding",
     } as Record<Fn, string>,
     placeChips: ["Remote", "San Francisco", "New York", "Austin", "Los Angeles"],
-    building: "Building your board.",
+    building: "Building your network.",
     error: "That did not load.",
     retry: "Try again",
     stepWord: "Step",
