@@ -13,48 +13,49 @@ const PAIRS = [
 /** One whole pair or nothing: a half-set pair never configures the store. */
 export function limitStore(env: Record<string, string | undefined>): LimitStore | null {
   for (const [urlName, tokenName] of PAIRS) {
-    const url = env[urlName];
-    const token = env[tokenName];
-    if (url && token) return { url, token };
+    const url = env[urlName]?.trim();
+    const token = env[tokenName]?.trim();
+    if (url && token && url.startsWith("https://")) return { url, token };
   }
   return null;
 }
 
 export type WindowSpec = { prefix: string; max: number; window: `${number} ${"s" | "m" | "h" | "d"}` };
-type DailySpec = { prefix: string; max: number; window: "1 d" };
+export type MakeSpec =
+  | ({ kind: "perKey" } & WindowSpec)
+  | { kind: "daily"; prefix: string; max: number };
 
 export type RatelimitLike = {
   limit: (key: string) => Promise<{ success: boolean; reset: number; reason?: string }>;
 };
 
 const UNAVAILABLE_MS = 60_000;
-const DENIED_UNAVAILABLE: LimitVerdict = { ok: false, retryAfterMs: UNAVAILABLE_MS };
 
 export function createSharedLimiter(
   spec: { perKey: WindowSpec; daily?: { prefix: string; max: number } },
   deps: {
-    make: (w: WindowSpec | DailySpec) => RatelimitLike | null;
+    make: (w: MakeSpec) => RatelimitLike | null;
     now?: () => number;
     log?: (line: string) => void;
   },
 ): (key: string) => Promise<LimitVerdict> {
   const now = deps.now ?? Date.now;
   const log = deps.log ?? ((line: string) => console.warn(line));
-  const perKeyLimiter = deps.make(spec.perKey);
-  const dailyLimiter = spec.daily ? deps.make({ ...spec.daily, window: "1 d" }) : undefined;
+  const perKeyLimiter = deps.make({ kind: "perKey", ...spec.perKey });
+  const dailyLimiter = spec.daily ? deps.make({ kind: "daily", ...spec.daily }) : undefined;
 
   const unavailable = (): LimitVerdict => {
     log("[speedrun] limits unavailable");
-    return DENIED_UNAVAILABLE;
+    return { ok: false, retryAfterMs: UNAVAILABLE_MS };
   };
 
   return async (key) => {
     if (!perKeyLimiter || (spec.daily && !dailyLimiter)) return unavailable();
     const digest = createHash("sha256").update(key).digest("hex");
     try {
-      const steps: [RatelimitLike, string][] = [];
+      // Per-key first: only a request that passes its own window spends a daily slot.
+      const steps: [RatelimitLike, string][] = [[perKeyLimiter, digest]];
       if (dailyLimiter) steps.push([dailyLimiter, "daily"]);
-      steps.push([perKeyLimiter, digest]);
       for (const [limiter, limiterKey] of steps) {
         const result = await limiter.limit(limiterKey);
         // Upstash lets a timed-out request through; here that is a denial.
@@ -68,15 +69,26 @@ export function createSharedLimiter(
   };
 }
 
-export function upstashMaker(store: LimitStore | null): (w: WindowSpec | DailySpec) => RatelimitLike | null {
+/** Never throws: a bad URL or token yields a maker that returns null, which denies every call. */
+export function upstashMaker(store: LimitStore | null): (w: MakeSpec) => RatelimitLike | null {
   if (!store) return () => null;
-  const redis = new Redis({ url: store.url, token: store.token });
-  return (w) =>
-    new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(w.max, w.window),
-      prefix: w.prefix,
-      timeout: 1000,
-      analytics: false,
-    });
+  let redis: Redis;
+  try {
+    redis = new Redis({ url: store.url, token: store.token, retry: { retries: 1 }, enableTelemetry: false });
+  } catch {
+    return () => null;
+  }
+  return (w) => {
+    try {
+      return new Ratelimit({
+        redis,
+        limiter: w.kind === "daily" ? Ratelimit.fixedWindow(w.max, "1 d") : Ratelimit.slidingWindow(w.max, w.window),
+        prefix: w.prefix,
+        timeout: 1000,
+        analytics: false,
+      });
+    } catch {
+      return null;
+    }
+  };
 }

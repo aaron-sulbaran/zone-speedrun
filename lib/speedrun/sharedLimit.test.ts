@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createSharedLimiter, limitStore, type RatelimitLike } from "./sharedLimit";
+import { createSharedLimiter, limitStore, upstashMaker, type RatelimitLike } from "./sharedLimit";
 
 const IP = "203.0.113.9";
 const digest = createHash("sha256").update(IP).digest("hex");
@@ -26,31 +26,55 @@ const ok: Result = { success: true, reset: 0 };
 function build(per: ReturnType<typeof fake>, day?: ReturnType<typeof fake>, log: (l: string) => void = () => {}) {
   return createSharedLimiter(
     { perKey, daily },
-    { make: (w) => ("window" in w && w.window === "1 d" ? (day ?? fake([ok])).rl : per.rl), now: () => 1000, log },
+    { make: (w) => (w.kind === "daily" ? (day ?? fake([ok])).rl : per.rl), now: () => 1000, log },
   );
 }
 
 describe("limitStore", () => {
   it("reads the KV pair", () => {
-    expect(limitStore({ KV_REST_API_URL: "u", KV_REST_API_TOKEN: "t" })).toEqual({ url: "u", token: "t" });
+    expect(limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "t" })).toEqual({ url: "https://u.example", token: "t" });
   });
   it("reads the UPSTASH pair", () => {
-    expect(limitStore({ UPSTASH_REDIS_REST_URL: "u2", UPSTASH_REDIS_REST_TOKEN: "t2" })).toEqual({ url: "u2", token: "t2" });
+    expect(limitStore({ UPSTASH_REDIS_REST_URL: "https://u2.example", UPSTASH_REDIS_REST_TOKEN: "t2" })).toEqual({ url: "https://u2.example", token: "t2" });
   });
   it("is null for a URL without a token", () => {
-    expect(limitStore({ KV_REST_API_URL: "u" })).toBeNull();
-    expect(limitStore({ KV_REST_API_URL: "u", KV_REST_API_TOKEN: "" })).toBeNull();
+    expect(limitStore({ KV_REST_API_URL: "https://u.example" })).toBeNull();
+    expect(limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "" })).toBeNull();
   });
   it("is null for none", () => {
     expect(limitStore({})).toBeNull();
   });
   it("prefers KV when both are set", () => {
     expect(
-      limitStore({ KV_REST_API_URL: "u", KV_REST_API_TOKEN: "t", UPSTASH_REDIS_REST_URL: "u2", UPSTASH_REDIS_REST_TOKEN: "t2" }),
-    ).toEqual({ url: "u", token: "t" });
+      limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "t", UPSTASH_REDIS_REST_URL: "https://u2.example", UPSTASH_REDIS_REST_TOKEN: "t2" }),
+    ).toEqual({ url: "https://u.example", token: "t" });
   });
   it("never mixes halves of two pairs", () => {
-    expect(limitStore({ KV_REST_API_URL: "u", UPSTASH_REDIS_REST_TOKEN: "t2" })).toBeNull();
+    expect(limitStore({ KV_REST_API_URL: "https://u.example", UPSTASH_REDIS_REST_TOKEN: "t2" })).toBeNull();
+  });
+});
+
+describe("limitStore urls", () => {
+  it("accepts only trimmed https URLs", () => {
+    expect(limitStore({ KV_REST_API_URL: " https://a.example \n", KV_REST_API_TOKEN: "t" })).toEqual({ url: "https://a.example", token: "t" });
+    expect(limitStore({ KV_REST_API_URL: "http://a.example", KV_REST_API_TOKEN: "t" })).toBeNull();
+  });
+});
+
+describe("upstashMaker", () => {
+  it("returns a null maker for no store", () => {
+    expect(upstashMaker(null)({ kind: "daily", prefix: "p", max: 1 })).toBeNull();
+  });
+  it("builds a 1000 ms timeout limiter without touching the network", () => {
+    const rl = upstashMaker({ url: "https://example.invalid", token: "t" })({ kind: "perKey", ...perKey });
+    expect((rl as unknown as { timeout: number }).timeout).toBe(1000);
+  });
+  it("does not throw on a bad URL, and the limiter denies", async () => {
+    const lines: string[] = [];
+    const make = upstashMaker({ url: "https://bad host\n", token: "secret-token" });
+    const lim = createSharedLimiter({ perKey, daily }, { make, log: (l) => lines.push(l) });
+    expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 60_000 });
+    expect(lines.join("")).not.toContain("secret-token");
   });
 });
 
@@ -63,11 +87,29 @@ describe("createSharedLimiter", () => {
     const lim = build(fake([{ success: false, reset: 6000 }]));
     expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 5000 });
   });
-  it("short-circuits on the daily cap", async () => {
-    const per = fake([ok]);
-    const lim = build(per, fake([{ success: false, reset: 11000 }]));
+  it("denies on the daily cap after the per-key window passes", async () => {
+    const lim = build(fake([ok]), fake([{ success: false, reset: 11000 }]));
     expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 10000 });
-    expect(per.keys).toEqual([]);
+  });
+  it("a per-key denial never calls the daily fake", async () => {
+    const day = fake([ok]);
+    const lim = build(fake([{ success: false, reset: 6000 }]), day);
+    expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 5000 });
+    expect(day.keys).toEqual([]);
+  });
+  it("a past reset gives retryAfterMs 1", async () => {
+    expect(await build(fake([{ success: false, reset: 10 }]))(IP)).toEqual({ ok: false, retryAfterMs: 1 });
+  });
+  it("a timeout on the daily step denies", async () => {
+    const lim = build(fake([ok]), fake([{ success: true, reset: 0, reason: "timeout" }]));
+    expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 60_000 });
+  });
+  it("denies when only the daily limiter is null", async () => {
+    const lim = createSharedLimiter(
+      { perKey, daily },
+      { make: (w) => (w.kind === "daily" ? null : fake([ok]).rl), log: () => {} },
+    );
+    expect(await lim(IP)).toEqual({ ok: false, retryAfterMs: 60_000 });
   });
   it("treats a timeout as a denial and logs once", async () => {
     const lines: string[] = [];

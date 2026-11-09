@@ -213,6 +213,16 @@ describe("speedrun leak guard", () => {
     }
   });
 
+  it("lets only sharedLimit.ts import the Upstash packages", () => {
+    for (const file of files.filter((entry) => !entry.endsWith(".json"))) {
+      const source = readFileSync(path.join(REPO_ROOT, file), "utf8");
+      const imports = [...source.matchAll(IMPORT_PATTERN)].map((match) => match[1]);
+      const usesUpstash = imports.some((specifier) => specifier.startsWith("@upstash/"));
+      if (file === "lib/speedrun/sharedLimit.ts" || file === "lib/speedrun/sharedLimit.test.ts") continue;
+      expect(usesUpstash, `${file} imports an @upstash package`).toBe(false);
+    }
+  });
+
   it("contains no em dash", () => {
     const emDash = String.fromCharCode(0x2014);
     for (const file of files) {
