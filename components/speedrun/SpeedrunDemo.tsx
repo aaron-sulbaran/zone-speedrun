@@ -4,6 +4,7 @@ import { useEffect, useMemo, useReducer, useState } from "react";
 import { composeBuildLog } from "@/lib/speedrun/buildLog";
 import { demoReducer, initialDemoState, MAX_PLACES, type Live } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion } from "@/lib/speedrun/motion";
+import { toIntake } from "@/lib/speedrun/onboarding";
 import { postResume } from "@/lib/speedrun/readClient";
 import type { MatchResult } from "@/lib/speedrun/match";
 import type { Intake, Profile } from "@/lib/speedrun/types";
@@ -34,7 +35,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   const [loggedFor, setLoggedFor] = useState<MatchResult | null>(null);
   const [skippedLog, setSkippedLog] = useState(false);
   const [heroSkipped, setHeroSkipped] = useState(false);
-  const { step, personKey, intake, profile, result } = state;
+  const { step, personKey, intake, profile, result, buildId } = state;
   // A failure belongs to one build (person and attempt), so a new build starts clean.
   const buildKey = `${personKey}:${attempt}`;
   const failed = failedKey === buildKey;
@@ -45,7 +46,7 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
     if (step !== "building" || !personKey) return;
     const controller = new AbortController();
     fetchMatches(intake, personKey, controller.signal)
-      .then(({ profile, result }) => dispatch({ type: "built", profile, result }))
+      .then(({ profile, result }) => dispatch({ type: "built", buildId, profile, result }))
       .catch(() => {
         if (!controller.signal.aborted) setFailedKey(buildKey);
       });
@@ -56,10 +57,11 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
 
   // An upload skips the sample fetch: the read route answers with the profile and the ranked matches.
   const readUpload = async (file: File) => {
+    const uploadId = state.buildId + 1;
     dispatch({ type: "uploaded" });
-    const outcome = await postResume(file, state.answers);
+    const outcome = await postResume(file, toIntake(state.answers));
     if (outcome.ok) {
-      dispatch({ type: "built", profile: outcome.profile, result: outcome.result });
+      dispatch({ type: "built", buildId: uploadId, profile: outcome.profile, result: outcome.result });
       return;
     }
     dispatch({ type: "uploadFailed", error: outcome.error });

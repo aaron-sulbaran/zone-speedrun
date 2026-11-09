@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoReducer, initialDemoState, type DemoState } from "./demoState";
+import { stepsFor } from "./onboarding";
 import { PEOPLE } from "./people";
 import type { BoardCard } from "./types";
 
@@ -11,7 +12,7 @@ function everyCardOnce(state: DemoState) {
 }
 
 describe("demoReducer join steps", () => {
-  it("walks joinStep 0 to 3 and stops there", () => {
+  it("walks joinStep to the last step and stops there", () => {
     let state = initialDemoState(LIVE);
     state = demoReducer(state, { type: "answer", patch: { targets: ["design"] } });
     const seen: number[] = [state.joinStep];
@@ -19,7 +20,9 @@ describe("demoReducer join steps", () => {
       state = demoReducer(state, { type: "next" });
       seen.push(state.joinStep);
     }
-    expect(seen).toEqual([0, 1, 2, 3, 3, 3]);
+    expect(seen).toEqual([0, 1, 2, 3, 4, 5]);
+    for (let i = 0; i < 5; i++) state = demoReducer(state, { type: "next" });
+    expect(state.joinStep).toBe(6);
     expect(state.intake.targets).toEqual(["design"]);
     expect(state.step).toBe("join");
   });
@@ -39,6 +42,7 @@ describe("demoReducer join steps", () => {
     let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { places: ["Remote"] } });
     state = demoReducer(state, { type: "answer", patch: { why: "Build." } });
     expect(state.intake).toEqual({ targets: [], places: ["Remote"], why: "Build." });
+    expect(state.answers.name).toBe("");
   });
 });
 
@@ -63,7 +67,7 @@ describe("demoReducer pickPerson", () => {
     let state = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "dev" });
     state = demoReducer(state, { type: "pickPerson", key: "sam" });
     expect(state.intake).toEqual(PEOPLE.sam.intake);
-    expect(state.answers).toEqual({ targets: [], places: [], why: "" });
+    expect(state.answers).toEqual(initialDemoState(LIVE).answers);
   });
 
   it("keeps the visitor's answers across re-picks", () => {
@@ -97,11 +101,11 @@ describe("demoReducer pickPerson", () => {
   it("reaches ready once built, and reset returns to the start", () => {
     let state = demoReducer(initialDemoState({ reading: true, email: false }), { type: "pickPerson", key: "sam" });
     const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
-    state = demoReducer(state, { type: "built", profile: PEOPLE.sam.profile, result });
+    state = demoReducer(state, { type: "built", buildId: state.buildId, profile: PEOPLE.sam.profile, result });
     expect(state.step).toBe("ready");
     expect(state.profile).toBe(PEOPLE.sam.profile);
     state = demoReducer(state, { type: "reset" });
-    expect(state).toEqual(initialDemoState({ reading: true, email: false }));
+    expect({ ...state, buildId: 0 }).toEqual(initialDemoState({ reading: true, email: false }));
   });
 
   it("moves to building on upload, then to ready from the response", () => {
@@ -110,7 +114,7 @@ describe("demoReducer pickPerson", () => {
     expect(state.personKey).toBeNull();
     expect(state.profile).toBeNull();
     const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
-    state = demoReducer(state, { type: "built", profile: PEOPLE.lena.profile, result });
+    state = demoReducer(state, { type: "built", buildId: state.buildId, profile: PEOPLE.lena.profile, result });
     expect(state.step).toBe("ready");
     expect(state.profile).toBe(PEOPLE.lena.profile);
   });
@@ -129,6 +133,69 @@ describe("demoReducer pickPerson", () => {
     expect(demoReducer(failed, { type: "uploaded" }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "pickPerson", key: "sam" }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "reset" }).uploadError).toBeNull();
+  });
+});
+
+describe("demoReducer onboarding answers", () => {
+  const result = { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
+
+  it("drops arrangements and seniority when student flips back to no", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { student: true } });
+    state = demoReducer(state, { type: "answer", patch: { arrangements: ["between"] } });
+    expect(state.intake.seniority).toBe("intern");
+    for (let i = 0; i < 4; i++) state = demoReducer(state, { type: "next" });
+    expect(state.joinStep).toBe(4);
+    state = demoReducer(state, { type: "answer", patch: { student: false } });
+    expect(state.answers.arrangements).toEqual([]);
+    expect(stepsFor(state.answers)).toHaveLength(7);
+    expect(state.joinStep).toBeLessThanOrEqual(6);
+    expect(state.intake.seniority).toBeUndefined();
+  });
+
+  it("clamps joinStep into the shorter list", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { student: true } });
+    for (let i = 0; i < 9; i++) state = demoReducer(state, { type: "next" });
+    expect(state.joinStep).toBe(7);
+    state = demoReducer(state, { type: "answer", patch: { student: false } });
+    expect(state.joinStep).toBe(6);
+  });
+
+  it("counts founding and student as answers the match uses", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { founding: true } });
+    state = demoReducer(state, { type: "pickPerson", key: "dev" });
+    expect(state.intake.founding).toBe(true);
+  });
+
+  it("keeps the name out of the intake", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "answer", patch: { name: "Alex", targets: ["data"] } });
+    expect(JSON.stringify(state.intake)).not.toContain("Alex");
+    state = demoReducer(state, { type: "pickPerson", key: "dev" });
+    expect(JSON.stringify(state.intake)).not.toContain("Alex");
+  });
+
+  it("ignores a stale build after reset", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" });
+    const stale = state.buildId;
+    state = demoReducer(state, { type: "reset" });
+    expect(state.buildId).not.toBe(stale);
+    state = demoReducer(state, { type: "built", buildId: stale, profile: PEOPLE.sam.profile, result });
+    expect(state.profile).toBeNull();
+    expect(state.result).toBeNull();
+    expect(state.step).toBe("join");
+  });
+
+  it("ignores a stale build for a replaced pick", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" });
+    const stale = state.buildId;
+    state = demoReducer(state, { type: "pickPerson", key: "dev" });
+    state = demoReducer(state, { type: "built", buildId: stale, profile: PEOPLE.sam.profile, result });
+    expect(state.step).toBe("building");
+    expect(state.profile).toBeNull();
+  });
+
+  it("ignores built while on the join step", () => {
+    const state = initialDemoState(LIVE);
+    expect(demoReducer(state, { type: "built", buildId: state.buildId, profile: PEOPLE.sam.profile, result })).toBe(state);
   });
 });
 

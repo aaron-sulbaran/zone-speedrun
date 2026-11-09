@@ -1,5 +1,6 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
+import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
 import type { BoardCard, InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
@@ -8,9 +9,12 @@ export type Live = { reading: boolean; email: boolean };
 
 export type DemoState = {
   step: "join" | "building" | "ready";
-  joinStep: 0 | 1 | 2 | 3;
+  /** An index into stepsFor(answers). */
+  joinStep: number;
   /** What the visitor typed and picked; never overwritten by a sample person. */
-  answers: Intake;
+  answers: Answers;
+  /** Bumped by every new build, so a late response from an old one is ignored. */
+  buildId: number;
   /** What the match uses: the visitor's answers, or the picked person's own when none were given. */
   intake: Intake;
   inboxConnected: boolean;
@@ -27,7 +31,7 @@ export type DemoState = {
 };
 
 export type DemoAction =
-  | { type: "answer"; patch: Partial<Intake> }
+  | { type: "answer"; patch: Partial<Answers> }
   | { type: "connectInbox"; on: boolean }
   | { type: "connectCalendar"; on: boolean }
   | { type: "next" }
@@ -35,7 +39,7 @@ export type DemoAction =
   | { type: "pickPerson"; key: PersonKey }
   | { type: "uploaded" }
   | { type: "uploadFailed"; error: UploadErrorKey }
-  | { type: "built"; profile: Profile; result: MatchResult }
+  | { type: "built"; buildId: number; profile: Profile; result: MatchResult }
   | { type: "addEvents"; events: InboxEvent[] }
   | { type: "moveCard"; card: BoardCard; to: number }
   | { type: "toggleCard"; card: BoardCard }
@@ -49,8 +53,9 @@ export function initialDemoState(live: Live): DemoState {
   return {
     step: "join",
     joinStep: 0,
-    answers: { targets: [], places: [], why: "" },
-    intake: { targets: [], places: [], why: "" },
+    answers: { ...EMPTY_ANSWERS },
+    buildId: 0,
+    intake: toIntake(EMPTY_ANSWERS),
     inboxConnected: false,
     calendarConnected: false,
     personKey: null,
@@ -64,8 +69,18 @@ export function initialDemoState(live: Live): DemoState {
   };
 }
 
-function hasAnswers(intake: Intake) {
-  return intake.targets.length > 0 || intake.places.length > 0 || intake.why.trim().length > 0;
+function hasAnswers(answers: Answers) {
+  return (
+    answers.targets.length > 0 ||
+    answers.places.length > 0 ||
+    answers.why.trim().length > 0 ||
+    answers.student !== null ||
+    answers.founding !== null
+  );
+}
+
+function clampStep(answers: Answers, joinStep: number) {
+  return Math.max(0, Math.min(stepsFor(answers).length - 1, joinStep));
 }
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
@@ -73,23 +88,25 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "answer": {
       const answers = { ...state.answers, ...action.patch };
       answers.places = answers.places.slice(0, MAX_PLACES);
-      return { ...state, answers, intake: answers };
+      if (answers.student !== true) answers.arrangements = [];
+      return { ...state, answers, joinStep: clampStep(answers, state.joinStep), intake: toIntake(answers) };
     }
     case "connectInbox":
       return { ...state, inboxConnected: action.on };
     case "connectCalendar":
       return { ...state, calendarConnected: action.on };
     case "next":
-      return { ...state, joinStep: Math.min(3, state.joinStep + 1) as DemoState["joinStep"] };
+      return { ...state, joinStep: clampStep(state.answers, state.joinStep + 1) };
     case "back":
-      return { ...state, joinStep: Math.max(0, state.joinStep - 1) as DemoState["joinStep"] };
+      return { ...state, joinStep: clampStep(state.answers, state.joinStep - 1) };
     case "pickPerson": {
       const person = PEOPLE[action.key];
       return {
         ...state,
         step: "building",
+        buildId: state.buildId + 1,
         personKey: action.key,
-        intake: hasAnswers(state.answers) ? state.answers : person.intake,
+        intake: hasAnswers(state.answers) ? toIntake(state.answers) : person.intake,
         profile: null,
         result: null,
         boardOrder: [...person.boardOrder],
@@ -100,10 +117,11 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
+      return { ...state, step: "building", buildId: state.buildId + 1, personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
     case "uploadFailed":
       return state.step === "building" && state.personKey === null ? { ...state, step: "join", uploadError: action.error } : state;
     case "built":
+      if (state.step !== "building" || action.buildId !== state.buildId) return state;
       return { ...state, step: "ready", profile: action.profile, result: action.result };
     case "addEvents":
       return { ...state, events: [...state.events, ...action.events] };
@@ -129,6 +147,6 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       };
     }
     case "reset":
-      return initialDemoState(state.live);
+      return { ...initialDemoState(state.live), buildId: state.buildId + 1 };
   }
 }

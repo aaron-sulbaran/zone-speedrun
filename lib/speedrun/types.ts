@@ -7,7 +7,7 @@ export const PERSON_KEYS = ["maya", "ravi", "sam", "lena", "dev"] as const;
 export const READ_ERRORS = ["bad_input", "too_large", "unreadable", "slow_down", "live_off", "bot", "internal"] as const;
 export type ReadError = (typeof READ_ERRORS)[number];
 
-export type Intake = { targets: Fn[]; places: string[]; why: string };
+export type Intake = { targets: Fn[]; places: string[]; why: string; seniority?: "intern" | "new_grad"; founding?: boolean };
 
 export type Profile = {
   firstName: string;

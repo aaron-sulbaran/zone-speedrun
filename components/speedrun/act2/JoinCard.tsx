@@ -4,13 +4,13 @@ import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent } from "
 import { Affiliation } from "@/components/speedrun/Affiliation";
 import { SpeedrunLogo } from "@/components/speedrun/SpeedrunLogo";
 import { speedrunCopy } from "@/lib/content";
+import { stepsFor } from "@/lib/speedrun/onboarding";
 import { MAX_PLACES, type DemoAction, type DemoState } from "@/lib/speedrun/demoState";
 import { prefersReducedMotion, SR_EASE, SR_STEP_MS } from "@/lib/speedrun/motion";
 import { FNS, type PersonKey } from "@/lib/speedrun/types";
 import { Chip } from "./Chip";
 import { PeoplePicker } from "./PeoplePicker";
 
-const STEP_KEYS = ["targets", "places", "why", "resume"] as const;
 const pad = (n: number) => String(n).padStart(2, "0");
 const FROSTED_INPUT = "w-full rounded-2xl bg-sr-hud px-4 py-3 text-base font-semibold text-sr-ink backdrop-blur placeholder:text-sr-sec focus:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 
@@ -28,7 +28,11 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   const copy = speedrunCopy.join;
   const { joinStep } = state;
   const intake = state.answers;
-  const stepKey = STEP_KEYS[joinStep];
+  const steps = stepsFor(state.answers);
+  const total = steps.length;
+  const stepKey = steps[joinStep];
+  // The name, student, arrangements and founding steps have no UI until the onboarding rewrite.
+  const hasUi = stepKey === "targets" || stepKey === "places" || stepKey === "why" || stepKey === "resume";
   const [selected, setSelected] = useState<PersonKey | null>(null);
   const [typedPlace, setTypedPlace] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -41,16 +45,17 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
     previous.current = joinStep;
     if (from === joinStep) return;
     // Focus follows the step: the why input is its first control, otherwise the question.
-    (joinStep === 2 ? whyRef.current : headingRef.current)?.focus({ preventScroll: true });
+    (stepKey === "why" ? whyRef.current : headingRef.current)?.focus({ preventScroll: true });
     if (prefersReducedMotion()) return;
     const rise = joinStep > from ? 16 : -16;
     bodyRef.current?.animate(
       [{ opacity: 0, transform: `translateY(${rise}px)` }, { opacity: 1, transform: "translateY(0)" }],
       { duration: SR_STEP_MS, easing: SR_EASE },
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinStep]);
 
-  const last = joinStep === 3;
+  const last = joinStep === total - 1;
   const proceed = () => {
     if (!last) dispatch({ type: "next" });
     else if (selected) dispatch({ type: "pickPerson", key: selected });
@@ -84,7 +89,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
 
   const placeChips = [...copy.placeChips, ...intake.places.filter((p) => !copy.placeChips.includes(p))];
   const placesFull = intake.places.length >= MAX_PLACES;
-  const question = copy.steps[stepKey].question;
+  const question = hasUi ? copy.steps[stepKey].question : "";
   const resumeHelper = state.live.reading ? copy.steps.resume.helperLive : copy.steps.resume.helper;
 
   return (
@@ -100,17 +105,17 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
         <SpeedrunLogo className="h-4 w-auto" />
         <span className="whitespace-nowrap font-srcond text-[11px] uppercase tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">{copy.label}</span>
         <span aria-hidden="true" className="ml-auto whitespace-nowrap font-srcond text-[11px] tabular-nums tracking-wider text-sr-ink2 sm:text-xs sm:tracking-widest">
-          {pad(joinStep + 1)} / 04
+          {pad(joinStep + 1)} / {pad(total)}
         </span>
         <p className="sr-only" aria-live="polite">
-          {`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} 4.${joinStep === 2 ? ` ${question}` : ""}`}
+          {`${copy.stepWord} ${joinStep + 1} ${copy.stepOf} ${total}.${stepKey === "why" ? ` ${question}` : ""}`}
         </p>
       </div>
       <div className="mx-6 mt-4 h-1 overflow-hidden rounded-full bg-sr-soft md:mx-8" role="presentation">
         <div
           data-progress=""
           className="h-full rounded-full transition-[width] duration-[260ms] ease-sr motion-reduce:transition-none"
-          style={{ width: `${((joinStep + 1) / 4) * 100}%`, backgroundImage: "var(--sr-grad-accent)" }}
+          style={{ width: `${((joinStep + 1) / total) * 100}%`, backgroundImage: "var(--sr-grad-accent)" }}
         />
       </div>
       <div ref={bodyRef} className="px-6 pb-6 pt-6 md:px-8">
