@@ -335,3 +335,45 @@ git commit -m "Speedrun page: a dev-only panel to tune the switch and step motio
 git add e2e/speedrun-flow.ts e2e/speedrun.spec.ts e2e/speedrun-board.spec.ts e2e/speedrun-brief.spec.ts e2e/speedrun-matches.spec.ts e2e/speedrun-upload.spec.ts e2e/speedrun-egg.spec.ts
 git commit -m "Speedrun page: e2e for the phased flow, both resets and the name never leaving the page"
 ```
+
+---
+
+### Task 8: Keep their snapshot and logos out of the public mirror (board D21, added 2026-11-08)
+
+Aaron's answer on D21 ("Site only"): the private site keeps the real snapshot and every logo; the public mirror ships a made-up stand-in instead.
+
+**Files:**
+- Create: `lib/speedrun/snapshot.public.json` (a made-up stand-in, about 8 fictional companies and 20 roles, every name invented and checked not to be a real company), `public/speedrun/standin/*.svg` (simple placeholder marks, one per stand-in company, drawn from initials; no real logos), `lib/speedrun/snapshot.public.test.ts`
+- Modify: `scripts/public-repo/public-export.json`, `lib/speedrun/snapshot.ts` (export `snapshotSchema` if it is private)
+
+**Interfaces:**
+- Produces: `snapshotSchema` exported from `lib/speedrun/snapshot.ts` (unchanged shape).
+- Export config:
+  - Deny `lib/speedrun/snapshot.json` and `public/speedrun/companies/**`. Deny wins over the existing `lib/speedrun/**` and `public/speedrun/**` allows; read `scripts/public-repo/filter_rules.py` for the precedence.
+  - Add a `rename` entry mapping `lib/speedrun/snapshot.public.json` to `lib/speedrun/snapshot.json`, so the mirror's `getSnapshot()` loads the stand-in with no code change.
+  - Keep `public/speedrun/speedrun-logo.svg` allowed.
+  - Every new path has a rule.
+- Stand-in data:
+  - Every `logo` field points at `/speedrun/standin/<slug>.svg`.
+  - The data includes at least one role per function in `FNS`, interns and new-grad roles, one founding role, and one company with `slug` "speedrun" (the fund itself, as the real snapshot has).
+  - `fetchedAt` is an ISO date.
+
+- [ ] **Step 1: Write the failing test** `lib/speedrun/snapshot.public.test.ts`:
+  - `snapshotSchema.safeParse` of the stand-in succeeds.
+  - No stand-in company name or slug appears in the real `snapshot.json`.
+  - Every `logo` path has a matching file under `public/speedrun/standin/`.
+  - `rankMatches` with Sam's profile and intake over the stand-in returns at least one match. This keeps the mirror's demo usable.
+- [ ] **Step 2: Run it to see it fail.**
+  Run: `pnpm vitest run lib/speedrun/snapshot.public.test.ts`.
+  Expected: FAIL.
+- [ ] **Step 3: Implement** the stand-in, the marks and the export rules.
+- [ ] **Step 4: Verify the export.**
+  - Run `pnpm vitest run && pnpm tsc --noEmit && pnpm lint`.
+  - Then run the export's dry run: read `scripts/public-repo/export.mjs` and `sync.mjs` for the dry-run flag, and **never pass `--push`**.
+  - Confirm three things:
+    - The verify step passes with no UNCLASSIFIED paths.
+    - The exported tree has `lib/speedrun/snapshot.json` equal to the stand-in.
+    - It has no `public/speedrun/companies/` directory.
+  - List, in the report and without fixing them, any other exported files that still quote real role titles or company names from the real snapshot (test fixtures, e2e). They are a follow-up decision for Aaron.
+- [ ] **Step 5: Commit** the new and changed files by name:
+  "Speedrun page: the public mirror ships a made-up stand-in snapshot and placeholder marks, never theirs".
