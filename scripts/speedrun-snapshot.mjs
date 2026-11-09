@@ -64,7 +64,7 @@ async function getAllJobs(query) {
   return jobs;
 }
 
-// The repo bans em dashes, and the public mirror rejects one word from fetched text.
+// The repo bans em dashes, and the fetched text is rewritten to say hiring where it says the r-word.
 const EM_DASH = String.fromCharCode(0x2014);
 const MIRROR_WORD = new RegExp(`${"recr"}${"uit"}(?!ers?\\b)\\w*`, "gi");
 
@@ -189,12 +189,13 @@ const roles = jobList.map((job) => ({
   excerpt: excerpts.get(job.id) ?? "",
 }));
 
-await mkdir(path.join(ROOT, "public/speedrun/companies"), { recursive: true });
+await mkdir(path.join(ROOT, "public/companies"), { recursive: true });
 await mkdir(path.join(ROOT, "lib/speedrun"), { recursive: true });
 for (const [localPath, bytes] of logoFiles) {
-  await writeFile(path.join(ROOT, "public", localPath), bytes);
+  // localPath carries the basePath (/speedrun/companies/x.png); the file sits at public/companies/x.png.
+  await writeFile(path.join(ROOT, "public", localPath.replace(/^\/speedrun/, "")), bytes);
 }
-await writeFile(path.join(ROOT, "public/speedrun/speedrun-logo.svg"), markText);
+await writeFile(path.join(ROOT, "public/speedrun-logo.svg"), markText);
 const snapshot = { fetchedAt: new Date().toISOString(), companies, roles, portfolio };
 const snapshotText = scrub(JSON.stringify(snapshot));
 await writeFile(path.join(ROOT, "lib/speedrun/snapshot.json"), `${snapshotText}\n`);
