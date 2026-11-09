@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef, useSyncExternalStore } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { COVER_EASE, motion, SR_EASE } from "@/lib/speedrun/motion";
 import { shiftReducer } from "@/lib/speedrun/shift";
+import { getMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
 
 // The turn line, the button, and the sweep. The sweep plays on the button only,
 // never on scroll. It covers the page from the right, calls onCovered while the
@@ -15,10 +16,13 @@ const REDUCE = "(prefers-reduced-motion: reduce)";
 // The band trails the cover: the accent fades through the speedrun hues to cream, then to nothing.
 const BAND_BG = "linear-gradient(90deg, var(--color-accent) 0%, var(--sr-purple) 22%, var(--sr-aqua) 58%, var(--sr-cream) 84%, transparent 100%)";
 
-type SwitchProps = { onCovered: () => void; onRevealStart: () => void; showTurn?: boolean };
+type SwitchProps = { onCovered: () => void; onRevealStart: () => void; showTurn?: boolean; playSignal?: number };
 
-export function Switch({ onCovered, onRevealStart, showTurn = true }: SwitchProps) {
+export function Switch({ onCovered, onRevealStart, showTurn = true, playSignal }: SwitchProps) {
   const copy = speedrunCopy.shift;
+  // A lab override of the band width re-renders the strip too.
+  useSyncExternalStore(subscribeMotion, getMotionOverrides, getMotionOverrides);
+  const { bandVw: stripBandVw } = motion();
   const [phase, send] = useReducer(shiftReducer, "idle");
   const stripRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLParagraphElement>(null);
@@ -91,6 +95,18 @@ export function Switch({ onCovered, onRevealStart, showTurn = true }: SwitchProp
     }, () => {});
   }
 
+  // The tuning panel's replay: a changed signal plays exactly as the button does.
+  const lastSignal = useRef(playSignal);
+  const playRef = useRef(play);
+  useEffect(() => {
+    playRef.current = play;
+  });
+  useEffect(() => {
+    if (playSignal === lastSignal.current) return;
+    lastSignal.current = playSignal;
+    playRef.current();
+  }, [playSignal]);
+
   return (
     <>
       {showTurn && (
@@ -111,15 +127,15 @@ export function Switch({ onCovered, onRevealStart, showTurn = true }: SwitchProp
         data-shift-strip=""
         data-speedrun=""
         aria-hidden="true"
-        className="pointer-events-none fixed inset-y-0 left-0 z-[39] flex w-[128vw]"
-        style={{ visibility: "hidden", transform: "translateX(100vw)" }}
+        className="pointer-events-none fixed inset-y-0 left-0 z-[39] flex"
+        style={{ width: `${100 + stripBandVw}vw`, visibility: "hidden", transform: "translateX(100vw)" }}
       >
         <div className="relative h-full w-screen bg-accent">
           <p ref={lineRef} className="absolute left-0 top-1/2 w-screen -translate-y-1/2 px-6 text-center font-display text-[clamp(28px,4vw,52px)] text-background" style={{ opacity: 0 }}>
             {copy.line}
           </p>
         </div>
-        <div className="h-full" style={{ width: `${motion().bandVw}vw`, background: BAND_BG }} />
+        <div className="h-full" style={{ width: `${stripBandVw}vw`, background: BAND_BG }} />
       </div>
     </>
   );

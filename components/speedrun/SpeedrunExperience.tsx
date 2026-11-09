@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import { INITIAL_PHASE, phaseEventFor, phaseReducer } from "@/lib/speedrun/phase";
 import { visitorName } from "./visitorName";
@@ -15,6 +16,12 @@ import { NetworkPhase } from "./phases/NetworkPhase";
 import { useDemoBuild } from "./useDemoBuild";
 import { usePhaseChange } from "./usePhaseChange";
 
+// The dev-only motion panel: the import sits behind NODE_ENV, so a production build drops it.
+const TuningPanel = process.env.NODE_ENV === "development" ? dynamic(() => import("./TuningPanel"), { ssr: false }) : null;
+
+const noopSubscribe = () => () => {};
+const wantsTuning = () => TuningPanel !== null && new URLSearchParams(window.location.search).has("tune");
+
 type ExperienceProps = { opener: ReactNode; live: Live; stats: DemoStats; themeClassName: string };
 
 // One phase on screen at a time. The opener is Aaron's page; the switch covers it
@@ -26,6 +33,9 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   const [arrivalKey, setArrivalKey] = useState(0);
   // The skip button asked for the board outright, so its build log never waits for a press.
   const [skipped, setSkipped] = useState(false);
+  const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
+  const [playSignal, setPlaySignal] = useState(0);
+  const [replayPending, setReplayPending] = useState(false);
   const { phase, tab } = phaseState;
   const { go, announcement } = usePhaseChange(phase, dispatchPhase);
   const { lines, failed, retry, readUpload } = useDemoBuild(state, dispatch);
@@ -55,6 +65,17 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
     go({ type: "replayTop" }, { onLeft: resetDemo });
   };
 
+  // The panel's replay: back to the opener, then play the switch once it shows.
+  useEffect(() => {
+    if (!replayPending || phase !== "opener") return;
+    setReplayPending(false);
+    setPlaySignal((n) => n + 1);
+  }, [replayPending, phase]);
+  const replaySwitch = () => {
+    setReplayPending(true);
+    if (phase !== "opener") replayTop();
+  };
+
   return (
     <>
       <SrZone active={phase !== "opener"} />
@@ -78,6 +99,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
       )}
       <Switch
         showTurn={phase === "opener"}
+        playSignal={playSignal}
         onCovered={() => {
           setHeld(true);
           go({ type: "enterJoin" }, { instant: true });
@@ -87,6 +109,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
           setArrivalKey((key) => key + 1);
         }}
       />
+      {TuningPanel && tuning && <TuningPanel onReplay={replaySwitch} />}
     </>
   );
 }
