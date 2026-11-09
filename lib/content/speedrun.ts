@@ -480,7 +480,7 @@ export const speedrunCopy = {
     // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
     links: [
       { key: "site", label: "My site", href: "/" },
-      { key: "quick", label: "The 30-second version", href: "/quick" },
+      { key: "quick", label: "MVP", href: "/quick" /* quickCopy.titleShort; kept literal so the page stays inside its import boundary (lib/speedrun/leak-guard.test.ts), pinned by lib/content/quick.test.ts */ },
       { key: "linkedin", label: "LinkedIn", href: null },
     ],
   },

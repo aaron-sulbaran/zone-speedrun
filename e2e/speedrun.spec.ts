@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
+import { quickCopy } from "../lib/content/quick";
 import { test, expect } from "./support/fixtures";
 import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, skipBuildLog, skipToSam } from "./speedrun-flow";
 
@@ -418,6 +419,7 @@ test("the decisions and the close are on the page", async ({ page }) => {
   await expect(links).toHaveCount(3);
   await expect(links.nth(0)).toHaveAttribute("href", "/");
   await expect(links.nth(1)).toHaveAttribute("href", "/quick");
+  await expect(links.nth(1)).toHaveText(quickCopy.titleShort);
   await expect(links.nth(2)).toHaveAttribute("href", linkedin ?? "");
   await expect(links.nth(2)).toHaveAttribute("target", "_blank");
   await expect(links.nth(2)).toHaveAttribute("rel", "noopener noreferrer");
