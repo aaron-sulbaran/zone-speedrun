@@ -210,7 +210,7 @@ The hero renders its end state with no motion yet (Task 3 adds the intro).
 - [ ] **Step 1: Write the failing tests.**
   - **`lib/content/speedrun.test.ts`:**
     - `act1.subtitle.count(AARON_ENTRIES.length)` contains "84 applications".
-    - No string in `speedrunCopy` contains "—".
+    - No string in `speedrunCopy` contains an em dash (U+2014).
   - **`e2e/speedrun-flow.ts`:** `playSwitch` clicks `getByRole("button", { name: speedrunCopy.act1.closing.button })`.
   - **New tests in `e2e/speedrun.spec.ts`,** each with its regression comment:
     - **"every word of the hero is in the server HTML":** `request.get("/speedrun")` contains the headline, the second line, "84 applications", p1, p2 and the three closing strings. *Catches: hero words rendered client-only.*
