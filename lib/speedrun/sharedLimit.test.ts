@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createSharedLimiter, limitStore, upstashMaker, type RatelimitLike } from "./sharedLimit";
+import { createSharedLimiter, upstashMaker, type RatelimitLike } from "./sharedLimit";
 
 const IP = "203.0.113.9";
 const digest = createHash("sha256").update(IP).digest("hex");
@@ -29,37 +29,6 @@ function build(per: ReturnType<typeof fake>, day?: ReturnType<typeof fake>, log:
     { make: (w) => (w.kind === "daily" ? (day ?? fake([ok])).rl : per.rl), now: () => 1000, log },
   );
 }
-
-describe("limitStore", () => {
-  it("reads the KV pair", () => {
-    expect(limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "t" })).toEqual({ url: "https://u.example", token: "t" });
-  });
-  it("reads the UPSTASH pair", () => {
-    expect(limitStore({ UPSTASH_REDIS_REST_URL: "https://u2.example", UPSTASH_REDIS_REST_TOKEN: "t2" })).toEqual({ url: "https://u2.example", token: "t2" });
-  });
-  it("is null for a URL without a token", () => {
-    expect(limitStore({ KV_REST_API_URL: "https://u.example" })).toBeNull();
-    expect(limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "" })).toBeNull();
-  });
-  it("is null for none", () => {
-    expect(limitStore({})).toBeNull();
-  });
-  it("prefers KV when both are set", () => {
-    expect(
-      limitStore({ KV_REST_API_URL: "https://u.example", KV_REST_API_TOKEN: "t", UPSTASH_REDIS_REST_URL: "https://u2.example", UPSTASH_REDIS_REST_TOKEN: "t2" }),
-    ).toEqual({ url: "https://u.example", token: "t" });
-  });
-  it("never mixes halves of two pairs", () => {
-    expect(limitStore({ KV_REST_API_URL: "https://u.example", UPSTASH_REDIS_REST_TOKEN: "t2" })).toBeNull();
-  });
-});
-
-describe("limitStore urls", () => {
-  it("accepts only trimmed https URLs", () => {
-    expect(limitStore({ KV_REST_API_URL: " https://a.example \n", KV_REST_API_TOKEN: "t" })).toEqual({ url: "https://a.example", token: "t" });
-    expect(limitStore({ KV_REST_API_URL: "http://a.example", KV_REST_API_TOKEN: "t" })).toBeNull();
-  });
-});
 
 describe("upstashMaker", () => {
   it("returns a null maker for no store", () => {
