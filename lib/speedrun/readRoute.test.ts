@@ -19,7 +19,7 @@ describe("read route limiters", () => {
         return async () => ({ ok: true, retryAfterMs: 0 });
       },
     }));
-    await import("../../app/speedrun/api/read/route");
+    await import("../../app/api/read/route");
     expect(keyed.map((spec) => spec.perKey?.prefix)).toEqual(["speedrun:read"]);
     expect(keyed[0].daily).toBeUndefined();
     expect(daily.map((spec) => spec.prefix)).toEqual(["speedrun:read:daily"]);
