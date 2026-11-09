@@ -14,50 +14,72 @@ const bodySchema = z.object({
   roleIds: z.array(z.string().max(64)).max(MAX_ROLE_IDS),
 });
 
-export type BriefError = "email_off" | "bot" | "bad_input" | "too_large" | "slow_down" | "send_failed" | "not_on_list";
+export type BriefError = "email_off" | "bot" | "bad_input" | "too_large" | "slow_down";
 
+/** One answer for every valid submission, so the response never says whether the address is on the list. */
 export type BriefOutcome =
-  | { status: 200; body: { sent: true } }
-  | { status: 400 | 403 | 413 | 502 | 503; body: { error: BriefError } }
+  | { status: 202; body: { accepted: true } }
+  | { status: 400 | 403 | 413 | 503; body: { error: BriefError } }
   | { status: 429; body: { error: "slow_down"; retryAfterMs: number } };
+
+/** What the delivery step reports, never with an address in it. */
+export type DeliveryNote = "not_on_list" | "throttled" | "send_failed";
 
 export type BriefMessage = { to: string; subject: string; html: string; text: string };
 
 export type BriefDeps = {
   live: boolean;
   isBot: () => Promise<boolean>;
-  /** Whether the address is on Aaron's list; checked before any limiter spends a slot. */
+  /** Whether the address is on Aaron's list; checked in the delivery step, after the response. */
   allowed: (email: string) => boolean;
-  /** Called with a digest of the address, so the limiter never holds the address itself. */
+  /** Called with a digest of the address, so the limiter never holds the address itself. Carries the daily cap. */
   allow: (key: string) => Promise<LimitVerdict>;
   /** The caller's own address on the network, limited separately from the email address. */
   allowIp: () => Promise<LimitVerdict>;
   send: (message: BriefMessage) => Promise<boolean>;
+  /** One line per failure kind; the route writes it to the log with no address. */
+  note?: (kind: DeliveryNote) => void;
 };
 
-const fail = (status: 400 | 403 | 413 | 502 | 503, error: BriefError): BriefOutcome => ({ status, body: { error } });
+export type BriefResult = {
+  outcome: BriefOutcome;
+  /** Runs after the response (the route hands it to `after()`); null when nothing is to be delivered. Never throws. */
+  deliver: (() => Promise<void>) | null;
+};
 
-// Pure: the switch, bot check, limiter and sender all arrive through `deps`.
+const fail = (status: 400 | 403 | 413 | 503, error: BriefError): BriefResult => ({
+  outcome: { status, body: { error } },
+  deliver: null,
+});
+
+// Pure: the switch, bot check, limiters and sender all arrive through `deps`.
 // The email is built from a sample person only, so no visitor text is ever in it.
-export async function handleBrief(body: unknown, deps: BriefDeps): Promise<BriefOutcome> {
+export async function handleBrief(body: unknown, deps: BriefDeps): Promise<BriefResult> {
   if (!deps.live) return fail(503, "email_off");
   if (await deps.isBot()) return fail(403, "bot");
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return fail(400, "bad_input");
   const { email, personKey, connected, roleIds } = parsed.data;
 
-  if (!deps.allowed(email)) return fail(403, "not_on_list");
-
+  // A 429 here depends on the caller only, never on the address.
   const ipVerdict = await deps.allowIp();
-  if (!ipVerdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: ipVerdict.retryAfterMs } };
+  if (!ipVerdict.ok) return { outcome: { status: 429, body: { error: "slow_down", retryAfterMs: ipVerdict.retryAfterMs } }, deliver: null };
 
-  const digest = createHash("sha256").update(email.toLowerCase()).digest("hex");
-  const verdict = await deps.allow(digest);
-  if (!verdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: verdict.retryAfterMs } };
-
-  const rendered = renderBriefEmail(sampleBrief(personKey, { connected, roleIds }), PEOPLE[personKey].profile.firstName);
-  const sent = await deps.send({ to: email, subject: rendered.subject, html: rendered.html, text: rendered.text });
-  return sent ? { status: 200, body: { sent: true } } : fail(502, "send_failed");
+  const note = deps.note ?? (() => {});
+  const deliver = async () => {
+    try {
+      if (!deps.allowed(email)) return note("not_on_list");
+      const digest = createHash("sha256").update(email.toLowerCase()).digest("hex");
+      const verdict = await deps.allow(digest);
+      if (!verdict.ok) return note("throttled");
+      const rendered = renderBriefEmail(sampleBrief(personKey, { connected, roleIds }), PEOPLE[personKey].profile.firstName);
+      const sent = await deps.send({ to: email, subject: rendered.subject, html: rendered.html, text: rendered.text });
+      if (!sent) note("send_failed");
+    } catch {
+      note("send_failed");
+    }
+  };
+  return { outcome: { status: 202, body: { accepted: true } }, deliver };
 }
 
 const RESEND_URL = "https://api.resend.com/emails";

@@ -426,17 +426,14 @@ export const speedrunCopy = {
     send: {
       button: "Send it to me",
       emailLabel: "Your email address",
-      note: "One email, now. This site keeps no list of addresses. Resend, the email service, keeps a delivery record of the one email it sends.",
+      note: "One email, now. This site doesn't keep your address. Resend, the email service, keeps a delivery record of the one email it sends.",
       off: "Email sending is off in this demo for now.",
-      sent: "Sent. Check your inbox.",
+      sent: "If that address is on the demo's list, the brief is on its way.",
       failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
       pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
       sampleOnly: "Only the sample briefs can be sent in this demo.",
-      listNote: "The demo only emails addresses on the speedrun team's list.",
-      errors: {
-        not_on_list: "That address isn't on the demo's list, so nothing was sent.",
-      },
+      listNote: "This demo only emails addresses Aaron has added to its list.",
     },
     footer:
       "You're getting this because you asked for it on aaronsulbaran.com/speedrun, a concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",

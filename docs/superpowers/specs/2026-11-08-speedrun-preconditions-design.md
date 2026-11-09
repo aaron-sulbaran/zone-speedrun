@@ -62,7 +62,7 @@ This work closes the first two in code. The third stays Aaron's step.
 ### The limits (my call: today's numbers, now shared)
 | Route | Limit |
 |---|---|
-| Read | 5 per 10 minutes per address, 300 a day overall |
+| Read | 5 per 10 minutes per address, 300 a day overall (R23: the per-address window is checked first, and the daily slot is taken only after the body passes validation) |
 | Brief | 3 an hour per recipient digest, 3 an hour per caller address, 50 a day overall |
 
 ### Recipient allowlist (`lib/speedrun/recipients.ts`)
@@ -71,8 +71,12 @@ This work closes the first two in code. The third stays Aaron's step.
   - case-insensitive and trimmed;
   - a domain entry matches that exact domain only, not its subdomains;
   - an empty or missing list allows nobody.
-- **The handler.** `handleBrief` checks the list after parsing and before the limiters. A refused address returns `403` with `{ error: "not_on_list" }`. That uses no limiter capacity and sends nothing.
-- **The page.** When email is on, the Brief tab says who can receive the demo email: one line, in the speedrun voice. A refused address shows a calm message rather than an error tone. All copy lives in `lib/content/speedrun.ts`.
+- **The handler (R22, supersedes the earlier 403).** The endpoint must not reveal whether an address is on the list, so every valid submission gets one answer, `202 { accepted: true }`.
+  - `handleBrief` checks, in order: the switch, the bot check, the body, then the caller's own window. A `429` there depends on the caller only.
+  - It returns the outcome plus `deliver`, a function that runs after the response. The route hands it to `after()` from `next/server`, which keeps the function alive on Vercel.
+  - `deliver` checks the list, then the address limiter (which carries the daily cap), then sends. An off-list address never reaches the limiter or the sender.
+  - `deliver` never throws. It logs one `[speedrun]` line per failure kind (not on the list, throttled, send failed), with no address. Not being on the list logs at `console.info`, so probes don't flood the error log.
+- **The page.** When email is on, the Brief tab says who can receive the demo email: one line, in the speedrun voice. After any accepted submission it shows one confirmation that does not say whether the address was on the list. All copy lives in `lib/content/speedrun.ts`.
 
 ### Routes
 - `app/speedrun/api/read/route.ts` and `app/speedrun/api/brief/route.ts` swap `createLimiter` for the shared limiter.
@@ -87,8 +91,9 @@ This work closes the first two in code. The third stays Aaron's step.
   - keys are digests (assert no raw address reaches the fake);
   - `liveFlags` with each missing piece;
   - the allowlist: exact, domain, case, whitespace, subdomain refused, empty list;
-  - `handleBrief` refusing an off-list address before any limiter or send;
-  - `handleRead` and `handleBrief` with async denials.
+  - `handleRead` and `handleBrief` with async denials;
+  - identical on-list and off-list responses, and a `deliver` that skips the limiter and sender for an off-list address;
+  - a refused read body (400, 413, 422) never spends the daily slot.
 - **e2e:** unchanged. Both switches stay off in every build the suite makes.
 - **Second-model review:** Codex, before reporting, because this touches a stranger's résumé and email address. Fix or log every finding.
 

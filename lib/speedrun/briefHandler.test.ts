@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { handleBrief, readBriefBody, sendWithResend, type BriefDeps } from "./briefHandler";
 import { BODY_CAPS } from "./guard";
-import { createLimiter } from "./guard";
+import { createSharedLimiter, type RatelimitLike } from "./sharedLimit";
 import { getSnapshot } from "./snapshot";
 
 const BODY = { email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] };
@@ -18,81 +18,130 @@ function deps(over: Partial<BriefDeps> = {}): BriefDeps {
   };
 }
 
+const accepted = { status: 202, body: { accepted: true } };
+const run = async (body: unknown, over: Partial<BriefDeps> = {}) => {
+  const result = await handleBrief(body, deps(over));
+  await result.deliver?.();
+  return result;
+};
+const allowOk = async () => ({ ok: true, retryAfterMs: 0 });
+const first = (mock: { mock: { calls: unknown[][] } }, n = 0) => (mock.mock.calls[n] as unknown as [{ to: string; subject: string; html: string; text: string }])[0];
+
 describe("handleBrief", () => {
   it("503 email_off when the switch is off, before any other work", async () => {
     const isBot = vi.fn(async () => false);
-    const out = await handleBrief(BODY, deps({ live: false, isBot }));
-    expect(out).toEqual({ status: 503, body: { error: "email_off" } });
+    const { outcome, deliver } = await handleBrief(BODY, deps({ live: false, isBot }));
+    expect(outcome).toEqual({ status: 503, body: { error: "email_off" } });
+    expect(deliver).toBeNull();
     expect(isBot).not.toHaveBeenCalled();
   });
 
   it("403 bot", async () => {
     const send = vi.fn(async () => true);
-    const out = await handleBrief(BODY, deps({ isBot: async () => true, send }));
-    expect(out).toEqual({ status: 403, body: { error: "bot" } });
+    const { outcome, deliver } = await handleBrief(BODY, deps({ isBot: async () => true, send }));
+    expect(outcome).toEqual({ status: 403, body: { error: "bot" } });
+    expect(deliver).toBeNull();
     expect(send).not.toHaveBeenCalled();
   });
 
   it("400 bad_input for a bad address, an unknown person, or no body", async () => {
     for (const body of [{ email: "nope", personKey: "sam", connected: true, roleIds: [] }, { email: "a@example.com", personKey: "you", connected: true, roleIds: [] }, { email: "a@example.com", personKey: "sam", connected: true }, { ...BODY, roleIds: ["1", "2", "3", "4", "5", "6", "7"] }, null, "x"]) {
-      const out = await handleBrief(body, deps());
-      expect(out).toEqual({ status: 400, body: { error: "bad_input" } });
+      const { outcome, deliver } = await handleBrief(body, deps());
+      expect(outcome).toEqual({ status: 400, body: { error: "bad_input" } });
+      expect(deliver).toBeNull();
     }
   });
 
-  it("429 with retryAfterMs when the limiter refuses", async () => {
-    const out = await handleBrief(BODY, deps({ allow: async () => ({ ok: false, retryAfterMs: 5000 }) }));
-    expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 5000 } });
+  it("429 with deliver null when the caller's own address is over its limit, before any list or address work", async () => {
+    const allow = vi.fn(allowOk);
+    const allowed = vi.fn(() => true);
+    const send = vi.fn(async () => true);
+    const { outcome, deliver } = await handleBrief(BODY, deps({ allow, allowed, send, allowIp: async () => ({ ok: false, retryAfterMs: 9000 }) }));
+    expect(outcome).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 9000 } });
+    expect(deliver).toBeNull();
+    expect(allow).not.toHaveBeenCalled();
+    expect(allowed).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("answers an on-list and an off-list valid submission with byte-identical responses", async () => {
+    const on = await handleBrief(BODY, deps({ allowed: () => true }));
+    const off = await handleBrief(BODY, deps({ allowed: () => false }));
+    expect(on.outcome).toEqual(accepted);
+    expect(JSON.stringify(off.outcome)).toBe(JSON.stringify(on.outcome));
+    expect(on.deliver).toBeTypeOf("function");
+    expect(off.deliver).toBeTypeOf("function");
+  });
+
+  it("the off-list deliver calls neither the address limiter nor send, and notes it once", async () => {
+    const allow = vi.fn(allowOk);
+    const send = vi.fn(async () => true);
+    const note = vi.fn();
+    const allowed = vi.fn(() => false);
+    await run(BODY, { allowed, allow, send, note });
+    expect(allowed).toHaveBeenCalledWith("ada@example.com");
+    expect(allow).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(note.mock.calls).toEqual([["not_on_list"]]);
+  });
+
+  it("the on-list deliver calls the address limiter and send once each, with nothing noted", async () => {
+    const allow = vi.fn(allowOk);
+    const send = vi.fn(async () => true);
+    const note = vi.fn();
+    await run(BODY, { allow, send, note });
+    expect(allow).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(note).not.toHaveBeenCalled();
+  });
+
+  it("nothing is spent before deliver runs", async () => {
+    const allow = vi.fn(allowOk);
+    const send = vi.fn(async () => true);
+    await handleBrief(BODY, deps({ allow, send }));
+    expect(allow).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("deliver notes throttled when the address limiter refuses, and sends nothing", async () => {
+    const send = vi.fn(async () => true);
+    const note = vi.fn();
+    const { outcome } = await run(BODY, { allow: async () => ({ ok: false, retryAfterMs: 5000 }), send, note });
+    expect(outcome).toEqual(accepted);
+    expect(send).not.toHaveBeenCalled();
+    expect(note.mock.calls).toEqual([["throttled"]]);
+  });
+
+  it("deliver notes send_failed when the sender says no or throws, and never throws itself", async () => {
+    const note = vi.fn();
+    await run(BODY, { send: async () => false, note });
+    await run(BODY, { send: async () => { throw new Error("x"); }, note });
+    expect(note.mock.calls).toEqual([["send_failed"], ["send_failed"]]);
   });
 
   it("keys the limiter on a digest, never the address itself", async () => {
-    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
-    await handleBrief({ email: "Ada@Example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
-    await handleBrief({ email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] }, deps({ allow }));
-    const [first, second] = allow.mock.calls.map((call) => (call as unknown as [string])[0]);
-    expect(first).toBe(second);
-    expect(first).toMatch(/^[0-9a-f]{64}$/);
-    expect(first).not.toBe("ada@example.com");
-  });
-
-  it("429 when the caller's own address is over its limit, before the email limiter", async () => {
-    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
-    const send = vi.fn(async () => true);
-    const out = await handleBrief(BODY, deps({ allow, send, allowIp: async () => ({ ok: false, retryAfterMs: 9000 }) }));
-    expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 9000 } });
-    expect(allow).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("403 not_on_list for an off-list address, with no limiter or send call", async () => {
-    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
-    const allowIp = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
-    const send = vi.fn(async () => true);
-    const allowed = vi.fn(() => false);
-    const out = await handleBrief(BODY, deps({ allowed, allow, allowIp, send }));
-    expect(out).toEqual({ status: 403, body: { error: "not_on_list" } });
-    expect(allowed).toHaveBeenCalledWith("ada@example.com");
-    expect(allow).not.toHaveBeenCalled();
-    expect(allowIp).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
+    const allow = vi.fn(allowOk);
+    await run({ email: "Ada@Example.com", personKey: "sam", connected: true, roleIds: [] }, { allow });
+    await run({ email: "ada@example.com", personKey: "sam", connected: true, roleIds: [] }, { allow });
+    const [one, two] = allow.mock.calls.map((call) => (call as unknown as [string])[0]);
+    expect(one).toBe(two);
+    expect(one).toMatch(/^[0-9a-f]{64}$/);
+    expect(one).not.toBe("ada@example.com");
   });
 
   it("builds the same brief the page shows, using connected", async () => {
     const send = vi.fn(async () => true);
-    await handleBrief({ ...BODY, connected: false }, deps({ send }));
-    const message = (send.mock.calls[0] as unknown as [{ subject: string }])[0];
-    expect(message.subject).toBe("Sam, nothing moved. that's fine.");
+    await run({ ...BODY, connected: false }, { send });
+    expect(first(send).subject).toBe("Sam, nothing moved. that's fine.");
   });
 
   it("takes the role from the request's ids, and drops unknown ones", async () => {
     const send = vi.fn(async () => true);
-    const first = getSnapshot().roles.find((r) => r.tier === "speedrun")!;
-    await handleBrief({ ...BODY, connected: false, roleIds: ["unknown-id", first.id] }, deps({ send }));
-    const message = (send.mock.calls[0] as unknown as [{ text: string }])[0];
-    expect(message.text).toContain(`${first.title} at ${first.company}`);
-    await handleBrief({ ...BODY, connected: false, roleIds: ["unknown-id"] }, deps({ send }));
-    const bare = (send.mock.calls[1] as unknown as [{ text: string }])[0];
-    expect(bare.text).not.toContain("fits you");
+    const role = getSnapshot().roles.find((r) => r.tier === "speedrun")!;
+    await run({ ...BODY, connected: false, roleIds: ["unknown-id", role.id] }, { send });
+    expect(first(send).text).toContain(`${role.title} at ${role.company}`);
+    await run({ ...BODY, connected: false, roleIds: ["unknown-id"] }, { send });
+    expect(first(send, 1).text).not.toContain("fits you");
   });
 
   it("keeps a full request under the body cap", () => {
@@ -100,26 +149,38 @@ describe("handleBrief", () => {
     expect(new TextEncoder().encode(body).byteLength).toBeLessThan(BODY_CAPS.brief);
   });
 
-  it("502 send_failed when the sender says no", async () => {
-    const out = await handleBrief(BODY, deps({ send: async () => false }));
-    expect(out).toEqual({ status: 502, body: { error: "send_failed" } });
-  });
-
   it("sends a fixed template built from the sample person", async () => {
     const send = vi.fn(async () => true);
-    const out = await handleBrief(BODY, deps({ send }));
-    expect(out).toEqual({ status: 200, body: { sent: true } });
-    const message = (send.mock.calls[0] as unknown as [{ to: string; subject: string; html: string; text: string }])[0];
+    await run(BODY, { send });
+    const message = first(send);
     expect(message.to).toBe("ada@example.com");
     expect(message.subject).toContain("Sam");
     expect(message.html).not.toContain("<script");
   });
 
-  it("allows three sends an hour to one address and not a fourth", async () => {
-    const limit = createLimiter({ windowMs: 3_600_000, max: 3, dailyMax: 50 });
-    const run = () => handleBrief(BODY, deps({ allow: async (key) => limit(key, 1000) }));
-    expect([(await run()).status, (await run()).status, (await run()).status]).toEqual([200, 200, 200]);
-    expect((await run()).status).toBe(429);
+  it("allows three sends an hour to one address and denies the fourth, with no fourth send", async () => {
+    // The production brief limiter configuration over a fake shared store.
+    const counts = new Map<string, number>();
+    const keys: string[] = [];
+    const make = (w: { kind: string; max: number }): RatelimitLike => ({
+      limit: async (key) => {
+        keys.push(key);
+        const id = `${w.kind}:${key}`;
+        const used = (counts.get(id) ?? 0) + 1;
+        counts.set(id, used);
+        return { success: used <= w.max, reset: 3_600_000 };
+      },
+    });
+    const limit = createSharedLimiter(
+      { perKey: { prefix: "speedrun:brief:to", max: 3, window: "1 h" }, daily: { prefix: "speedrun:brief:daily", max: 50 } },
+      { make: (w) => make(w), now: () => 1000 },
+    );
+    const send = vi.fn(async () => true);
+    const note = vi.fn();
+    for (let i = 0; i < 4; i++) await run(BODY, { allow: limit, send, note });
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(note.mock.calls).toEqual([["throttled"]]);
+    expect(keys.join("")).not.toContain("ada@example.com");
   });
 });
 
