@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { createSharedLimiter, upstashMaker, type RatelimitLike } from "./sharedLimit";
+import { createDailyLimiter, createSharedLimiter, upstashMaker, type RatelimitLike } from "./sharedLimit";
 
 const IP = "203.0.113.9";
 const digest = createHash("sha256").update(IP).digest("hex");
@@ -106,5 +106,27 @@ describe("createSharedLimiter", () => {
     expect(day.keys).toEqual(["daily"]);
     expect([...per.keys, ...day.keys].join("")).not.toContain(IP);
     expect(lines.join("")).not.toContain(IP);
+  });
+});
+
+describe("createDailyLimiter", () => {
+  const spec = { prefix: "sr:day", max: 5 };
+  const build = (day: ReturnType<typeof fake> | null, log: (l: string) => void = () => {}) =>
+    createDailyLimiter(spec, { make: (w) => (w.kind === "daily" && day ? day.rl : null), now: () => 1000, log });
+
+  it("takes one slot on the fixed key, never an address", async () => {
+    const day = fake([ok]);
+    expect(await build(day)()).toEqual({ ok: true, retryAfterMs: 0 });
+    expect(day.keys).toEqual(["daily"]);
+  });
+  it("denies with the reset delay when the day is full", async () => {
+    expect(await build(fake([{ success: false, reset: 11000 }]))()).toEqual({ ok: false, retryAfterMs: 10000 });
+  });
+  it("fails closed on a timeout, a throw and a missing store", async () => {
+    const lines: string[] = [];
+    expect(await build(fake([{ success: true, reset: 0, reason: "timeout" }]), (l) => lines.push(l))()).toEqual({ ok: false, retryAfterMs: 60_000 });
+    expect(await build(fake(() => { throw new Error("boom"); }), (l) => lines.push(l))()).toEqual({ ok: false, retryAfterMs: 60_000 });
+    expect(await build(null, (l) => lines.push(l))()).toEqual({ ok: false, retryAfterMs: 60_000 });
+    expect(lines).toEqual(Array(3).fill("[speedrun] limits unavailable"));
   });
 });

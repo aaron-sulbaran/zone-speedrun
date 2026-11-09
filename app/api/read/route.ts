@@ -4,16 +4,16 @@ import { liveModel } from "@/lib/speedrun/ai";
 import { BODY_CAPS, liveFlags, readCappedJson } from "@/lib/speedrun/guard";
 import { handleRead } from "@/lib/speedrun/readHandler";
 import { limitStore } from "@/lib/speedrun/limitStore";
-import { createSharedLimiter, upstashMaker } from "@/lib/speedrun/sharedLimit";
+import { createDailyLimiter, createSharedLimiter, upstashMaker } from "@/lib/speedrun/sharedLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 // 5 reads per 10 minutes per address, 300 a day across the fleet; no store means every read is refused.
-const limit = createSharedLimiter(
-  { perKey: { prefix: "speedrun:read", max: 5, window: "10 m" }, daily: { prefix: "speedrun:read:daily", max: 300 } },
-  { make: upstashMaker(limitStore(process.env)) },
-);
+// The daily slot is taken only after validation, so a refused body never spends it.
+const make = upstashMaker(limitStore(process.env));
+const limit = createSharedLimiter({ perKey: { prefix: "speedrun:read", max: 5, window: "10 m" } }, { make });
+const takeDaily = createDailyLimiter({ prefix: "speedrun:read:daily", max: 300 }, { make });
 
 function addressOf(request: Request) {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
         // BotID only means something on Vercel; local runs and tests skip it.
         isBot: async () => (process.env.VERCEL === "1" ? (await checkBotId()).isBot : false),
         allow: () => limit(addressOf(request)),
+        takeDaily: () => takeDaily(),
         model: live ? liveModel() : null,
       },
     );

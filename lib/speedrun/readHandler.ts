@@ -39,7 +39,10 @@ export type ReadInput = {
 export type ReadDeps = {
   live: boolean;
   isBot: () => Promise<boolean>;
+  /** The caller's own window, checked before anything about the body is read. */
   allow: () => Promise<LimitVerdict>;
+  /** The fleet-wide daily slot, taken only once the body has passed validation, right before model work. */
+  takeDaily: () => Promise<LimitVerdict>;
   model: LanguageModel | null;
 };
 
@@ -66,6 +69,9 @@ export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<Read
   const text = body.data.text.replace(/\u0000/g, "").trim();
   if (text.length > MAX_TEXT_CHARS) return fail(413, "too_large");
   if (text.length === 0) return fail(422, "unreadable");
+
+  const daily = await deps.takeDaily();
+  if (!daily.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: daily.retryAfterMs } };
 
   const { profile, mode } = await readResume({ text, intake }, { model: deps.model });
   // A model that already failed once is not asked a second time.

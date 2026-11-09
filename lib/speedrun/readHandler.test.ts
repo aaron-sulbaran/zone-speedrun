@@ -8,7 +8,7 @@ const RESUME =
   "Ada Lovelace\nSKILLS\nTypeScript, Postgres, React\nEXPERIENCE\nBuilt a billing API in TypeScript and shipped it to customers.";
 
 function deps(over: Partial<ReadDeps> = {}): ReadDeps {
-  return { live: true, isBot: async () => false, allow: async () => ({ ok: true, retryAfterMs: 0 }), model: null, ...over };
+  return { live: true, isBot: async () => false, allow: async () => ({ ok: true, retryAfterMs: 0 }), takeDaily: async () => ({ ok: true, retryAfterMs: 0 }), model: null, ...over };
 }
 
 function input(body: unknown, contentLength: number | null = null): ReadInput {
@@ -34,6 +34,42 @@ describe("handleRead", () => {
   it("429 with retryAfterMs", async () => {
     const out = await handleRead(input(ok), deps({ allow: async () => ({ ok: false, retryAfterMs: 4000 }) }));
     expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 4000 } });
+  });
+
+  it("takes exactly one daily slot for a valid read, after the per-caller window", async () => {
+    const calls: string[] = [];
+    const out = await handleRead(
+      input(ok),
+      deps({
+        allow: async () => (calls.push("window"), { ok: true, retryAfterMs: 0 }),
+        takeDaily: async () => (calls.push("daily"), { ok: true, retryAfterMs: 0 }),
+      }),
+    );
+    expect(out.status).toBe(200);
+    expect(calls).toEqual(["window", "daily"]);
+  });
+
+  it("429 when the daily slot is gone, with no model work", async () => {
+    const out = await handleRead(input(ok), deps({ takeDaily: async () => ({ ok: false, retryAfterMs: 7000 }) }));
+    expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 7000 } });
+  });
+
+  it("a refused body never touches the daily counter (400, 413, 422)", async () => {
+    const takeDaily = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
+    const broken = await handleRead({ contentLength: null, json: async () => { throw new SyntaxError("x"); } }, deps({ takeDaily }));
+    const wrong = await handleRead(input({ text: RESUME }), deps({ takeDaily }));
+    const declared = await handleRead(input(ok, BODY_CAPS.read + 1), deps({ takeDaily }));
+    const capped = await handleRead({ contentLength: null, json: async () => { throw new BodyTooLargeError("x"); } }, deps({ takeDaily }));
+    const longText = await handleRead(input({ text: "a".repeat(MAX_TEXT_CHARS + 1), intake: INTAKE }), deps({ takeDaily }));
+    const empty = await handleRead(input({ text: "  ", intake: INTAKE }), deps({ takeDaily }));
+    expect([broken.status, wrong.status, declared.status, capped.status, longText.status, empty.status]).toEqual([400, 400, 413, 413, 413, 422]);
+    expect(takeDaily).not.toHaveBeenCalled();
+  });
+
+  it("a per-caller denial never touches the daily counter", async () => {
+    const takeDaily = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
+    await handleRead(input(ok), deps({ allow: async () => ({ ok: false, retryAfterMs: 1 }), takeDaily }));
+    expect(takeDaily).not.toHaveBeenCalled();
   });
 
   it("400 bad_input for bad JSON, a wrong shape, a missing or wrong intake", async () => {

@@ -53,6 +53,34 @@ export function createSharedLimiter(
   };
 }
 
+/**
+ * A shared daily counter with no per-key window, for a route that takes its slot only after a request has
+ * passed validation. Fail closed like the keyed limiter; the counter key is fixed, so no address is involved.
+ */
+export function createDailyLimiter(
+  spec: { prefix: string; max: number },
+  deps: { make: (w: MakeSpec) => RatelimitLike | null; now?: () => number; log?: (line: string) => void },
+): () => Promise<LimitVerdict> {
+  const now = deps.now ?? Date.now;
+  const log = deps.log ?? ((line: string) => console.warn(line));
+  const limiter = deps.make({ kind: "daily", ...spec });
+  const unavailable = (): LimitVerdict => {
+    log("[speedrun] limits unavailable");
+    return { ok: false, retryAfterMs: UNAVAILABLE_MS };
+  };
+  return async () => {
+    if (!limiter) return unavailable();
+    try {
+      const result = await limiter.limit("daily");
+      if (result.reason === "timeout") return unavailable();
+      if (!result.success) return { ok: false, retryAfterMs: Math.max(1, result.reset - now()) };
+      return { ok: true, retryAfterMs: 0 };
+    } catch {
+      return unavailable();
+    }
+  };
+}
+
 /** Never throws: a bad URL or token yields a maker that returns null, which denies every call. */
 export function upstashMaker(store: LimitStore | null): (w: MakeSpec) => RatelimitLike | null {
   if (!store) return () => null;
