@@ -14,7 +14,7 @@ const bodySchema = z.object({
   roleIds: z.array(z.string().max(64)).max(MAX_ROLE_IDS),
 });
 
-export type BriefError = "email_off" | "bot" | "bad_input" | "too_large" | "slow_down" | "send_failed";
+export type BriefError = "email_off" | "bot" | "bad_input" | "too_large" | "slow_down" | "send_failed" | "not_on_list";
 
 export type BriefOutcome =
   | { status: 200; body: { sent: true } }
@@ -26,6 +26,8 @@ export type BriefMessage = { to: string; subject: string; html: string; text: st
 export type BriefDeps = {
   live: boolean;
   isBot: () => Promise<boolean>;
+  /** Whether the address is on Aaron's list; checked before any limiter spends a slot. */
+  allowed: (email: string) => boolean;
   /** Called with a digest of the address, so the limiter never holds the address itself. */
   allow: (key: string) => Promise<LimitVerdict>;
   /** The caller's own address on the network, limited separately from the email address. */
@@ -43,6 +45,8 @@ export async function handleBrief(body: unknown, deps: BriefDeps): Promise<Brief
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return fail(400, "bad_input");
   const { email, personKey, connected, roleIds } = parsed.data;
+
+  if (!deps.allowed(email)) return fail(403, "not_on_list");
 
   const ipVerdict = await deps.allowIp();
   if (!ipVerdict.ok) return { status: 429, body: { error: "slow_down", retryAfterMs: ipVerdict.retryAfterMs } };

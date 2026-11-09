@@ -3,7 +3,8 @@ import { checkBotId } from "botid/server";
 import { liveModel } from "@/lib/speedrun/ai";
 import { BODY_CAPS, liveFlags, readCappedJson } from "@/lib/speedrun/guard";
 import { handleRead } from "@/lib/speedrun/readHandler";
-import { createSharedLimiter, limitStore, upstashMaker } from "@/lib/speedrun/sharedLimit";
+import { limitStore } from "@/lib/speedrun/limitStore";
+import { createSharedLimiter, upstashMaker } from "@/lib/speedrun/sharedLimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

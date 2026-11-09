@@ -76,16 +76,20 @@ describe("liveFlags", () => {
 
   it("does not turn on from key presence alone", () => {
     vi.stubEnv("SPEEDRUN_AI", "");
+    vi.stubEnv("SPEEDRUN_EMAIL", "");
     vi.stubEnv("AI_GATEWAY_API_KEY", "present");
     vi.stubEnv("RESEND_API_KEY", "present");
     vi.stubEnv("SPEEDRUN_EMAIL_FROM", "hi@example.com");
+    expect(liveFlags({ ...STORE, SPEEDRUN_BRIEF_ALLOW: "a@example.com", AI_GATEWAY_API_KEY: "present", RESEND_API_KEY: "present", SPEEDRUN_EMAIL_FROM: "hi@example.com" })).toEqual({ reading: false, email: false });
     expect(liveFlags()).toEqual({ reading: false, email: false });
   });
 
   it("needs the flag and both email settings", () => {
     const base = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "present", ...STORE, SPEEDRUN_BRIEF_ALLOW: "a@example.com" };
     expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "" }).email).toBe(false);
-    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "hi@example.com" }).email).toBe(false);
+    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "hi@example.com" }).email).toBe(true);
+    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "hi@example.com", RESEND_API_KEY: "" }).email).toBe(false);
+    expect(liveFlags({ ...base, SPEEDRUN_EMAIL_FROM: "hi@example.com", SPEEDRUN_EMAIL: "" }).email).toBe(false);
   });
 
   it("reading is off with the switch on and no store", () => {
@@ -104,10 +108,20 @@ describe("liveFlags", () => {
     expect(liveFlags({ ...STORE }).reading).toBe(false);
   });
 
-  it("email is off with a store but an empty allowlist", () => {
+  it("email is off with a store but an empty or unusable allowlist", () => {
     const env = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "k", SPEEDRUN_EMAIL_FROM: "hi@example.com", ...STORE };
     expect(liveFlags(env).email).toBe(false);
-    expect(liveFlags({ ...env, SPEEDRUN_BRIEF_ALLOW: "a@example.com" }).email).toBe(false);
+    expect(liveFlags({ ...env, SPEEDRUN_BRIEF_ALLOW: "*, example.com" }).email).toBe(false);
+  });
+
+  it("email is off with every condition but the store", () => {
+    const env = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "k", SPEEDRUN_EMAIL_FROM: "hi@example.com", SPEEDRUN_BRIEF_ALLOW: "a@example.com" };
+    expect(liveFlags(env).email).toBe(false);
+  });
+
+  it("email is on with the switch, both email settings, a store and a non-empty allowlist", () => {
+    const env = { SPEEDRUN_EMAIL: "on", RESEND_API_KEY: "k", SPEEDRUN_EMAIL_FROM: "hi@example.com", SPEEDRUN_BRIEF_ALLOW: "a@example.com", ...STORE };
+    expect(liveFlags(env).email).toBe(true);
   });
 
   it("logs one line per missing piece per instance, with no values in it", async () => {

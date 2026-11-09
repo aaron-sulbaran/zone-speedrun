@@ -10,6 +10,7 @@ function deps(over: Partial<BriefDeps> = {}): BriefDeps {
   return {
     live: true,
     isBot: async () => false,
+    allowed: () => true,
     allow: async () => ({ ok: true, retryAfterMs: 0 }),
     allowIp: async () => ({ ok: true, retryAfterMs: 0 }),
     send: vi.fn(async () => true),
@@ -56,9 +57,24 @@ describe("handleBrief", () => {
 
   it("429 when the caller's own address is over its limit, before the email limiter", async () => {
     const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
-    const out = await handleBrief(BODY, deps({ allow, allowIp: async () => ({ ok: false, retryAfterMs: 9000 }) }));
+    const send = vi.fn(async () => true);
+    const out = await handleBrief(BODY, deps({ allow, send, allowIp: async () => ({ ok: false, retryAfterMs: 9000 }) }));
     expect(out).toEqual({ status: 429, body: { error: "slow_down", retryAfterMs: 9000 } });
     expect(allow).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("403 not_on_list for an off-list address, with no limiter or send call", async () => {
+    const allow = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
+    const allowIp = vi.fn(async () => ({ ok: true, retryAfterMs: 0 }));
+    const send = vi.fn(async () => true);
+    const allowed = vi.fn(() => false);
+    const out = await handleBrief(BODY, deps({ allowed, allow, allowIp, send }));
+    expect(out).toEqual({ status: 403, body: { error: "not_on_list" } });
+    expect(allowed).toHaveBeenCalledWith("ada@example.com");
+    expect(allow).not.toHaveBeenCalled();
+    expect(allowIp).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("builds the same brief the page shows, using connected", async () => {

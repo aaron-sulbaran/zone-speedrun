@@ -7,11 +7,12 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 import { answerOnboarding, skipBuildLog } from "./speedrun-flow";
 
-// Needs a server built with SPEEDRUN_AI=on, so the upload step shows (E2E_BASE_URL points at it).
+// Needs a server built with SPEEDRUN_AI=on and a dummy store pair (a fake https:// KV_REST_API_URL and
+// KV_REST_API_TOKEN), so the upload step shows (E2E_BASE_URL points at it).
 // The request intercept below is what keeps this spec offline and spend-free: the read route never reaches
 // the server. Unsetting env would not do that, because @vercel/oidc can mint a gateway token from the CLI
 // login through the repo's .vercel folder.
-test.skip(process.env.E2E_SPEEDRUN_AI !== "1", "needs E2E_SPEEDRUN_AI=1 and E2E_BASE_URL pointing at a server built with SPEEDRUN_AI=on");
+test.skip(process.env.E2E_SPEEDRUN_AI !== "1", "needs E2E_SPEEDRUN_AI=1 and E2E_BASE_URL pointing at a server built with SPEEDRUN_AI=on and a dummy store pair (fake https:// KV_REST_API_URL and KV_REST_API_TOKEN)");
 
 const FICTIONAL_RESUME = "Ada Example, software engineer. SKILLS TypeScript, React, Postgres. Built a fictional billing tool.";
 

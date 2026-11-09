@@ -1,4 +1,5 @@
-import { limitStore } from "./sharedLimit";
+import { limitStore } from "./limitStore";
+import { parseAllowlist } from "./recipients";
 
 // The live-reading switches and a small limiter. Both are pure: the limiter
 // takes the clock as an argument and keeps only counters in memory.
@@ -98,9 +99,6 @@ export async function readCappedJson(request: Request, max: number): Promise<unk
 // Explicit switches, never key presence: on Vercel the AI Gateway signs in with
 // an automatic OIDC token, so a key check alone would turn spend on. A switch
 // also needs the shared limit store; without it the feature stays off.
-
-// Placeholder until the allowlist parser lands: no entries, so email stays off.
-const parseAllowlist = (raw: string | undefined): string[] => (raw ? [] : []);
 
 const loggedGaps = new Set<string>();
 function logGap(feature: string, piece: "store" | "allowlist") {

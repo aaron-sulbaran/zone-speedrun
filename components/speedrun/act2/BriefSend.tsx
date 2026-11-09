@@ -6,7 +6,16 @@ import { briefRequestBody } from "@/lib/speedrun/requests";
 import type { PersonKey } from "@/lib/speedrun/types";
 
 const copy = speedrunCopy.brief;
-type Status = "idle" | "sending" | "sent" | "failed" | "slow";
+type Status = "idle" | "sending" | "sent" | "failed" | "slow" | "not_on_list";
+
+async function refusalOf(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : null;
+  } catch {
+    return null;
+  }
+}
 
 // With sending off there is no input at all, so no address is ever collected.
 // The address lives in this field until the request goes out, then is cleared.
@@ -38,7 +47,7 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
         headers: { "content-type": "application/json" },
         body: briefRequestBody({ email, personKey, connected, roleIds }),
       });
-      setStatus(response.ok ? "sent" : response.status === 429 ? "slow" : "failed");
+      setStatus(response.ok ? "sent" : response.status === 429 ? "slow" : (await refusalOf(response)) === "not_on_list" ? "not_on_list" : "failed");
       if (response.ok) setEmail("");
     } catch {
       setStatus("failed");
@@ -77,9 +86,10 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
         </button>
       </div>
       <p className="mt-2 text-xs text-sr-ink2">{copy.send.note}</p>
+      <p data-brief-list-note="" className="mt-1 text-xs text-sr-ink2">{copy.send.listNote}</p>
       <p className="mt-1 text-xs text-sr-ink2">{copy.send.pastedNote}</p>
       <p data-brief-status="" role="status" className="mt-2 text-sm text-sr-ink">
-        {status === "sent" ? copy.send.sent : status === "failed" ? copy.send.failed : status === "slow" ? copy.send.slowDown : ""}
+        {status === "sent" ? copy.send.sent : status === "failed" ? copy.send.failed : status === "slow" ? copy.send.slowDown : status === "not_on_list" ? copy.send.errors.not_on_list : ""}
       </p>
     </form>
   );
