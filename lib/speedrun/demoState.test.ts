@@ -109,7 +109,7 @@ describe("demoReducer pickPerson", () => {
   });
 
   it("moves to building on upload, then to ready from the response", () => {
-    let state = demoReducer(initialDemoState(LIVE), { type: "uploaded" });
+    let state = demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 });
     expect(state.step).toBe("building");
     expect(state.personKey).toBeNull();
     expect(state.profile).toBeNull();
@@ -120,17 +120,17 @@ describe("demoReducer pickPerson", () => {
   });
 
   it("returns to the join step with the error when an upload fails, and ignores a stray failure", () => {
-    const building = demoReducer(initialDemoState(LIVE), { type: "uploaded" });
-    const failed = demoReducer(building, { type: "uploadFailed", error: "unreadable" });
+    const building = demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 });
+    const failed = demoReducer(building, { type: "uploadFailed", buildId: 1, error: "unreadable" });
     expect(failed.step).toBe("join");
     expect(failed.uploadError).toBe("unreadable");
     const sample = demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" });
-    expect(demoReducer(sample, { type: "uploadFailed", error: "network" })).toBe(sample);
+    expect(demoReducer(sample, { type: "uploadFailed", buildId: 1, error: "network" })).toBe(sample);
   });
 
   it("clears the upload error on the next upload, pick and reset", () => {
-    const failed = demoReducer(demoReducer(initialDemoState(LIVE), { type: "uploaded" }), { type: "uploadFailed", error: "bot" });
-    expect(demoReducer(failed, { type: "uploaded" }).uploadError).toBeNull();
+    const failed = demoReducer(demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 }), { type: "uploadFailed", buildId: 1, error: "bot" });
+    expect(demoReducer(failed, { type: "uploaded", buildId: 1 }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "pickPerson", key: "sam" }).uploadError).toBeNull();
     expect(demoReducer(failed, { type: "reset" }).uploadError).toBeNull();
   });
@@ -193,6 +193,19 @@ describe("demoReducer onboarding answers", () => {
     expect(state.profile).toBeNull();
   });
 
+  it("ignores a stale upload failure after reset and a second upload", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 });
+    state = demoReducer(state, { type: "reset" });
+    state = demoReducer(state, { type: "uploaded", buildId: state.buildId + 1 });
+    const second = state;
+    state = demoReducer(state, { type: "uploadFailed", buildId: 1, error: "bot" });
+    expect(state).toBe(second);
+    expect(state.step).toBe("building");
+    expect(state.uploadError).toBeNull();
+    state = demoReducer(state, { type: "built", buildId: second.buildId, profile: PEOPLE.sam.profile, result });
+    expect(state.step).toBe("ready");
+  });
+
   it("ignores built while on the join step", () => {
     const state = initialDemoState(LIVE);
     expect(demoReducer(state, { type: "built", buildId: state.buildId, profile: PEOPLE.sam.profile, result })).toBe(state);
@@ -206,7 +219,7 @@ describe("demoReducer pasted events", () => {
     const withEvent = demoReducer(demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" }), { type: "addEvents", events: [pasted] });
     expect(withEvent.events).toHaveLength(1);
     expect(demoReducer(withEvent, { type: "pickPerson", key: "dev" }).events).toEqual([]);
-    expect(demoReducer(withEvent, { type: "uploaded" }).events).toEqual([]);
+    expect(demoReducer(withEvent, { type: "uploaded", buildId: 1 }).events).toEqual([]);
   });
 
   it("never lists the matches section as a board card", () => {

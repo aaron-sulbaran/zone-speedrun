@@ -58,13 +58,13 @@ export function SpeedrunDemo({ live, stats }: { live: Live; stats: DemoStats }) 
   // An upload skips the sample fetch: the read route answers with the profile and the ranked matches.
   const readUpload = async (file: File) => {
     const uploadId = state.buildId + 1;
-    dispatch({ type: "uploaded" });
+    dispatch({ type: "uploaded", buildId: uploadId });
     const outcome = await postResume(file, toIntake(state.answers));
     if (outcome.ok) {
       dispatch({ type: "built", buildId: uploadId, profile: outcome.profile, result: outcome.result });
       return;
     }
-    dispatch({ type: "uploadFailed", error: outcome.error });
+    dispatch({ type: "uploadFailed", buildId: uploadId, error: outcome.error });
   };
 
   // "Skip to the dashboard" has to land on one: Sam with the inbox already connected.

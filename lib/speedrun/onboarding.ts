@@ -36,7 +36,7 @@ export function stepsFor(answers: Answers): StepKey[] {
 }
 
 export function cleanName(raw: string): string {
-  return raw.trim().replace(/\s+/g, " ").slice(0, NAME_MAX);
+  return Array.from(raw.trim().replace(/\s+/g, " ")).slice(0, NAME_MAX).join("").trimEnd();
 }
 
 export function isStepValid(step: StepKey, answers: Answers, ctx: { resumeChosen: boolean }): boolean {

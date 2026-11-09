@@ -37,8 +37,8 @@ export type DemoAction =
   | { type: "next" }
   | { type: "back" }
   | { type: "pickPerson"; key: PersonKey }
-  | { type: "uploaded" }
-  | { type: "uploadFailed"; error: UploadErrorKey }
+  | { type: "uploaded"; buildId: number }
+  | { type: "uploadFailed"; buildId: number; error: UploadErrorKey }
   | { type: "built"; buildId: number; profile: Profile; result: MatchResult }
   | { type: "addEvents"; events: InboxEvent[] }
   | { type: "moveCard"; card: BoardCard; to: number }
@@ -117,9 +117,9 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", buildId: state.buildId + 1, personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
+      return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
     case "uploadFailed":
-      return state.step === "building" && state.personKey === null ? { ...state, step: "join", uploadError: action.error } : state;
+      return state.step === "building" && state.personKey === null && action.buildId === state.buildId ? { ...state, step: "join", uploadError: action.error } : state;
     case "built":
       if (state.step !== "building" || action.buildId !== state.buildId) return state;
       return { ...state, step: "ready", profile: action.profile, result: action.result };

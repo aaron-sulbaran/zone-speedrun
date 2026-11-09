@@ -25,6 +25,15 @@ describe("cleanName", () => {
   it("cuts to 40 characters", () => {
     expect(cleanName("a".repeat(41))).toHaveLength(40);
   });
+  it("never ends in a space when the cut lands on one", () => {
+    const cut = cleanName("a".repeat(39) + " bcd");
+    expect(cut).toBe("a".repeat(39));
+  });
+  it("does not split an emoji at the boundary", () => {
+    const cut = cleanName("a".repeat(39) + "\u{1F600}\u{1F600}");
+    expect(Array.from(cut)).toHaveLength(40);
+    expect(cut.endsWith("\u{1F600}")).toBe(true);
+  });
   it("leaves markup alone", () => {
     expect(cleanName("<b>Al</b>")).toBe("<b>Al</b>");
   });
