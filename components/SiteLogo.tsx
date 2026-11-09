@@ -10,6 +10,8 @@ const BAR_D = "M102.4 189.17L135.27 189.17L132.57 198.37L93.2 198.37Z";
 
 export function SiteLogo() {
   return (
+    // A plain anchor on purpose: next/link would prefix the /speedrun basePath, and this goes to the site's root.
+    // eslint-disable-next-line @next/next/no-html-link-for-pages
     <a
       href="/"
       aria-label={siteContent.logoAriaLabel}
