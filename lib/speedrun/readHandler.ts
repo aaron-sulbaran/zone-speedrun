@@ -2,7 +2,7 @@ import type { LanguageModel } from "ai";
 import { z } from "zod";
 import { RERANK_POOL, readResume, rerank } from "./ai";
 import { BODY_CAPS, BodyTooLargeError, type LimitVerdict } from "./guard";
-import { rankMatches, type MatchResult } from "./match";
+import { effectiveProfile, rankMatches, type MatchResult } from "./match";
 import { getSnapshot } from "./snapshot";
 import { FNS, type Profile, type ReadError } from "./types";
 
@@ -71,7 +71,7 @@ export async function handleRead(input: ReadInput, deps: ReadDeps): Promise<Read
   // A model that already failed once is not asked a second time.
   const rerankModel = mode === "model" ? deps.model : null;
   const pool = rankMatches(profile, intake, getSnapshot(), rerankModel ? RERANK_POOL : SHOWN);
-  const reranked = await rerank(profile, pool, { model: rerankModel });
+  const reranked = await rerank(effectiveProfile(profile, intake), pool, { model: rerankModel });
   const matches = reranked.matches.slice(0, SHOWN);
   const result: MatchResult = { ...reranked, matches, narrowing: { ...reranked.narrowing, shown: matches.length } };
   return { status: 200, body: { profile, result, mode } };

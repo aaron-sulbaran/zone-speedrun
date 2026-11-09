@@ -84,4 +84,30 @@ describe("handleRead", () => {
     expect(parsed.intake).toEqual({ ...INTAKE, founding: false });
     expect("name" in parsed.intake).toBe(false);
   });
+
+  it("tells the reranker the visitor's seniority, not the resume's", async () => {
+    const profile = {
+      firstName: "Ada", headline: "Backend engineer", functions: ["engineering"], seniority: "junior", skills: ["TypeScript"],
+      shipped: ["A billing API"], locations: [], remoteOk: true, founderSignal: { score: 0.1, evidence: [] },
+    };
+    const replies = [JSON.stringify(profile), JSON.stringify({ ranked: [] })];
+    let calls = 0;
+    const model = new MockLanguageModelV4({
+      doGenerate: async () => ({
+        content: [{ type: "text" as const, text: replies[Math.min(calls++, 1)] }],
+        finishReason: { unified: "stop", raw: undefined },
+        usage: {
+          inputTokens: { total: 10, noCache: 10, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 10, text: 10, reasoning: undefined },
+        },
+        warnings: [],
+      }),
+    });
+    const out = await handleRead(input({ text: RESUME, intake: { ...INTAKE, seniority: "intern" } }), deps({ model }));
+    expect(out.status === 200 && out.body.mode).toBe("model");
+    expect(model.doGenerateCalls).toHaveLength(2);
+    const rerankPrompt = JSON.stringify(model.doGenerateCalls[1].prompt);
+    expect(rerankPrompt).toContain('\\"seniority\\":\\"intern\\"');
+    expect(rerankPrompt).not.toContain('\\"seniority\\":\\"junior\\"');
+  });
 });

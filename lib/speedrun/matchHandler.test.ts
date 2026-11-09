@@ -29,7 +29,9 @@ describe("handleMatch", () => {
 
   it("accepts the student and founding answers", () => {
     const intake = { targets: ["engineering"], places: [], why: "", seniority: "intern", founding: true };
-    expect(handleMatch({ intake, personKey: "maya" }).status).toBe(200);
+    const out = handleMatch({ intake, personKey: "maya" });
+    expect(out.status).toBe(200);
+    expect(out.status === 200 && out.body.result.routes.length).toBeGreaterThan(0);
   });
 
   it("rejects a seniority that is not intern or new_grad", () => {

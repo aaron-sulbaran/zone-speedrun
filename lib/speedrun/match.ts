@@ -204,9 +204,13 @@ function capOwnWords(cards: { score: number; reasons: Reason[] }[], seen: Map<st
   }
 }
 
+/** What the visitor said about being a student wins over the level the profile implies. */
+export function effectiveProfile(profile: Profile, intake: Intake): Profile {
+  return intake.seniority ? { ...profile, seniority: intake.seniority } : profile;
+}
+
 export function rankMatches(ownProfile: Profile, intake: Intake, corpus: Corpus, limit = 6): MatchResult {
-  // What the visitor said about being a student wins over the level the profile implies.
-  const profile: Profile = intake.seniority ? { ...ownProfile, seniority: intake.seniority } : ownProfile;
+  const profile = effectiveProfile(ownProfile, intake);
   const companies = corpus.companies.filter((c) => c.slug !== FUND_SLUG);
   const bySlug = new Map(companies.map((c) => [c.slug, c]));
   const roles = corpus.roles.filter((r) => r.companySlug !== FUND_SLUG);
