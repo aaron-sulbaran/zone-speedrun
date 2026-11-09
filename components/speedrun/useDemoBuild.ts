@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch } from "react";
-import { speedrunCopy } from "@/lib/content";
 import { composeBuildLog } from "@/lib/speedrun/buildLog";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import type { MatchResult } from "@/lib/speedrun/match";
-import { displayName, toIntake } from "@/lib/speedrun/onboarding";
+import { toIntake } from "@/lib/speedrun/onboarding";
 import { PEOPLE } from "@/lib/speedrun/people";
 import { postResume } from "@/lib/speedrun/readClient";
 import { matchRequestBody } from "@/lib/speedrun/requests";
 import type { Intake, PersonKey, Profile } from "@/lib/speedrun/types";
+import { visitorName } from "./visitorName";
 
 async function fetchMatches(intake: Intake, personKey: PersonKey, signal: AbortSignal) {
   const response = await fetch("/speedrun/api/match", {
@@ -41,11 +41,11 @@ export function useDemoBuild(state: DemoState, dispatch: Dispatch<DemoAction>) {
     () =>
       profile && result
         ? composeBuildLog(intake, profile, result, {
-            name: displayName(answers, sampleOwner ?? profile.firstName, speedrunCopy.phases.nameFallback),
+            name: visitorName({ answers, personKey, profile }),
             sampleOwner,
           })
         : [],
-    [intake, profile, result, answers, sampleOwner],
+    [intake, profile, result, answers, personKey, sampleOwner],
   );
 
   useEffect(() => {

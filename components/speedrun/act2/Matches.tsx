@@ -11,7 +11,7 @@ const CASCADE_MS = 420;
 const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 
-export function Matches({ result, focusHeading = false }: { result: MatchResult; focusHeading?: boolean }) {
+export function Matches({ result, focusHeading = false, mentionedFounding = false }: { result: MatchResult; focusHeading?: boolean; mentionedFounding?: boolean }) {
   const copy = speedrunCopy.matches;
   const listRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -44,7 +44,7 @@ export function Matches({ result, focusHeading = false }: { result: MatchResult;
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
       <div ref={listRef} className="mt-6 space-y-4">
-        <FounderRoute routes={result.routes} />
+        <FounderRoute routes={result.routes} mentioned={mentionedFounding} />
         {result.matches.length === 0 ? (
           <p data-matches-empty="" className="rounded-xl border border-sr-soft bg-sr-surface p-6 text-sr-ink2">
             {copy.empty}

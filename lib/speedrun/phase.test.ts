@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_PHASE, NETWORK_TABS, phaseEventFor, phaseReducer, type PhaseState } from "./phase";
+import { INITIAL_PHASE, NETWORK_TABS, nextTab, phaseEventFor, phaseReducer, type PhaseState } from "./phase";
 
 const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches"): PhaseState => ({ phase, tab });
 
@@ -49,5 +49,14 @@ describe("phaseEventFor", () => {
     expect(phaseEventFor("building", "ready")).toBeNull();
     expect(phaseEventFor("ready", "join")).toBeNull();
     expect(phaseEventFor("join", "join")).toBeNull();
+  });
+});
+
+describe("nextTab", () => {
+  it("walks matches to board to brief to decisions, then stops", () => {
+    expect(nextTab("matches")).toBe("board");
+    expect(nextTab("board")).toBe("brief");
+    expect(nextTab("brief")).toBe("decisions");
+    expect(nextTab("decisions")).toBeNull();
   });
 });

@@ -3,6 +3,11 @@ export type NetworkTab = "matches" | "board" | "brief" | "decisions";
 
 export const NETWORK_TABS: readonly NetworkTab[] = ["matches", "board", "brief", "decisions"];
 
+/** The tab after this one, or null on the last. */
+export function nextTab(tab: NetworkTab): NetworkTab | null {
+  return NETWORK_TABS[NETWORK_TABS.indexOf(tab) + 1] ?? null;
+}
+
 export type PhaseState = { phase: Phase; tab: NetworkTab };
 
 export const INITIAL_PHASE: PhaseState = { phase: "opener", tab: "matches" };

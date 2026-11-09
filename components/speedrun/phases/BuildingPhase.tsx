@@ -10,6 +10,7 @@ import { BuildPlaceholder } from "../act2/BuildPlaceholder";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
 type BuildingPhaseProps = {
+  name: string;
   /** The visitor skipped the questions, so there is nothing to wait on. */
   skipped: boolean;
   state: DemoState;
@@ -19,7 +20,7 @@ type BuildingPhaseProps = {
   onDone: () => void;
 };
 
-export function BuildingPhase({ skipped, state, lines, failed, onRetry, onDone }: BuildingPhaseProps) {
+export function BuildingPhase({ name, skipped, state, lines, failed, onRetry, onDone }: BuildingPhaseProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [waiting, setWaiting] = useState(false);
   usePhaseEntrance(frameRef);
@@ -27,8 +28,8 @@ export function BuildingPhase({ skipped, state, lines, failed, onRetry, onDone }
   const logDone = (skippedLog: boolean) => (prefersReducedMotion() && !skipped && !skippedLog ? setWaiting(true) : onDone());
   return (
     <div ref={frameRef} data-phase-frame="" className="px-6 py-24">
-      <h2 data-phase-heading="" tabIndex={-1} className="sr-only">
-        {speedrunCopy.phases.buildingHeading}
+      <h2 data-phase-heading="" tabIndex={-1} className="mx-auto mb-8 w-full max-w-2xl break-words text-3xl font-semibold leading-tight tracking-tight focus:outline-none md:text-4xl">
+        {speedrunCopy.build.heading(name)}
       </h2>
       {state.step === "ready" && state.result ? (
         <>

@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import { INITIAL_PHASE, phaseEventFor, phaseReducer } from "@/lib/speedrun/phase";
+import { visitorName } from "./visitorName";
 import { PinnedAffiliation } from "./PinnedAffiliation";
 import { Switch } from "./Shift";
 import { SrZone } from "./SrZone";
@@ -68,8 +69,8 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
         <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-screen [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
-            {phase === "building" && <BuildingPhase skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onDone={() => go({ type: "logDone" })} />}
-            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => go({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
+            {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onDone={() => go({ type: "logDone" })} />}
+            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
             <Egg />
           </div>
           <PinnedAffiliation />

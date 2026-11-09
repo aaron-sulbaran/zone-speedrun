@@ -13,7 +13,7 @@ type Channel = (typeof CHANNELS)[number];
 
 // The brief as an inbox would show it. It is React over the same Brief data the
 // real email renders from, so the preview and the email say the same things.
-export function BriefPreview({ state }: { state: DemoState }) {
+export function BriefPreview({ state, name }: { state: DemoState; name: string }) {
   const { personKey, profile, result, inboxConnected: connected, events: pasted, live } = state;
   const [channel, setChannel] = useState<Channel>("email");
   const firstName = profile?.firstName ?? "";
@@ -27,7 +27,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
   }, [personKey, connected, pasted, result, firstName, roleIds]);
   if (!brief || !profile) return null;
 
-  const subject = briefSubject(brief, firstName);
+  const subject = briefSubject(brief, name);
   const quiet = brief.items.length === 0;
 
   return (
@@ -48,7 +48,7 @@ export function BriefPreview({ state }: { state: DemoState }) {
           </h4>
         </header>
         <div className="px-5 py-5">
-          <p className="font-semibold">{copy.greeting(firstName)}</p>
+          <p className="font-semibold">{copy.greeting(name)}</p>
           {quiet ? (
             <p data-brief-quiet="" className="mt-3 text-sr-ink">
               {copy.quietBody}

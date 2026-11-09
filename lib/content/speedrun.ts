@@ -47,8 +47,6 @@ export const speedrunCopy = {
       building: "Building your network.",
       network: "Your network is ready.",
     },
-    buildingHeading: "Building your network",
-    networkHeading: "Your network",
     startOver: "Start over",
     replayTop: "Replay from the top",
     nameFallback: "you",
@@ -156,6 +154,7 @@ export const speedrunCopy = {
     placesFull: "That is the most places the demo takes.",
   },
   build: {
+    heading: (name: string) => `Building your board, ${name}.`,
     label: "Building this for you",
     labelDone: "Built for you",
     skip: "Skip",
@@ -173,6 +172,16 @@ export const speedrunCopy = {
       sample: (owner: string) => `read ${owner}'s sample resume`,
     },
   },
+  network: {
+    heading: (name: string) => `You're in the network, ${name}.`,
+    tag: "\u2713 Built for you",
+    next: "Four things were made for you. Look through them in any order.",
+    startOver: "Start over",
+    replayTop: "Replay from the top",
+    tabsLabel: "Your network",
+    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Decisions" },
+    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Decisions" },
+  },
   matches: {
     heading: "your first matches",
     subhead: "The companies we'd put in front of you on day one, and why.",
@@ -183,6 +192,7 @@ export const speedrunCopy = {
       follow: "You'd hear about it in your morning brief when they post something new.",
     },
     founder: {
+      mentioned: "You mentioned founding.",
       heading: "you should think about building.",
       body: "Your resume reads like a founder's. We can still add you to the talent network, but speedrun and the speedrun alpha fellowship might fit you better.",
       speedrun: "Apply to speedrun",
