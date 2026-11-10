@@ -37,11 +37,11 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
   const root = useRef<HTMLElement>(null);
   const { settled } = useHeroIntro(root);
   return (
-    <section ref={root} data-hero="" data-act="1" className="relative flex min-h-dvh flex-col justify-center px-6 pb-40 pt-24 md:px-12 lg:pb-8 lg:pt-28">
+    <section ref={root} data-hero="" data-act="1" className="relative flex min-h-dvh flex-col justify-center px-6 pb-40 pt-24 md:px-12 lg:pb-8 lg:pt-28 lg:[@media(max-height:820px)]:pt-24">
       <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-12">
         <header className="min-w-0">
           <p className="font-label text-label-sm uppercase text-muted">{copy.kicker}</p>
-          <h1 data-phase-heading="" tabIndex={-1} className="mt-4 font-display text-4xl leading-[1.05] text-foreground focus:outline-none sm:text-5xl lg:text-[clamp(2.75rem,4.6vw,4rem)]">
+          <h1 data-phase-heading="" tabIndex={-1} className="mt-4 font-display text-4xl leading-[1.05] text-foreground focus:outline-none sm:text-5xl lg:text-[clamp(2.75rem,min(4.6vw,7.5vh),4rem)]">
             {copy.headline1.split(" ").map((word, index) => (
               <span key={word}>
                 {index > 0 && " "}
@@ -69,7 +69,7 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
           ))}
         </div>
       </div>
-      <div className="mx-auto mt-6 w-full max-w-6xl lg:mt-8">
+      <div className="mx-auto mt-6 w-full max-w-6xl lg:mt-8 lg:[@media(max-height:820px)]:mt-4">
         <HeroClose onStart={onStart} settled={settled} />
       </div>
     </section>

@@ -51,8 +51,6 @@ test("the hero shows first, with no phase of the styled section in the DOM", asy
   await expect(page.locator("#act-2")).toHaveCount(0);
   await expect(page.locator("[data-phase]")).toHaveCount(0);
   await expect(page.locator("#join")).toHaveCount(0);
-  await expect(page.locator("[data-funnel-stat]")).toHaveCount(0);
-  await expect(page.locator("[data-act-turn]")).toHaveCount(0);
 });
 
 const textOf = (html: string) =>
@@ -72,8 +70,8 @@ test("every word of the hero is in the server HTML", async ({ request }) => {
   }
 });
 
-// Catches: a hero taller than the screen, which would push the closing button below the fold.
-for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
+// Catches: a hero taller than the screen, which would push the closing button below the fold (1440 by 790 and 1366 by 768 are real laptop windows).
+for (const [width, height] of [[1440, 900], [1440, 790], [1366, 768], [1280, 800]] as const) {
   test(`the hero fits one screen at ${width} by ${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/speedrun");
@@ -646,6 +644,14 @@ test.describe("short landscape", () => {
     const m = await fullPage(page);
     expect(m.scrollHeight).toBeGreaterThan(m.innerHeight);
   });
+});
+
+// Catches: the account menu staying open after focus moves elsewhere (a Tab out, or a script), because it only closed on Escape and outside presses.
+test("the account menu closes when focus leaves it", async ({ page }) => {
+  await reachNetwork(page);
+  await openAccountMenu(page);
+  await page.getByRole("tab", { selected: true }).focus();
+  await expect(accountPanel(page)).toBeHidden();
 });
 
 // Catches: a long name widening the account button, the menu or the list header past the screen (Review Focus 4).

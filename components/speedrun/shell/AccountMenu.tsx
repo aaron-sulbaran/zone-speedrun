@@ -24,7 +24,7 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
       event.stopPropagation();
       setOpen(false);
       buttonRef.current?.focus();
@@ -46,7 +46,14 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      className="relative"
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (open && next instanceof Node && !rootRef.current?.contains(next)) setOpen(false);
+      }}
+    >
       <button
         ref={buttonRef}
         type="button"
