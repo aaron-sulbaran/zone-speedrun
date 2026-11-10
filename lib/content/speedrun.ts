@@ -1,5 +1,4 @@
-// Copy for /speedrun, a concept page for the speedrun talent team. Sections
-// beyond meta, affiliation and logoAlt are filled in by later tasks.
+// Copy for /speedrun, a concept page for the speedrun talent team.
 
 import type { Arrangement } from "@/lib/speedrun/onboarding";
 import type { Fn } from "@/lib/speedrun/types";

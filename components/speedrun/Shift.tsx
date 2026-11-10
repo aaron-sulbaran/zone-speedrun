@@ -8,7 +8,7 @@ import { getMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
 
 // The sweep. It plays when the hero's button bumps `playSignal`, never on scroll. It covers the page from the right, calls onCovered while the
 // page is hidden (the parent changes phase there), holds, then reveals to the
-// left. The strip sits at z 39, under the site's logo and Menu pill (z 40), and
+// left. The strip sits at z 39, under the site's chrome (z 40), and
 // stays mounted across the phase change.
 
 const REDUCE = "(prefers-reduced-motion: reduce)";
@@ -94,7 +94,7 @@ export function Switch({ onCovered, onRevealStart, playSignal }: SwitchProps) {
     }, () => {});
   }
 
-  // The tuning panel's replay: a changed signal plays exactly as the button does.
+  // The dev tuning panel's switch replay: a changed signal plays exactly as the button does.
   const lastSignal = useRef(playSignal);
   const playRef = useRef(play);
   useEffect(() => {

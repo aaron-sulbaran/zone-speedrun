@@ -6,7 +6,7 @@ import type { AppRow, Exit, Pipeline, Stage } from "./types";
 // a literal; nothing is computed from private data. `AppRow.lane` only allows
 // "jobs" | "founder", so every row is a "jobs" row and its track (internship,
 // co-op, full-time, fellowship) rides beside it in AARON_ENTRIES, the single
-// source of truth. The rows, the lane links and the sample rows all come from it.
+// source of truth. The rows and the lane links come from it.
 
 export type AaronTrack = "internship" | "coop" | "fulltime" | "fellowship";
 export type AaronEntry = { track: AaronTrack; row: AppRow };
@@ -70,7 +70,7 @@ export const AARON_MOCK: Pick<Pipeline, "rows"> = {
   rows: AARON_ENTRIES.map((entry) => entry.row),
 };
 
-/** The flow with the first column relabelled into Aaron's four tracks. */
+/** The flow. By default the first column is Aaron's four tracks; `lanes: false` is the plain funnel the hero draws. */
 export function aaronFlow({ lanes = true }: { lanes?: boolean } = {}): FlowData {
   // All rows share one lane, so "auto" already leaves the lane column out.
   if (!lanes) return toFlow(AARON_MOCK);

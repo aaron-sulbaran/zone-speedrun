@@ -20,7 +20,7 @@ describe("speedrunCopy", () => {
   it("has no em dash in any string", () => {
     const all = strings(speedrunCopy);
     expect(all.length).toBeGreaterThan(50);
-    for (const text of all) expect(text).not.toContain("—");
-    expect(strings(speedrunCopy.act1.subtitle.count(7)).join("")).not.toContain("—");
+    for (const text of all) expect(text).not.toContain("\u2014");
+    expect(strings(speedrunCopy.act1.subtitle.count(7)).join("")).not.toContain("\u2014");
   });
 });
