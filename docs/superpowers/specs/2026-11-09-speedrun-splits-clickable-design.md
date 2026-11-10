@@ -209,4 +209,4 @@ Rules:
 - The two paragraph drafts in section 3 are built from his dictation. He edits them, and I only fix mechanics.
 
 ## 10. Rollback
-Revert the branch's commits for this work. Nothing touches the server routes, the env or the public export rules beyond new files in paths that are already allowed.
+Revert the branch's commits for this work. Nothing touches the server routes or the env. (Since 2026-11-09 /speedrun lives in its own repo, `zone-speedrun`, so there are no public export rules to keep in step.)

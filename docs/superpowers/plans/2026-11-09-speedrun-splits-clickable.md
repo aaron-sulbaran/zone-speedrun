@@ -74,12 +74,12 @@
 
 ### e2e
 - **Two runs at most, at once.** Every e2e run goes through the slot script, so no more than two Playwright runs ever overlap.
-- **The command,** after `lsof -iTCP:3152 -iTCP:3153 -sTCP:LISTEN` shows both ports free:
+- **The command,** after `lsof -iTCP:3292 -sTCP:LISTEN` shows the port free (`scripts/pwslot.sh` shares its lock directory with every session on this Mac):
 
   ```bash
-  .superpowers/sdd/2026-11-08-speedrun-onboarding/pwslot.sh "$PWD" <scratchpad>/e2e-<task>.log env CI=1 E2E_FULL_PORT=3152 E2E_HOLDING_PORT=3153 pnpm test:e2e e2e/speedrun
+  scripts/pwslot.sh "$PWD" <scratchpad>/e2e-<task>.log env CI=1 E2E_PORT=3292 pnpm test:e2e e2e
   ```
-- **Off-limits:** never stop ports 3220, 3221, 3276 or 3277. Never set `SPEEDRUN_AI=on` or `SPEEDRUN_EMAIL=on`.
+- **Off-limits:** never stop ports 3220, 3221, 3276, 3277 or 3290. Never set `SPEEDRUN_AI=on` or `SPEEDRUN_EMAIL=on`.
 
 ### Test pins
 Every new e2e pin carries a one-line comment naming the regression it catches, and must go red if that guard is removed. Read state in the same tick as the trigger (`page.evaluate`), and use bounded negative waits for "never happens" assertions.
@@ -172,7 +172,7 @@ The hero renders its end state with no motion yet (Task 3 adds the intro).
   - `components/speedrun/FlowChart.tsx`: the hero sizes.
   - `components/speedrun/Shift.tsx`: drop the turn lines and its button.
   - `components/speedrun/SpeedrunExperience.tsx`: render the hero, and its button bumps `playSignal`.
-  - `app/speedrun/page.tsx`: drop the `opener` prop.
+  - `app/page.tsx`: drop the `opener` prop.
   - `components/speedrun/act2/Hero.tsx`: drop the lede.
   - `lib/content/speedrun.ts`.
 - Delete:
@@ -436,8 +436,7 @@ The hero renders its end state with no motion yet (Task 3 adds the intro).
 1. **Run the full checks on the branch head:**
    - `pnpm vitest run && pnpm tsc --noEmit && pnpm lint && pnpm build`;
    - the whole speedrun e2e under the slot script;
-   - `pnpm public:sync -- --ref claude/distracted-moser-bfd850`. This exports and verifies only; never pass `--push`. Verify must pass, and the export must still fast-forward the public main.
 2. **Look at it in a browser** at 390 and 1440: the hero end state, the dock, the join card, the shell on all four tabs, and a phone detail. Run `design-review` on the hero and the shell. Visual judgment is never delegated.
 3. **Get a whole-branch Opus review of this round's diff,** then a Fable 5.1 read. Verify their claims before adopting them.
 4. **Push, then hand the new head to the lead** (`local_2d8302e7-12af-49b2-82f1-3d2fa0241ea2`) for its gate. Never merge.
-5. **Update AGENTS.md Layer 2** only if a fact changed. Nothing in this plan changes one: the /speedrun line, the env, the ports and the export are untouched.
+5. **Update AGENTS.md Layer 2** when a fact changed. This plan changes two: the Map gains `components/speedrun/shell/`, and the chrome is the shell's top bar plus the site's logo.
