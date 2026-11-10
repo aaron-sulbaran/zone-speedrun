@@ -18,7 +18,7 @@ export function AppShell({ name, tab, onTab, onStartOver, onReplayTop, children 
   return (
     <div
       data-shell=""
-      className="grid h-[100dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] gap-y-1 pt-20 [grid-template-areas:'top'_'main'_'tabs'] [@media(max-height:559px)]:h-auto lg:grid-cols-[minmax(0,1fr)_auto] lg:grid-rows-[auto_minmax(0,1fr)] lg:[grid-template-areas:'top_tabs'_'main_main']"
+      className="grid h-[100dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] gap-y-1 pt-20 [grid-template-areas:'top'_'main'_'tabs'] [@media(max-height:559px)_and_(orientation:landscape)]:h-auto lg:grid-cols-[minmax(0,1fr)_auto] lg:grid-rows-[auto_minmax(0,1fr)] lg:[grid-template-areas:'top_tabs'_'main_main']"
     >
       <TopBar name={name} onStartOver={onStartOver} onReplayTop={onReplayTop} />
       <div data-shell-main="" className="relative z-10 min-h-0 [grid-area:main]">

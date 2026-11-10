@@ -12,6 +12,8 @@ const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 // Clears the fixed site logo (top-4 plus 40 px), matching the shell's pt-20.
 const LOGO_CLEARANCE = 80;
+// Keep in step with the [@media(max-height:559px)_and_(orientation:landscape)] variants in shell/, phases/ and act2/.
+const SHORT_LANDSCAPE = "(max-height: 559px) and (orientation: landscape)";
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
 type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
@@ -71,7 +73,7 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
     // Short landscape: the page itself scrolls. Measure before the slide starts (the panel is shifted a full width right
     // once it runs) and move the window vertically only, so the page never travels sideways.
     const rectTop = panel?.getBoundingClientRect().top ?? 0;
-    if (rectTop < LOGO_CLEARANCE && panel && !isDesktop() && window.innerHeight <= 559) window.scrollBy({ top: rectTop - LOGO_CLEARANCE, behavior: "instant" });
+    if (rectTop < LOGO_CLEARANCE && panel && !isDesktop() && window.matchMedia(SHORT_LANDSCAPE).matches) window.scrollBy({ top: rectTop - LOGO_CLEARANCE, behavior: "instant" });
     if (panel && !prefersReducedMotion()) {
       panel.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], { duration: motion().stepMs, easing: STEP_EASE });
     }
@@ -84,6 +86,8 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
 
   const select = (key: string) => {
     setSelectedKey(key);
+    // Safari does not focus a button on mouse click; focus the row so the arrow keys work in every engine.
+    rowRefs.current.get(key)?.focus({ preventScroll: true });
     if (!isDesktop()) setDetailOpen(true);
   };
 

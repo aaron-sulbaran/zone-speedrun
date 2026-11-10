@@ -63,7 +63,7 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
         {NETWORK_TABS.map((id) => {
           const following = nextTab(id);
           return (
-            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 [@media(max-height:559px)]:overflow-visible">
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 [@media(max-height:559px)_and_(orientation:landscape)]:overflow-visible">
               {visited.has(id) && id === "matches" && <Matches result={state.result!} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} name={name} />}

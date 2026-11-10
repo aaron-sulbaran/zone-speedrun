@@ -157,6 +157,21 @@ test("a detail opened at 390 stays selected at 1440", async ({ page }) => {
   await expect(detail(page).locator("[data-detail-heading]")).toHaveText(name);
 });
 
+// Catches: arrow keys dying after a mouse click in Safari, which does not focus a button it was clicked on (simulated by cancelling mousedown).
+test("a click on a row focuses it even when the engine would not, so Down keeps working", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await joinAs(page, "sam");
+  await toMatches(page);
+  await page.evaluate(() => document.addEventListener("mousedown", (event) => event.preventDefault(), true));
+  await rows(page).nth(1).click();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await rows(page).nth(2).click();
+  await expect(rows(page).nth(2)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(rows(page).nth(3)).toBeFocused();
+  await expect(rows(page).nth(3)).toHaveAttribute("aria-current", "true");
+});
+
 test("Down from the focused list heading lands on the first row, not the second", async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   await joinAs(page, "sam");
