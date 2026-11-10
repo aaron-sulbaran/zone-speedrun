@@ -28,8 +28,9 @@ export const MatchDetail = forwardRef<HTMLDivElement, MatchDetailProps>(function
     <div
       ref={ref}
       data-match-detail=""
+      tabIndex={-1}
       onKeyDown={onKeyDown}
-      className={`overflow-y-auto overscroll-contain bg-sr-bg max-lg:absolute max-lg:inset-0 lg:h-full lg:min-w-0 lg:flex-1 ${open ? "" : "max-lg:hidden"}`}
+      className={`outline-none overflow-y-auto overscroll-contain bg-sr-bg max-lg:absolute max-lg:inset-0 lg:h-full lg:min-w-0 lg:flex-1 ${open ? "" : "max-lg:hidden"}`}
     >
       <button
         type="button"

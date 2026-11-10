@@ -264,13 +264,26 @@ test("short landscape: opening a detail never scrolls the page sideways and Back
   expect(scrolled.at).toBeGreaterThan(0);
   // The section's top is above the viewport now, which is what makes the fallback scroll the page.
   expect(await page.locator("[data-matches]").evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(0);
+  // Armed before the click: records the largest scrollX on every scroll event and every frame.
+  await page.evaluate(() => {
+    const w = window as unknown as { __maxScrollX: number };
+    w.__maxScrollX = 0;
+    const sample = () => {
+      w.__maxScrollX = Math.max(w.__maxScrollX, window.scrollX);
+    };
+    window.addEventListener("scroll", sample, { passive: true });
+    const tick = () => {
+      sample();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   await lower.evaluate((el) => (el as HTMLElement).click());
-  // Same tick: the slide has just started, which is when a scrollIntoView saw the panel a full width right.
-  expect(await page.evaluate(() => window.scrollX)).toBe(0);
   await expect(detail(page)).toBeVisible();
   await page.waitForTimeout(500);
-  // Catches: the page whipping sideways (scrollIntoView with inline nearest on a panel shifted by the slide).
-  expect(await page.evaluate(() => window.scrollX)).toBe(0);
+  // Catches: the page travelling sideways at all during the slide; max-lg:overflow-x-clip on the section makes that impossible. Headless never
+  // reproduced the whip itself with round 2's scrollIntoView and no clip (this sampler stayed green there, the logo pin below went red), so this is a guard, not a repro.
+  expect(await page.evaluate(() => (window as unknown as { __maxScrollX: number }).__maxScrollX)).toBe(0);
   const geometry = await page.evaluate(() => {
     const back = document.querySelector<HTMLElement>("[data-detail-back]")!.getBoundingClientRect();
     const logo = document.querySelector<HTMLElement>(".site-logo")!.getBoundingClientRect();
@@ -399,4 +412,37 @@ test("Escape closes the connect sheet and keeps focus on its button", async ({ p
   await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
   await expect(follow).toBeFocused();
   await expect(detail(page)).toBeVisible();
+});
+
+test("phone: a click on plain card text keeps focus in the detail, so Escape still closes it", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await joinAs(page, "sam");
+  await toMatches(page);
+  await rows(page).first().click();
+  await expect(detail(page)).toBeVisible();
+  await detail(page).locator("p").first().click();
+  // Catches: focus falling to the body on a click in non-focusable text (the list is inert), so the detail's Escape never fires.
+  expect(await detail(page).evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(detail(page)).toBeHidden();
+});
+
+test("short landscape: the tab bar stays inside the viewport when the page is scrolled to the middle", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await joinAs(page, "sam");
+  await toMatches(page);
+  const geometry = await page.evaluate(async () => {
+    const room = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: Math.floor(room / 2), behavior: "instant" });
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    const bar = document.querySelector<HTMLElement>("[role=tablist]")!.getBoundingClientRect();
+    return { room, at: window.scrollY, bottom: bar.bottom, height: window.innerHeight };
+  });
+  // Precondition: the page scrolls and is away from both ends, or sticky proves nothing.
+  expect(geometry.room).toBeGreaterThan(0);
+  expect(geometry.at).toBeGreaterThan(0);
+  expect(geometry.at).toBeLessThan(geometry.room);
+  // Catches: the tab bar scrolling off screen on a short landscape phone, where the page (not a panel) scrolls.
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.height + 1);
+  expect(geometry.bottom).toBeGreaterThan(0);
 });
