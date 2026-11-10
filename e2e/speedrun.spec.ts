@@ -123,18 +123,18 @@ test("the chart's applied value matches the subtitle", async ({ page }) => {
 
 test("with motion the same click starts the sweep on the strip", async ({ page }) => {
   await page.goto("/speedrun");
-  const [animations, visibility] = await page.evaluate((label) => {
-    const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
+  // The hero's button bumps a signal and the sweep starts in the effect after it, so poll for the strip's animations.
+  await switchButton(page).click();
+  await page.waitForFunction(() => {
     const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
-    button.click();
-    return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-  }, speedrunCopy.act1.closing.button);
-  expect(animations).toBeGreaterThanOrEqual(1);
-  expect(visibility).toBe("visible");
+    return strip.getAnimations().length >= 1 && getComputedStyle(strip).visibility === "visible";
+  }, undefined, { timeout: 2000 });
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
 
 test("the switch lands on the join card at the top of the page with the name input focused", async ({ page }) => {
+  // A short window, so the hero scrolls and "back at the top" is a real claim.
+  await page.setViewportSize({ width: 1280, height: 500 });
   await page.goto("/speedrun");
   await switchButton(page).scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
@@ -400,17 +400,21 @@ test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("the switch completes with no sweep", async ({ page }) => {
+    // Catches: the reduced-motion path starting the strip's sweep. The sweep starts after the click (a signal and an effect), so count every animate() call on the strip for the whole switch.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __stripAnimations: number };
+      w.__stripAnimations = 0;
+      const original = Element.prototype.animate;
+      Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+        if (this.matches("[data-shift-strip]")) w.__stripAnimations += 1;
+        return original.apply(this, args);
+      };
+    });
     await page.goto("/speedrun");
-    // play() starts the strip's animation synchronously inside the click, so read it in the same tick.
-    const [animations, visibility] = await page.evaluate((label) => {
-      const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
-      const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
-      button.click();
-      return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-    }, speedrunCopy.act1.closing.button);
-    expect([animations, visibility]).toEqual([0, "hidden"]);
+    await page.getByRole("button", { name: speedrunCopy.act1.closing.button }).click();
     await expect(joinPhase(page)).toBeVisible({ timeout: 4000 });
     await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
+    expect(await page.evaluate(() => (window as unknown as { __stripAnimations: number }).__stripAnimations)).toBe(0);
     await expect(page.locator("[data-shift-strip]")).toBeHidden();
   });
 

@@ -39,8 +39,11 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
           <p className="font-label text-label-sm uppercase text-muted">{copy.kicker}</p>
           <h1 data-phase-heading="" tabIndex={-1} className="mt-4 font-display text-4xl leading-[1.05] text-foreground focus:outline-none sm:text-5xl lg:text-[clamp(2.75rem,4.6vw,4rem)]">
             {copy.headline1.split(" ").map((word, index) => (
-              <span key={word} data-intro-el="word" data-intro-index={index} className="mr-[0.25em] inline-block last:mr-0">
-                {word}
+              <span key={word}>
+                {index > 0 && " "}
+                <span data-intro-el="word" data-intro-index={index} className="inline-block">
+                  {word}
+                </span>
               </span>
             ))}
             <span data-intro-el="second" data-intro-index="0" className="mt-1 block text-muted">
