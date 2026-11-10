@@ -71,7 +71,9 @@ export const AARON_MOCK: Pick<Pipeline, "rows"> = {
 };
 
 /** The flow with the first column relabelled into Aaron's four tracks. */
-export function aaronFlow(): FlowData {
+export function aaronFlow({ lanes = true }: { lanes?: boolean } = {}): FlowData {
+  // All rows share one lane, so "auto" already leaves the lane column out.
+  if (!lanes) return toFlow(AARON_MOCK);
   const base = toFlow(AARON_MOCK, { laneColumn: "always" });
   const labels = speedrunCopy.act1.lanes;
   const present = TRACK_SIZES.map(([track]) => track).filter((track) => AARON_ENTRIES.some((e) => e.track === track));

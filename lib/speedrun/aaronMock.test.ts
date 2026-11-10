@@ -70,6 +70,16 @@ describe("AARON_MOCK", () => {
     expect(rows[2].track).toBe("fulltime");
     expect(new Set(rows.map((r) => r.track)).size).toBe(3);
   });
+
+  it("returns a one-lane flow without lane nodes when lanes is false", () => {
+    const flow = aaronFlow({ lanes: false });
+    expect(flow.nodes.some((node) => node.kind === "lane")).toBe(false);
+    const columnZero = flow.nodes.filter((node) => node.column === 0);
+    expect(columnZero.map((node) => node.id)).toEqual(["stage:applied"]);
+    const leaving = flow.links.filter((link) => link.source === "stage:applied").reduce((sum, link) => sum + link.value, 0);
+    expect(leaving).toBe(AARON_ENTRIES.length);
+    expect(aaronFlow().nodes.filter((node) => node.kind === "lane")).toHaveLength(4);
+  });
 });
 
 function flowReached(id: string): number {

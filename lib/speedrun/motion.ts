@@ -29,6 +29,17 @@ export type Motion = {
   progressMs: number;
   submittingMs: number;
   chipSweepMs: number;
+  introWordStaggerMs: number;
+  introWordMs: number;
+  introRisePx: number;
+  introSecondAtMs: number;
+  introSubtitleAtMs: number;
+  introParagraphsAtMs: number;
+  introParagraphStaggerMs: number;
+  introCloseAtMs: number;
+  introFlightAtMs: number;
+  introFlightMs: number;
+  introLinksMs: number;
 };
 
 export const MOTION: Motion = {
@@ -50,6 +61,17 @@ export const MOTION: Motion = {
   progressMs: 480,
   submittingMs: 700,
   chipSweepMs: 320,
+  introWordStaggerMs: 120,
+  introWordMs: 420,
+  introRisePx: 8,
+  introSecondAtMs: 700,
+  introSubtitleAtMs: 1100,
+  introParagraphsAtMs: 2300,
+  introParagraphStaggerMs: 150,
+  introCloseAtMs: 3000,
+  introFlightAtMs: 1500,
+  introFlightMs: 520,
+  introLinksMs: 1100,
 };
 
 export function motion(): Motion {

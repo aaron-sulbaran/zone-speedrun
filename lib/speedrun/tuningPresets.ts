@@ -25,6 +25,17 @@ export const TUNING_RANGES: Record<keyof Motion, Range> = {
   progressMs: ms(1200),
   submittingMs: ms(2000, 50),
   chipSweepMs: ms(800),
+  introWordStaggerMs: ms(240),
+  introWordMs: ms(840),
+  introRisePx: px(48),
+  introSecondAtMs: ms(1400),
+  introSubtitleAtMs: ms(2200),
+  introParagraphsAtMs: ms(4600),
+  introParagraphStaggerMs: ms(300),
+  introCloseAtMs: ms(6000),
+  introFlightAtMs: ms(3000),
+  introFlightMs: ms(1040),
+  introLinksMs: ms(2200),
 };
 
 export const TUNING_PRESETS: { name: string; values: Motion }[] = [
