@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import { INITIAL_PHASE, phaseEventFor, phaseReducer } from "@/lib/speedrun/phase";
 import { visitorName } from "./visitorName";
 import { PinnedAffiliation } from "./PinnedAffiliation";
+import { SplitsHero } from "./act1/SplitsHero";
 import { Switch } from "./Shift";
 import { SrZone } from "./SrZone";
 import type { DemoStats } from "./act2/Hero";
@@ -22,11 +23,11 @@ const TuningPanel = process.env.NODE_ENV === "development" ? dynamic(() => impor
 const noopSubscribe = () => () => {};
 const wantsTuning = () => TuningPanel !== null && new URLSearchParams(window.location.search).has("tune");
 
-type ExperienceProps = { opener: ReactNode; live: Live; stats: DemoStats; themeClassName: string };
+type ExperienceProps = { live: Live; stats: DemoStats; themeClassName: string };
 
-// One phase on screen at a time. The opener is Aaron's page; the switch covers it
+// One phase on screen at a time. The hero is Aaron's page; its button plays the switch, which covers it
 // and lands on the join phase; the rest follow the demo state or a button.
-export function SpeedrunExperience({ opener, live, stats, themeClassName }: ExperienceProps) {
+export function SpeedrunExperience({ live, stats, themeClassName }: ExperienceProps) {
   const [phaseState, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   const [state, dispatch] = useReducer(demoReducer, live, initialDemoState);
   const [held, setHeld] = useState(false);
@@ -86,9 +87,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
         {announcement}
       </p>
       {phase === "opener" ? (
-        <section data-act="1" className="px-6 pt-32 md:px-12">
-          {opener}
-        </section>
+        <SplitsHero onStart={() => setPlaySignal((n) => n + 1)} />
       ) : (
         <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-screen [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
@@ -101,7 +100,6 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
         </section>
       )}
       <Switch
-        showTurn={phase === "opener"}
         playSignal={playSignal}
         onCovered={() => {
           setHeld(true);

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { speedrunCopy } from "@/lib/content/speedrun";
-import { AARON_ENTRIES, AARON_MOCK, aaronFlow, aaronSampleRows } from "./aaronMock";
+import { AARON_ENTRIES, AARON_MOCK, aaronFlow } from "./aaronMock";
 import { getSnapshot } from "./snapshot";
 
 describe("AARON_MOCK", () => {
@@ -53,24 +52,6 @@ describe("AARON_MOCK", () => {
     expect(AARON_MOCK.rows).toEqual(AARON_ENTRIES.map((entry) => entry.row));
   });
 
-  it("keeps the stat tiles equal to the mock's counts", () => {
-    const stats = Object.fromEntries(speedrunCopy.act1.stats.map((stat) => [stat.key, stat.value]));
-    const reached = (stage: string) => flowReached(stage);
-    expect(stats.applications).toBe(AARON_MOCK.rows.length);
-    expect(stats.assessments).toBe(reached("stage:assessment"));
-    expect(stats.interviews).toBe(reached("stage:interview"));
-    expect(stats.intros).toBe(2);
-  });
-
-  it("picks an offer, a co-op and a full-time row for the card", () => {
-    const rows = aaronSampleRows();
-    expect(rows).toHaveLength(3);
-    expect(rows[0].row.furthest).toBe("offer");
-    expect(rows[1].track).toBe("coop");
-    expect(rows[2].track).toBe("fulltime");
-    expect(new Set(rows.map((r) => r.track)).size).toBe(3);
-  });
-
   it("returns a one-lane flow without lane nodes when lanes is false", () => {
     const flow = aaronFlow({ lanes: false });
     expect(flow.nodes.some((node) => node.kind === "lane")).toBe(false);
@@ -81,9 +62,3 @@ describe("AARON_MOCK", () => {
     expect(aaronFlow().nodes.filter((node) => node.kind === "lane")).toHaveLength(4);
   });
 });
-
-function flowReached(id: string): number {
-  return aaronFlow()
-    .links.filter((link) => link.target === id)
-    .reduce((sum, link) => sum + link.value, 0);
-}

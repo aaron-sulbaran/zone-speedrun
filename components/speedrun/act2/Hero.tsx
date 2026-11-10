@@ -43,7 +43,6 @@ export function Hero({ stats, onSkip }: { stats: DemoStats; onSkip: () => void }
           ),
         )}
       </h2>
-      <p data-cascade="" className="mt-6 hidden max-w-xl text-lg font-semibold leading-snug text-sr-ink2 lg:block xl:text-xl">{copy.lede}</p>
       <dl data-cascade="" className="mt-10 hidden flex-wrap gap-x-10 gap-y-6 border-t border-sr-soft pt-6 lg:flex">
         {figures.map(({ label, node }) => (
           <div key={label} className="flex flex-col-reverse">

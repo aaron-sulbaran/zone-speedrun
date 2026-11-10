@@ -32,7 +32,7 @@ export const networkHeading = (page: Page) => networkPhase(page).locator("[data-
 /** Opens /speedrun when the page is blank, presses the switch and waits for the join card to be ready. */
 export async function playSwitch(page: Page) {
   if (page.url() === "about:blank") await page.goto("/speedrun");
-  await page.getByRole("button", { name: speedrunCopy.shift.button }).click();
+  await page.getByRole("button", { name: speedrunCopy.act1.closing.button }).click();
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();

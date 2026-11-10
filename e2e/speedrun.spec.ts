@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
+import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
 import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, skipBuildLog, skipToSam } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
@@ -8,7 +9,7 @@ const QUICK_TITLE_SHORT = "MVP";
 
 const network = speedrunCopy.network;
 const join = speedrunCopy.join;
-const switchButton = (page: Page) => page.getByRole("button", { name: speedrunCopy.shift.button });
+const switchButton = (page: Page) => page.getByRole("button", { name: speedrunCopy.act1.closing.button });
 const counter = (page: Page) => page.locator("#join").getByText(/^\d\d \/ \d\d$/);
 
 async function reachNetwork(page: Page, name = "Alex") {
@@ -40,16 +41,84 @@ test("renders logged out with noindex, then the join card carries the affiliatio
   await expect(home).toHaveAttribute("href", "/");
 });
 
-test("the opener shows first, with no phase of the styled section in the DOM", async ({ page }) => {
+test("the hero shows first, with no phase of the styled section in the DOM", async ({ page }) => {
   await page.goto("/speedrun");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(speedrunCopy.act1.headline1);
-  await expect(page.locator('section[data-act="1"]')).toBeVisible();
-  await expect(page.locator('[data-act="1"] [data-funnel-stat="applications"]')).toHaveText("84");
-  expect(await page.locator('[data-act="1"] svg path.flow-link').count()).toBeGreaterThanOrEqual(8);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(speedrunCopy.act1.headline2);
+  await expect(page.locator("section[data-hero]")).toBeVisible();
+  await expect(page.locator("[data-hero-count]")).toHaveText(String(AARON_ENTRIES.length));
+  expect(await page.locator("[data-hero] svg path.flow-link").count()).toBeGreaterThanOrEqual(8);
   await expect(page.locator("#act-2")).toHaveCount(0);
   await expect(page.locator("[data-phase]")).toHaveCount(0);
   await expect(page.locator("#join")).toHaveCount(0);
-  await expect(page.getByText(speedrunCopy.shift.turnLine1)).toBeVisible();
+  await expect(page.locator("[data-funnel-stat]")).toHaveCount(0);
+  await expect(page.locator("[data-act-turn]")).toHaveCount(0);
+});
+
+const textOf = (html: string) =>
+  html
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+
+// Catches: hero words rendered client-only (a motion wrapper that mounts after hydration).
+test("every word of the hero is in the server HTML", async ({ request }) => {
+  const html = textOf(await (await request.get("/speedrun")).text());
+  const copy = speedrunCopy.act1;
+  for (const text of [copy.headline1, copy.headline2, copy.subtitle.count(AARON_ENTRIES.length), copy.p1, copy.p2, copy.closing.line, copy.closing.sub, copy.closing.button]) {
+    expect(html).toContain(text);
+  }
+});
+
+// Catches: a hero taller than the screen, which would push the closing button below the fold.
+for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
+  test(`the hero fits one screen at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    const fit = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollHeight,
+      inner: window.innerHeight,
+      buttonBottom: document.querySelector("[data-hero-start]")!.getBoundingClientRect().bottom,
+    }));
+    expect(fit.scroll).toBeLessThanOrEqual(fit.inner);
+    expect(fit.buttonBottom).toBeLessThanOrEqual(fit.inner);
+  });
+}
+
+// Catches: an undocked button that sits below the fold on a phone.
+for (const [width, height] of [[390, 844], [375, 667]] as const) {
+  test(`on a phone the button is docked and fully visible on load at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    const dock = await page.evaluate(() => {
+      const button = document.querySelector("[data-hero-start]")!;
+      const rect = button.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, inner: window.innerHeight, position: getComputedStyle(button.closest("[data-intro-el='close']")!).position };
+    });
+    expect(dock.top).toBeGreaterThanOrEqual(0);
+    expect(dock.bottom).toBeLessThanOrEqual(dock.inner);
+    expect(dock.position).toBe("fixed");
+  });
+}
+
+// Catches: the hero overflowing sideways at a breakpoint (a wide chart or an unwrapped word).
+for (const width of [375, 390, 768, 1280, 1440]) {
+  test(`no horizontal scroll on the hero at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/speedrun");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  });
+}
+
+// Catches: the chart's applied value and the subtitle's number coming from different sources.
+test("the chart's applied value matches the subtitle", async ({ page }) => {
+  await page.goto("/speedrun");
+  const subtitle = (await page.locator("[data-hero-count]").textContent())!.trim();
+  const chart = page.locator("[data-flow-source-value]").filter({ visible: true });
+  await expect(chart).toHaveCount(1);
+  expect((await chart.textContent())!.trim()).toBe(subtitle);
 });
 
 test("with motion the same click starts the sweep on the strip", async ({ page }) => {
@@ -59,7 +128,7 @@ test("with motion the same click starts the sweep on the strip", async ({ page }
     const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
     button.click();
     return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-  }, speedrunCopy.shift.button);
+  }, speedrunCopy.act1.closing.button);
   expect(animations).toBeGreaterThanOrEqual(1);
   expect(visibility).toBe("visible");
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
@@ -338,7 +407,7 @@ test.describe("reduced motion", () => {
       const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
       button.click();
       return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-    }, speedrunCopy.shift.button);
+    }, speedrunCopy.act1.closing.button);
     expect([animations, visibility]).toEqual([0, "hidden"]);
     await expect(joinPhase(page)).toBeVisible({ timeout: 4000 });
     await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();

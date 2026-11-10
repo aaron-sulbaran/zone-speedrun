@@ -93,17 +93,3 @@ export function aaronFlow({ lanes = true }: { lanes?: boolean } = {}): FlowData 
     ],
   };
 }
-
-/** Three rows for the funnel card: an offer, a co-op row and a full-time row. */
-export function aaronSampleRows(): AaronEntry[] {
-  const picked: AaronEntry[] = [];
-  const take = (test: (entry: AaronEntry) => boolean) => {
-    const found = AARON_ENTRIES.find((entry) => !picked.includes(entry) && test(entry));
-    if (found) picked.push(found);
-  };
-  const deep = (entry: AaronEntry) => entry.row.furthest !== "applied" && entry.row.furthest !== "offer";
-  take((entry) => entry.row.furthest === "offer");
-  take((entry) => entry.track === "coop" && deep(entry));
-  take((entry) => entry.track === "fulltime" && deep(entry));
-  return picked;
-}
