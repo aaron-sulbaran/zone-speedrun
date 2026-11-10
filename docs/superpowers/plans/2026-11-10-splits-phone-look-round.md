@@ -130,3 +130,45 @@ The Splits plan's Global Constraints bind this round in full: `docs/superpowers/
 - [ ] **Step 3: Implement.** Update `settleHero` and any pin that hard-codes the old timings to read the schedule instead.
 - [ ] **Step 4: Run the checks, the build and the whole e2e suite.**
 - [ ] **Step 5: Commit.** Message: "Speedrun page: the 84 spotlight, with the subtitle word by word, a flash, a veil and the friends caption".
+
+---
+
+### Task 4: Safari focus fixes and a WebKit e2e project (from the lead's gate)
+
+**Where this comes from:** the lead's baseline gate on `bdfd38e`, desktop WebKit at 1440: 103 passed, 6 failed, 2 skipped. The artifacts are in the lead's scratchpad (`zone4-gate/e2e-webkit.txt`). The cause: Safari doesn't focus a button when it's clicked, and WebKit on macOS moves Tab only between form fields, as real Safari does.
+
+**Ruling 22.** The round fixes the Safari bugs and adds a WebKit project to e2e:
+- Fix code that relies on a click focusing its target.
+- Tab-driven pins press the key Safari users press.
+- **Why:** these bugs are on the surface Aaron reviews, and the lead's gate needs a WebKit run it can repeat.
+- **Cost if wrong:** about 8 more minutes per `E2E_ALL` run.
+
+**Files:**
+- `components/speedrun/act2/MatchCard.tsx` and the connect sheet;
+- the Board paste component (`PasteEmail.tsx`);
+- any other component the audit below turns up;
+- `playwright.config.ts`;
+- `e2e/speedrun-flow.ts` (a `tabKey` helper);
+- `e2e/speedrun-matches.spec.ts`, `e2e/speedrun-board.spec.ts`, `e2e/speedrun.spec.ts`.
+
+**Behavior:**
+1. **The connect sheet** (Follow, Ask for a warm intro) moves focus into itself when it opens: its first control, or its heading with `tabIndex={-1}`. Escape inside it closes only the sheet, keeps `preventDefault` so the detail stays, and returns focus to the button that opened it. Today, `MatchCard.tsx:44` handles Escape on the card's `onKeyDown`. In Safari, focus stays outside the card after the click, so the Escape never arrives (`speedrun-matches.spec.ts:122` and `:419` fail in WebKit).
+2. **The Board paste:** after a click on the paste button, focus is on that button in every browser. Focus it from code on submit, as the match-row fix did, so the box never keeps focus and never holds a phone keyboard open (`speedrun-board.spec.ts:43` fails in WebKit).
+3. **Audit** `components/speedrun/` for any other code that relies on a click focusing its target: focusout closers (`AccountMenu`), keydown handlers on a container that a click was meant to focus, and `toBeFocused` after a click in e2e. Fix each real Safari bug, and list in your report what you checked.
+4. **A `webkit` project** in `playwright.config.ts`:
+   - Desktop Safari, 1440 by 900, `deviceScaleFactor` 1, the same `baseURL`;
+   - included only when `E2E_ALL=1`, so the default run stays Chromium.
+5. **A `tabKey` helper** in `e2e/speedrun-flow.ts`: `"Alt+Tab"` under WebKit, `"Tab"` otherwise. Every Tab-driven pin uses it (`speedrun.spec.ts:333`, `:680` and `:779`, and any other). `:779` must still prove that the keydown finishes the intro: in WebKit it already reaches "done", and only the focus move failed.
+6. **AGENTS.md Layer 2:** one gotcha line, saying e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit, and that Tab pins use `tabKey`. Commit it on its own as `docs(agents): ...`.
+
+- [ ] **Step 1: Write the failing pins.**
+  - The connect sheet: focus is inside the sheet when it opens, and Escape closes it in WebKit (the existing `:122` and `:419` under `E2E_ALL=1`).
+  - The paste button holds focus after a click in WebKit.
+  - Run the WebKit project on those files to see them fail.
+- [ ] **Step 2: Implement.**
+- [ ] **Step 3: Run the checks and the build.** Then run the whole suite twice:
+  - the default (Chromium);
+  - `E2E_ALL=1` (Chromium and WebKit).
+
+  Both must be green. Any WebKit-only skip carries a comment naming the Safari behavior.
+- [ ] **Step 4: Commit.** Message: "Speedrun page: Safari focus fixes for the connect sheet and the paste box, and a WebKit e2e project".
