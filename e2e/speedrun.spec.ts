@@ -67,7 +67,7 @@ const textOf = (html: string) =>
 test("every word of the hero is in the server HTML", async ({ request }) => {
   const html = textOf(await (await request.get("/speedrun")).text());
   const copy = speedrunCopy.act1;
-  for (const text of [copy.headline1, copy.headline2, copy.subtitle.count(AARON_ENTRIES.length), copy.p1, copy.p2, copy.closing.line, copy.closing.sub, copy.closing.button]) {
+  for (const text of [copy.flowTitle, copy.privacyNote, copy.headline1, copy.headline2, copy.subtitle.count(AARON_ENTRIES.length), copy.p1, copy.p2, copy.closing.line, copy.closing.sub, copy.closing.button]) {
     expect(html).toContain(text);
   }
 });
@@ -549,7 +549,7 @@ test("a pointerdown during the intro shows the end state in the same tick", asyn
     document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
     return {
       intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
-      opacities: [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity),
+      opacities: [...document.querySelectorAll("[data-intro-el], [data-flow-source-value], [data-hero-chart-note]")].filter((el) => el.checkVisibility()).map((el) => getComputedStyle(el).opacity),
       clones: document.querySelectorAll("[data-intro-flight]").length,
     };
   });
@@ -630,7 +630,7 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
       const targets = visible("[data-flow-source-value]");
       const clipped = document.getAnimations().filter((a) => {
         const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined;
-        return target?.matches("[data-flow-links]");
+        return target?.matches("[data-flow-content]");
       });
       return {
         hasClone: Boolean(clone),
@@ -668,7 +668,7 @@ test.describe("reduced motion", () => {
     const opacities = await page.evaluate(() => [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity));
     expect(opacities.length).toBeGreaterThan(5);
     expect(opacities.every((opacity) => opacity === "1")).toBe(true);
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
     expect(await page.evaluate(() => (window as unknown as { __flights: number }).__flights)).toBe(0);
   });
 });
@@ -678,10 +678,10 @@ test.describe("without JavaScript", () => {
   // Catches: the CSS failsafe removed, which would leave the hero's words at opacity 0 forever.
   test("the words still appear", async ({ page }) => {
     await page.goto("/speedrun");
-    await page.waitForTimeout(4000);
-    const items = page.locator("[data-intro-el]");
-    expect(await items.count()).toBeGreaterThan(5);
-    for (const item of await items.all()) await expect(item).toHaveCSS("opacity", "1");
+    await page.waitForTimeout(3800);
+    const opacities = await page.locator("[data-intro-el], [data-flow-content], [data-hero-chart-note]").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
   });
 });
 
@@ -704,4 +704,118 @@ test("Replay from the top plays the intro again", async ({ page }) => {
   await replayFromTop(page);
   await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
   expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toContain("running");
+});
+
+test.describe("reduced motion without JavaScript", () => {
+  test.use({ reducedMotion: "reduce", javaScriptEnabled: false });
+  // Catches: a gate that applies under reduced motion, which hides the hero until the 3.5 s failsafe.
+  test("the hero shows the moment the page loads", async ({ page }) => {
+    await page.goto("/speedrun");
+    const opacities = await page.locator("[data-intro-el], [data-flow-content], [data-hero-chart-note]").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
+  });
+});
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the chart (nodes and labels, not only the links) showing before the 84 lands, or staying clipped after a skip.
+  test(`the whole chart is held back until the 84 lands, and a skip shows it at once at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const result = await page.evaluate(() => {
+      const chart = [...document.querySelectorAll<SVGElement>("[data-flow-content]")].find((el) => el.checkVisibility())!;
+      const held = (el: Element) => {
+        const style = getComputedStyle(el);
+        return style.opacity === "0" || style.clipPath.startsWith("inset(0px 100%");
+      };
+      const note = document.querySelector("[data-hero-chart-note]")!;
+      const before = { chartHeld: held(chart), noteHidden: getComputedStyle(note).opacity === "0" };
+      document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      const style = getComputedStyle(chart);
+      return { before, after: { opacity: style.opacity, clip: style.clipPath, note: getComputedStyle(note).opacity } };
+    });
+    expect(result.before).toEqual({ chartHeld: true, noteHidden: true });
+    expect(result.after.opacity).toBe("1");
+    expect(result.after.clip).not.toContain("100%");
+    expect(result.after.note).toBe("1");
+  });
+}
+
+// Catches: the clone outliving its landing, so two 84s overlap until the whole intro ends.
+test("the clone leaves the moment the flight lands, and the chart's value is there", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const after = await page.evaluate(async () => {
+    const clone = document.querySelector<HTMLElement>("[data-intro-flight]")!;
+    const flight = clone.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone)!;
+    await flight.finished;
+    const value = [...document.querySelectorAll("[data-flow-source-value]")].find((el) => el.checkVisibility())!;
+    return { clones: document.querySelectorAll("[data-intro-flight]").length, value: getComputedStyle(value).opacity, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") };
+  });
+  expect(after).toEqual({ clones: 0, value: "1", intro: "running" });
+});
+
+test.describe("without checkVisibility", () => {
+  // Catches: checkVisibility called without a fallback, which throws in older Safari and leaves the hero blank.
+  test("the intro still reaches done", async ({ page }) => {
+    await page.addInitScript(() => {
+      delete (Element.prototype as unknown as { checkVisibility?: unknown }).checkVisibility;
+    });
+    await page.goto("/speedrun");
+    await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
+    await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
+  });
+});
+
+// Catches: replaying words the failsafe already showed when hydration is slower than 3.5 s.
+test("a hydration slower than the failsafe goes straight to done", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introSeen: string[] };
+    w.__introSeen = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const value = (record.target as Element).getAttribute("data-intro");
+        if (value) w.__introSeen.push(value);
+      }
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+    await route.continue().catch(() => {});
+  });
+  await page.goto("/speedrun", { waitUntil: "commit" });
+  await page.waitForTimeout(4000);
+  await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 15_000 });
+  expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toEqual(["done"]);
+});
+
+// Catches: the button's pressable moment tied to the whole intro ending (about 3.4 s) instead of its own cue (3 s).
+test("the button plays the switch from its own cue, before the intro has ended", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introStart: number };
+    new MutationObserver(() => {
+      if (!w.__introStart && document.querySelector('[data-hero][data-intro="running"]')) w.__introStart = performance.now();
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const pressedWhile = await page.evaluate(
+    () =>
+      new Promise<string>((resolve) => {
+        const start = (window as unknown as { __introStart: number }).__introStart;
+        const tick = () => {
+          if (performance.now() - start < 3080) return requestAnimationFrame(tick);
+          const intro = document.querySelector("[data-hero]")!.getAttribute("data-intro")!;
+          const button = document.querySelector<HTMLElement>("[data-hero-start]")!;
+          button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          button.click();
+          resolve(intro);
+        };
+        tick();
+      }),
+  );
+  expect(pressedWhile).toBe("running");
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });

@@ -105,7 +105,7 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
   return (
     <svg viewBox={layout.view} role="img" aria-labelledby={titleId} className={layout.className}>
       <title id={titleId}>{title}</title>
-      <g transform={layout.offset ? `translate(${layout.offset.x} ${layout.offset.y})` : undefined}>
+      <g transform={layout.offset ? `translate(${layout.offset.x} ${layout.offset.y})` : undefined} {...(layout.hero ? { "data-flow-content": "" } : {})}>
         <g {...(layout.hero ? { "data-flow-links": "" } : {})}>
           {links.map((link) => (
             <path

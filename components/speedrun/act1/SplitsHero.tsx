@@ -59,7 +59,7 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
         </header>
         <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <FlowChart data={flow} tone="aaron" size="hero" title={copy.flowTitle} />
-          <p className="mt-2 text-sm text-muted">{copy.privacyNote}</p>
+          <p data-hero-chart-note="" className="mt-2 text-sm text-muted">{copy.privacyNote}</p>
         </div>
         <div className="min-w-0 space-y-4 text-base leading-relaxed text-foreground lg:col-start-1 lg:text-lg">
           {[copy.p1, copy.p2].map((text, index) => (

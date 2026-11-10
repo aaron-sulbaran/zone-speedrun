@@ -126,21 +126,17 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
     opacity: 1;
   }
 }
-[data-hero]:not([data-intro="done"]) [data-intro-el] {
-  opacity: 0;
-  animation: sr-intro-failsafe 0ms 3500ms forwards;
-}
-[data-hero][data-intro="running"] [data-intro-el] {
-  animation: none;
-}
-[data-hero][data-intro="done"] [data-intro-el] {
-  opacity: 1;
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-intro-el] {
-    opacity: 1;
+@media (prefers-reduced-motion: no-preference) {
+  [data-hero]:not([data-intro="done"]) :is([data-intro-el], [data-flow-content], [data-hero-chart-note]) {
+    opacity: 0;
+    animation: sr-intro-failsafe 0ms 3500ms forwards;
+  }
+  [data-hero][data-intro="running"] :is([data-intro-el], [data-flow-content], [data-hero-chart-note]) {
     animation: none;
   }
+}
+[data-hero][data-intro="done"] :is([data-intro-el], [data-flow-content], [data-hero-chart-note]) {
+  opacity: 1;
 }
 
 /* ---- /speedrun, Act 2: the talent network's look, scoped ---- */
