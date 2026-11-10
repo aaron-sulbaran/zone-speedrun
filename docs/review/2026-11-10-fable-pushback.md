@@ -43,6 +43,8 @@ They are also the weakest writing on the page:
 - "I've been grinding for internships for a long time" and "my friends are suffering too" claim empathy and show nothing specific.
 - "Building that with you sounds like a lot of fun" is soft where it should say what he would build first.
 - "That's why I built Splits." points at nothing. The two paragraphs before it never state the problem Splits solves, so "why" has no referent.
+- I read the whole hero block (`speedrun.ts:16-33`): kicker, headline, subtitle, two paragraphs, the note, the close. Not one sentence says what Splits does.
+- Below `lg` the close is fixed to the bottom of the screen (`components/speedrun/act1/HeroClose.tsx:21`). So on a phone "That's why I built Splits." is on screen before the reader has read any of the why above it.
 
 This is ten minutes of Aaron's own time, and no agent can do it for him. It outranks every open fix round.
 
@@ -119,7 +121,8 @@ The spec's "Why" is four pixel measurements. The redesign's whole premise is Aar
 2. Soften the button and "my product".
 3. One real iPhone Safari pass, start to finish.
 4. One cold reader, 60 seconds, Aaron silent. Fix only what that person trips on.
-5. Merge tonight.
+5. Refresh the jobs snapshot right before the merge. It was fetched on 2026-11-07 (`lib/speedrun/snapshot.json`), and Apply opens live roles, so a closed role is a dead end in front of the people who posted it.
+6. Merge tonight.
 
 **Defer until after it ships:** the `/speedrun` share card, a read signal, the splits line, the talent team's side of the product.
 
