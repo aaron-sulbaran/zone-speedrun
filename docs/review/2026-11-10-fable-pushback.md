@@ -33,6 +33,8 @@ The matches, the founder route, the board and the brief are the proof that Aaron
 - Make the skip path a first-class button on the join card, not a secondary link.
 - Put a deep link that lands on the matches in the application itself, if one exists (unverified, see the questions).
 
+The same problem hides the best material for a product reader. "what I decided, and why." and "What I'd measure" (`speedrun.ts:436-471`) are the strongest product thinking in the build, and they live in the fourth tab of four, behind everything above. A hiring manager wants that page first. Link it from the hero or the join card.
+
 ### 2. The most-read 50 words on the page are an unedited draft
 
 The spec marks both hero paragraphs "a draft from Aaron's words for him to edit". The strings in `speedrun.ts:25-26` match the spec's drafts word for word. So the orchestrator's draft is shipping as Aaron's voice.
@@ -54,7 +56,7 @@ The ledger shows what the rounds are buying: a 21 to 34 ms hand-off gap (Ruling 
 
 ### 4. The rigor is pointed at the wrong browser and the wrong failure
 
-- e2e runs on Chromium only (`AGENTS.md`, Stack). The people reading this carry iPhones. The fixed dock with safe-area padding, `100dvh` sizing, `inert`, `overscroll-behavior` and the FLIP flight are all places where Safari differs. About 1,000 unit tests and 88 e2e tests do not include one WebKit run.
+- e2e runs on Chromium only: `playwright.config` has one project, `chromium`. The people reading this carry iPhones. The fixed dock with safe-area padding, `100dvh` sizing, `inert`, `overscroll-behavior` and the FLIP flight are all places where Safari differs. About 1,000 unit tests and 88 e2e tests do not include one WebKit run.
 - Nobody outside the build has read the page. Every "confirmed" in the ledger is the controller looking at its own work.
 
 Five minutes on a real iPhone in Safari, and one friend reading cold while Aaron watches silently, beat another Opus re-review.
@@ -80,9 +82,9 @@ Offer, do not prescribe. "See what I would build first" or "Try the concept" say
 
 ### 7. Product gaps a talent-team person will see in a minute
 
-- **It is one-sided.** Splits is a candidate product. The people reading it run the other side: founders who need hires, and a small team triaging intros. "The talent team would see your profile and this match, and reach out to the founder if it fits" (`speedrun.ts:181`) makes them a manual step in every intro request. What does their queue look like, and what stops intro spam? There is no view of their side.
-- **The inbox ask is waved through.** "In production this reads your inbox and calendar, read-only" (`speedrun.ts:129`). Reading Gmail means Google's restricted scopes, a security assessment and a serious trust ask, for a venture firm's talent network. A product person will ask why speedrun should carry that, and what speedrun gets. The honest answer is strong (knowing where a candidate stands elsewhere tells the team when an intro matters), and I did not see it stated (unverified, it may be in the Why tab).
-- **The best speedrun-specific idea is buried.** The founder route ("you should think about building", `speedrun.ts:188`) turns the talent network into the top of the accelerator's funnel. It only appears as a conditional row. It belongs in the pitch.
+- **It is one-sided.** Splits is a candidate product. The people reading it run the other side: founders who need hires, and a small team triaging intros. "The talent team would see your profile and this match, and reach out to the founder if it fits" (`speedrun.ts:181`) makes them a manual step in every intro request. What does their queue look like, and what stops intro spam? There is no view of their side. The Why tab answers with one card, "Intros stay human", and its "What I'd measure" list has no founder-side number (time to fill, founder reply rate).
+- **The inbox ask is waved through.** "In production this reads your inbox and calendar, read-only" (`speedrun.ts:129`). Reading Gmail means Google's restricted scopes, a security assessment and a serious trust ask, for a venture firm's talent network. A product person will ask why speedrun should carry that, and what speedrun gets. The honest answer is strong (knowing where a candidate stands elsewhere tells the team when an intro matters), and the page does not state it. The Why card "Your inbox is read-only" covers the candidate's trust, not speedrun's cost or gain.
+- **The best speedrun-specific idea is buried.** The founder route ("you should think about building", `speedrun.ts:188`) turns the talent network into the top of the accelerator's funnel. It appears only as a conditional row and as the sixth card of the last tab. It belongs in the pitch.
 - **Nobody has graded the matches.** A talent person will open one sample person and ask "would I make this intro?". Five minutes of Aaron checking the top three matches per sample person is worth more than the scroll-offset fix.
 
 ### 8. The 84 is exact and also "nudged"
@@ -97,7 +99,8 @@ The spec says "no deeper speedrun-gaming theme". Any reader gets the pun at once
 
 - **The Slack unfurl.** The share card is the site's generic one (`AGENTS.md`, Gotchas). This link spreads inside the team by someone pasting it in Slack. Reader two's first impression is a card that does not say Splits.
 - **No way to know it was read.** No analytics. Aaron will not know if anyone opened it or where they stopped, so he cannot time a follow-up.
-- **No closing ask (unverified).** After the brief, is there one screen that says who built this, how fast, and how to reach him? If the demo just ends on a tab bar, the reviewer leaves with a product and no person.
+- **The close is in the wrong place and asks for nothing.** "Built by Aaron Sulbaran" (`speedrun.ts:473-482`) ends the Why tab, the last of four. Its links are My site, MVP and LinkedIn. There is no "let's talk" and no email, so the reviewer leaves with a product and no next step.
+- **"Built in a weekend" needs a check.** The plans in this repo run from 2026-11-07 (a Saturday) to 2026-11-10. If the shipped page took four days, say four days. It is still fast, and it is true.
 
 ### 11. The spec measured pixels and inferred a reader
 
@@ -125,7 +128,7 @@ The spec's "Why" is four pixel measurements. The redesign's whole premise is Aar
 1. Is the application already submitted? If yes, reviewers may be on the old page right now, and merging beats polishing. If no, what date does it go in?
 2. Who outside this build has read the new page? If nobody, why not before round 3?
 3. Is jobhuntingsux.com speedrun's own? If yes, should the hero say so in a word?
-4. Can a link land a reviewer directly on the matches? If not, is that worth one small change?
+4. Can a link land a reviewer directly on the matches? `SpeedrunExperience.tsx` reads the URL, and I ran out of time before seeing what for. If it cannot, is that worth one small change?
 5. Did you mean to ship the paragraph drafts as written?
 6. What does the talent team get from Splits that they do not have today? Where does the page say it?
 7. Where does the page ask for the conversation, and tell them how to reach you?
