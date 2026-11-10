@@ -661,6 +661,9 @@ test("a 40-character name fits at 375", async ({ page }) => {
   // The list header names the visitor too; the panel scrolls on both axes, so the document cannot see it overflow.
   await expect(networkHeading(page)).toContainText(name);
   await expectScrollersFit(page, "40-character name");
+  // The list scrolls inside the panel, so a name wider than the list shows up there, not on the panel.
+  const list = await page.locator("[data-match-list]").evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
   await openAccountMenu(page);
   await expect(accountPanel(page)).toContainText(name);
   m = await fullPage(page);

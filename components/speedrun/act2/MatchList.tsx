@@ -63,7 +63,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
     onMove(event.key === "ArrowUp" ? "up" : "down");
   };
   return (
-    <div ref={ref} onKeyDown={onKeyDown} className="h-full overflow-y-auto overscroll-contain lg:w-[380px] lg:shrink-0 lg:pr-3">
+    <div ref={ref} data-match-list="" onKeyDown={onKeyDown} className="h-full overflow-y-auto overscroll-contain lg:w-[380px] lg:shrink-0 lg:pr-3">
       <h2 id="sr-matches-heading" data-phase-heading="" tabIndex={-1} className="break-words font-srcond text-sm uppercase tracking-widest text-sr-purple focus:outline-none">
         {copy.listHeading(name)}
       </h2>
