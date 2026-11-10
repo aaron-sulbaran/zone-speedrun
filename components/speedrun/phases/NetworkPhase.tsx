@@ -10,9 +10,9 @@ import { BriefPreview } from "../act2/BriefPreview";
 import { Close } from "../act2/Close";
 import { Decisions } from "../act2/Decisions";
 import { Matches } from "../act2/Matches";
-import { NetworkHeader } from "../act2/NetworkHeader";
-import { NetworkTabs, panelId, tabId } from "../act2/NetworkTabs";
-import { visitorName } from "../visitorName";
+import { panelId, tabId } from "../act2/NetworkTabs";
+import { AppShell } from "../shell/AppShell";
+import { visitorFirstName, visitorName } from "../visitorName";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
 type NetworkPhaseProps = {
@@ -44,13 +44,11 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
     requestAnimationFrame(() => document.getElementById(tabId(next))?.focus({ preventScroll: true }));
   };
 
-  // Play the step enter when the tab changes, and keep the tablist in view.
+  // Play the step enter when the tab changes.
   useLayoutEffect(() => {
     const previous = shownTab.current;
     if (previous === tab) return;
     shownTab.current = tab;
-    const list = document.querySelector<HTMLElement>("[role=tablist]");
-    if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start", behavior: "instant" });
     const panel = panels.current[tab];
     if (!panel || prefersReducedMotion()) return;
     const { stepMs, stepPx } = motion();
@@ -63,17 +61,20 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
   const name = visitorName(state);
   return (
     <div ref={frameRef} data-phase-frame="">
-      <div className="px-6 pb-16 pt-24">
-        <NetworkHeader name={name} onStartOver={onStartOver} onReplayTop={onReplayTop} />
-        <NetworkTabs tab={tab} onTab={onTab} />
+      <AppShell name={visitorFirstName(state)} tab={tab} onTab={onTab} onStartOver={onStartOver} onReplayTop={onReplayTop}>
         {NETWORK_TABS.map((id) => {
           const following = nextTab(id);
           return (
-            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="mt-10">
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 [@media(max-height:559px)]:overflow-visible">
               {visited.has(id) && id === "matches" && <Matches result={state.result!} mentionedFounding={state.answers.founding === true} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} name={name} />}
-              {visited.has(id) && id === "decisions" && <Decisions />}
+              {visited.has(id) && id === "decisions" && (
+                <>
+                  <Decisions />
+                  <Close />
+                </>
+              )}
               {following && (
                 <div className="mx-auto mt-12 flex w-full max-w-3xl">
                   <button type="button" onClick={() => goTo(following)} className={NEXT_BUTTON}>
@@ -84,8 +85,7 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
             </div>
           );
         })}
-      </div>
-      <Close />
+      </AppShell>
     </div>
   );
 }

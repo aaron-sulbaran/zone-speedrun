@@ -1,17 +1,20 @@
 "use client";
 
+import { CircleHelp, LayoutDashboard, Mail, Users, type LucideIcon } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { NETWORK_TABS, type NetworkTab } from "@/lib/speedrun/phase";
 
 const copy = speedrunCopy.network;
+const ICONS: Record<NetworkTab, LucideIcon> = { matches: Users, board: LayoutDashboard, brief: Mail, decisions: CircleHelp };
 
 export const tabId = (tab: NetworkTab) => `sr-tab-${tab}`;
 export const panelId = (tab: NetworkTab) => `sr-panel-${tab}`;
 
 type NetworkTabsProps = { tab: NetworkTab; onTab: (tab: NetworkTab) => void };
 
-// Frosted pills; the selected one is black. Left and Right wrap, Home and End jump,
+// Below lg: a solid dock, icon above label, with the safe-area inset. From lg: pills in the top bar, no icons.
+// The selected one is black. Left and Right wrap, Home and End jump,
 // and focus follows the selection so the arrow keys keep working.
 export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -25,9 +28,10 @@ export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
     requestAnimationFrame(() => document.getElementById(tabId(NETWORK_TABS[target]))?.focus({ preventScroll: true }));
   };
   return (
-    <div role="tablist" aria-label={copy.tabsLabel} onKeyDown={onKeyDown} className="mx-auto mt-8 flex w-full max-w-3xl flex-wrap gap-2">
+    <div role="tablist" aria-label={copy.tabsLabel} onKeyDown={onKeyDown} className="relative z-10 grid grid-cols-4 gap-1 border-t border-sr-soft bg-sr-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 [grid-area:tabs] lg:flex lg:gap-2 lg:border-0 lg:bg-transparent lg:px-6 lg:py-2">
       {NETWORK_TABS.map((id) => {
         const selected = id === tab;
+        const Icon = ICONS[id];
         return (
           <button
             key={id}
@@ -38,10 +42,11 @@ export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
             aria-controls={panelId(id)}
             tabIndex={selected ? 0 : -1}
             onClick={() => onTab(id)}
-            className={`rounded-full px-5 py-2.5 font-srcond text-sm uppercase tracking-wider backdrop-blur-md transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
-              selected ? "bg-sr-ink text-sr-surface" : "bg-sr-hud text-sr-ink hover:bg-sr-strong"
+            className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 font-srcond text-xs uppercase tracking-wider transition-colors lg:flex-row lg:rounded-full lg:px-5 lg:py-2.5 lg:text-sm duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
+              selected ? "bg-sr-ink text-sr-surface" : "text-sr-ink hover:bg-sr-strong lg:bg-sr-hud"
             }`}
           >
+            <Icon aria-hidden="true" size={18} className="lg:hidden" />
             {copy.tabs[id]}
           </button>
         );

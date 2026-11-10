@@ -32,7 +32,7 @@ export function Matches({ result, mentionedFounding = false }: { result: MatchRe
 
   return (
     <section data-matches="" aria-labelledby="sr-matches-heading" className="mx-auto w-full max-w-3xl">
-      <h3 id="sr-matches-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-purple">
+      <h3 id="sr-matches-heading" data-phase-heading="" tabIndex={-1} className="font-srcond focus:outline-none text-sm uppercase tracking-widest text-sr-purple">
         {copy.heading}
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>

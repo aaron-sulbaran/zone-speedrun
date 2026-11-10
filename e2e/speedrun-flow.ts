@@ -132,8 +132,32 @@ export async function openTab(page: Page, label: string) {
   await expect(tab).toHaveAttribute("aria-selected", "true");
 }
 
-/** Back to the opener from the network (today the page's own button; the account menu takes over later). */
+export const accountButton = (page: Page) => page.getByRole("button", { name: speedrunCopy.network.account.label });
+export const accountPanel = (page: Page) => page.locator("[data-account-panel]");
+
+/** Opens the account menu and waits for its panel. */
+export async function openAccountMenu(page: Page) {
+  await accountButton(page).click();
+  await expect(accountPanel(page)).toBeVisible();
+}
+
+/** Start over from the network, through the account menu. */
+export async function startOver(page: Page) {
+  await openAccountMenu(page);
+  await accountPanel(page).getByRole("button", { name: speedrunCopy.network.account.startOver }).click();
+}
+
+/** Back to the opener from the network, through the account menu. */
 export async function replayFromTop(page: Page) {
-  await page.getByRole("button", { name: speedrunCopy.network.replayTop }).click();
+  await openAccountMenu(page);
+  await accountPanel(page).getByRole("button", { name: speedrunCopy.network.account.replayTop }).click();
   await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+}
+
+/** The account menu names the visitor in full. */
+export async function expectVisitorName(page: Page, name: string) {
+  await openAccountMenu(page);
+  await expect(accountPanel(page)).toContainText(name);
+  await page.keyboard.press("Escape");
+  await expect(accountPanel(page)).toBeHidden();
 }

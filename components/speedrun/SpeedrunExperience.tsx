@@ -96,7 +96,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
             {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
             <Egg />
           </div>
-          <PinnedAffiliation />
+          {phase !== "network" && <PinnedAffiliation />}
         </section>
       )}
       <Switch

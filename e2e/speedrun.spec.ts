@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
 import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
-import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam } from "./speedrun-flow";
+import { accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
@@ -187,7 +187,8 @@ test("the student branch counts 03 / 07 before the answer and 04 / 08 after it, 
   expect(seen).toEqual({ student: "03 / 07", arrangements: "04 / 08" });
   await expect(page.locator("#act-2 [data-phase-heading]")).toHaveText(speedrunCopy.build.heading("Alex"));
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading("Alex"));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, "Alex");
 });
 
 test("tapping Yes then No within the advance beat moves on once, on No", async ({ page }) => {
@@ -251,7 +252,7 @@ test("the four tabs switch with the arrow keys, Home and End, and a panel mounts
 
 test("Start over returns to step 1 with an empty name, and Replay from the top returns to the opener", async ({ page }) => {
   await reachNetwork(page, "Alex");
-  await page.getByRole("button", { name: network.startOver }).click();
+  await startOver(page);
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
@@ -260,8 +261,9 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
 
   await answerOnboarding(page, { name: "Blake" });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading("Blake"));
-  await page.getByRole("button", { name: network.replayTop }).click();
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, "Blake");
+  await replayFromTop(page);
   await expect(page.locator('section[data-act="1"]')).toBeVisible({ timeout: 8000 });
   await expect(page.locator("#act-2")).toHaveCount(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
@@ -375,7 +377,8 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await expect(page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(networkHeading(page)).toBeFocused({ timeout: 10_000 });
-  await expect(networkHeading(page)).toHaveText(network.heading("Dana"));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, "Dana");
 });
 
 test("the typed name never leaves the page", async ({ page }) => {
@@ -390,7 +393,8 @@ test("the typed name never leaves the page", async ({ page }) => {
   await page.goto("/speedrun");
   await answerOnboarding(page, { name, why: "Build with a founding team.", places: ["Remote"], connectGmail: true });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading(name));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, name);
   await openTab(page, network.tabs.board);
   await openTab(page, network.tabs.brief);
   await expect(page.locator("[data-brief-subject]")).toContainText(name);
@@ -431,7 +435,8 @@ test.describe("reduced motion", () => {
     await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 10_000 });
     await expect(networkHeading(page)).toBeFocused();
-    await expect(networkHeading(page)).toHaveText(network.heading("Sam"));
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, "Sam");
     await expect(page.getByRole("button", { name: speedrunCopy.build.continue })).toHaveCount(0);
   });
 
@@ -447,7 +452,8 @@ test.describe("reduced motion", () => {
     await expect(networkPhase(page)).toHaveCount(0);
     await proceed.click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 5000 });
-    await expect(networkHeading(page)).toHaveText(network.heading("Alex"));
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expectVisitorName(page, "Alex");
   });
 });
 
@@ -463,7 +469,7 @@ test.describe("short viewport", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
     await skipBuildLog(page);
-    await page.getByRole("button", { name: network.replayTop }).click();
+    await replayFromTop(page);
     await expect(page.locator('section[data-act="1"]')).toBeVisible({ timeout: 8000 });
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await expect(switchButton(page)).toBeEnabled();
@@ -488,7 +494,7 @@ for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
   });
 }
 
-test("the decisions and the close are on the page", async ({ page }) => {
+test("the Why tab holds the decisions, then the close card with the affiliation line", async ({ page }) => {
   await page.goto("/speedrun");
   await skipToSam(page);
   await skipBuildLog(page);
@@ -496,7 +502,9 @@ test("the decisions and the close are on the page", async ({ page }) => {
   const section = page.locator("[data-decisions]");
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
   await expect(section.locator("[data-decision-card]")).toHaveCount(6);
-  await expect(page.locator("[data-close]").getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
+  const close = page.locator("[data-close]");
+  await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
+  await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
   const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
   await expect(links).toHaveCount(3);
@@ -506,19 +514,137 @@ test("the decisions and the close are on the page", async ({ page }) => {
   await expect(links.nth(2)).toHaveAttribute("href", linkedin ?? "");
   await expect(links.nth(2)).toHaveAttribute("target", "_blank");
   await expect(links.nth(2)).toHaveAttribute("rel", "noopener noreferrer");
+  // The close card comes after the decisions inside the same panel.
+  const order = await page.evaluate(() => {
+    const decisions = document.querySelector("[data-decisions]")!;
+    const close = document.querySelector("[data-close]")!;
+    return { sameParent: decisions.parentElement === close.parentElement, after: !!(decisions.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  });
+  expect(order).toEqual({ sameParent: true, after: true });
 });
 
-test("the pinned affiliation steps aside at the close, which carries the line", async ({ page }) => {
+const TABS = Object.values(network.tabs);
+const fullPage = (page: Page) => page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, innerHeight: window.innerHeight, scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  // Catches: a shell that is not capped to the viewport, so the document scrolls under the panels.
+  test(`the shell never scrolls the document at ${size.width} by ${size.height}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    for (const label of TABS) {
+      await openTab(page, label);
+      const m = await fullPage(page);
+      expect(m.scrollHeight, label).toBe(m.innerHeight);
+    }
+  });
+}
+
+for (const width of [375, 768, 1440]) {
+  // Catches: a bar, badge, tab row or panel wider than the screen.
+  test(`no horizontal scroll in the shell at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    for (const label of TABS) {
+      await openTab(page, label);
+      const m = await fullPage(page);
+      expect(m.scrollWidth, label).toBeLessThanOrEqual(m.innerWidth);
+    }
+  });
+}
+
+// Catches: wrong grid areas, so the tabs sit in the top bar on a phone or under the panels on desktop.
+test("tabs sit at the bottom on a phone and in the top bar on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/speedrun");
   await skipToSam(page);
   await skipBuildLog(page);
-  await page.locator("[data-close]").scrollIntoViewIfNeeded();
-  await expect(page.locator('[data-affiliation="pinned"]')).toHaveAttribute("aria-hidden", "true");
-  const gap = await page.evaluate(() => {
-    const close = document.querySelector("[data-close]")!.getBoundingClientRect();
-    return document.documentElement.scrollHeight - (close.bottom + window.scrollY);
+  const list = page.getByRole("tablist", { name: network.tabsLabel });
+  // The phase entrance slides the frame for a moment, so measure once it has settled.
+  await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
+});
+
+// Catches: the concept badge dropped on narrow screens, or the pinned pill still floating over the shell.
+test("the badge shows at every width, and the pinned pill is gone in the network phase", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  for (const width of [375, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    const badge = page.locator("[data-concept-badge]");
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText(network.badge);
+    await expect(page.locator('[data-affiliation="pinned"]')).toHaveCount(0);
+  }
+});
+
+test.describe("short landscape", () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+  // Catches: the max-height fallback removed, which traps the panels in a shell shorter than their content.
+  test("a short landscape screen falls back to page scroll", async ({ page }) => {
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const panel = page.getByRole("tabpanel").filter({ visible: true });
+    expect(await panel.evaluate((el) => getComputedStyle(el).overflowY)).toBe("visible");
+    const m = await fullPage(page);
+    expect(m.scrollHeight).toBeGreaterThan(m.innerHeight);
   });
-  expect(gap).toBeLessThanOrEqual(1);
+});
+
+// Catches: a long name widening the account button or menu past the screen (Review Focus 4).
+test("a 40-character name fits at 375", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const name = "W".repeat(40);
+  expect(Array.from(name)).toHaveLength(40);
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name });
+  await skipBuildLog(page);
+  let m = await fullPage(page);
+  expect(m.scrollWidth).toBeLessThanOrEqual(m.innerWidth);
+  await openAccountMenu(page);
+  await expect(accountPanel(page)).toContainText(name);
+  m = await fullPage(page);
+  expect(m.scrollWidth).toBeLessThanOrEqual(m.innerWidth);
+  const box = await accountPanel(page).boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+});
+
+// Catches: Escape closing the menu but leaving focus on the page, or not closing it at all.
+test("Escape closes the account menu and returns focus to its button", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await openAccountMenu(page);
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "true");
+  await accountPanel(page).getByRole("button", { name: network.account.startOver }).focus();
+  await page.keyboard.press("Escape");
+  await expect(accountPanel(page)).toBeHidden();
+  await expect(accountButton(page)).toBeFocused();
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "false");
+});
+
+// Catches: an action that runs but leaves the menu open over the phase that is about to leave.
+test("Start over from the menu closes it", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await openAccountMenu(page);
+  // One frame after the press: React has committed the close, the phase exit (hundreds of ms) has not finished.
+  const after = await page.evaluate(async (label) => {
+    const panel = document.querySelector<HTMLElement>("[data-account-panel]")!;
+    const button = [...panel.querySelectorAll("button")].find((b) => b.textContent === label)!;
+    button.click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    return { hidden: panel.hidden, stillNetwork: !!document.querySelector('[data-phase="network"]') };
+  }, network.account.startOver);
+  expect(after).toEqual({ hidden: true, stillNetwork: true });
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
 
 test("a failed sample build offers Start over, and it lands on a clean step 1", async ({ page }) => {
