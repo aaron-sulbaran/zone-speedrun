@@ -87,7 +87,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 
 ## Tooling and agents
 
-- **Roles.** Opus 5.5 orchestrates, every subagent runs on Sonnet 5.5, and Fable 5.1 does the end-of-build review. Codex is the second model on anything touching a visitor's résumé, email address or the limits.
+- **Roles.** Opus 5.5 orchestrates and reviews, implementers run on Sonnet 5.5, and Fable 5.1 does the end-of-build review. This writes down Aaron's standing ask: "Make sure Opus review agents actually go through and review what the Sonnet agents wrote." Codex is the second model on anything touching a visitor's résumé, email address or the limits.
 - **Merges and deploys.** Merges to `main` only on Aaron's word. Agents never deploy, link the Vercel project, or trigger a production build.
 - **Accounts and env.** Never enter credentials or create accounts: Aaron installs the store and sets env.
 - **Playwright.** At most two runs at once on this Mac, through the shared slot script.
