@@ -271,6 +271,47 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
   await expect(counter(page)).toHaveText("01 / 07");
 });
 
+// Regression: the join footer was sticky on phones and covered a fifth of the people step,
+// with the sample cards showing through its fill (Ruling 18). Below md it sits in flow.
+test("at 375 the join footer sits in flow below the last sample card", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const result = await page.evaluate(() => {
+    const footer = document.querySelector<HTMLElement>("[data-join-footer]")!;
+    const cards = document.querySelectorAll<HTMLElement>("[data-person]");
+    return { position: getComputedStyle(footer).position, footerTop: footer.getBoundingClientRect().top, lastCardBottom: cards[cards.length - 1].getBoundingClientRect().bottom };
+  });
+  expect(result.position).not.toBe("sticky");
+  expect(result.footerTop).toBeGreaterThanOrEqual(result.lastCardBottom);
+});
+
+// Regression: with the footer in flow it can sit below the fold, so a pick must bring the
+// primary button into view or the visitor never finds Continue.
+test("at 375 picking a sample person scrolls the footer button fully into view", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  await page.locator('#join [data-person]').first().click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
+          return rect.top >= 0 && rect.bottom <= window.innerHeight;
+        }),
+      { timeout: 3000 },
+    )
+    .toBe(true);
+});
+
+// Regression: the in-flow footer must not leak to desktop, where the sticky bar stays.
+test("at 1440 the join footer is still sticky", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector("[data-join-footer]")!).position)).toBe("sticky");
+});
+
 test("Start over during the building beat cancels the build: clean step 1 and no match request", async ({ page }) => {
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Casey", stopAtResume: true });
