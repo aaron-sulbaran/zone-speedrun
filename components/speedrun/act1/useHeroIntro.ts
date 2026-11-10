@@ -117,8 +117,6 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
         animations.push(flight);
         // The clone leaves the moment it lands, as the chart's own value takes its place.
         flight.finished.then(() => flying.remove(), () => {});
-        // The chart's own value waits for the clone to land.
-        animations.push(value.animate([{ opacity: 0 }, { opacity: 0 }], { duration: cue.atMs + cue.durationMs }));
       } else if (cue.target === "links") {
         // The whole chart (nodes, labels and links) spawns left to right from where the 84 lands.
         if (!chart) continue;
@@ -145,8 +143,10 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
       stopListening();
       setIntro(el, "done");
     };
-    function skip() {
+    function skip(event: Event) {
       if (el.dataset.intro !== "running") return;
+      // The dev tuning panel is not the reader: touching it must not end the intro.
+      if (event.target instanceof Element && event.target.closest("[data-tuning-panel]")) return;
       animations.forEach((animation) => animation.finish());
       complete();
     }

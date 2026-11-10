@@ -32,7 +32,7 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
   );
 }
 
-export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
+export default function TuningPanel({ onReplay, onReplayIntro }: { onReplay: () => void; onReplayIntro: () => void }) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState<"idle" | "ok" | "failed">("idle");
   useSyncExternalStore(subscribeMotion, getMotionOverrides, getMotionOverrides);
@@ -69,6 +69,9 @@ export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
           <div className="flex flex-wrap gap-2">
             <button type="button" className={buttonClass} onClick={onReplay}>
               Replay the switch
+            </button>
+            <button type="button" className={buttonClass} onClick={onReplayIntro}>
+              Replay the intro
             </button>
             <button type="button" className={buttonClass} onClick={resetMotionOverrides}>
               Reset

@@ -38,6 +38,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
   const skipped = skippedBuild === state.buildId;
   const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
   const [playSignal, setPlaySignal] = useState(0);
+  const [heroRun, setHeroRun] = useState(0);
   const { phase, tab } = phaseState;
   const { go, announcement } = usePhaseChange(phase, dispatchPhase);
   const { lines, failed, retry, readUpload } = useDemoBuild(state, dispatch);
@@ -80,6 +81,15 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
     );
   };
 
+  // The panel's intro replay: the hero remounts, so its intro reads the tuned values again.
+  const replayIntro = () => {
+    if (phase === "opener") return setHeroRun((n) => n + 1);
+    go({ type: "replayTop" }, { onLeft: () => {
+      resetDemo();
+      setHeroRun((n) => n + 1);
+    } });
+  };
+
   return (
     <>
       <SrZone active={phase !== "opener"} />
@@ -87,7 +97,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
         {announcement}
       </p>
       {phase === "opener" ? (
-        <SplitsHero onStart={() => setPlaySignal((n) => n + 1)} />
+        <SplitsHero key={heroRun} onStart={() => setPlaySignal((n) => n + 1)} />
       ) : (
         <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-dvh [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
@@ -110,7 +120,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
           setArrivalKey((key) => key + 1);
         }}
       />
-      {TuningPanel && tuning && <TuningPanel onReplay={replaySwitch} />}
+      {TuningPanel && tuning && <TuningPanel onReplay={replaySwitch} onReplayIntro={replayIntro} />}
     </>
   );
 }
