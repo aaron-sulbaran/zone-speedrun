@@ -12,10 +12,10 @@ const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
-type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean };
+type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
 
 // Two panes from lg: the list on the left, the selected match on the right. Below lg the detail slides over the list.
-export function Matches({ result, name, mentionedFounding = false }: MatchesProps) {
+export function Matches({ result, name, mentionedFounding = false, nextLabel, onNext }: MatchesProps) {
   const items = listItems(result);
   const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -23,6 +23,8 @@ export function Matches({ result, name, mentionedFounding = false }: MatchesProp
   const detailRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
   const closing = useRef(false);
+  // Tracked, not read at event time, so the list's inert flag clears the moment the layout widens.
+  const [wide, setWide] = useState(false);
   const selected = items.find((item) => item.key === selectedKey) ?? null;
 
   const registerRow = useCallback((key: string, node: HTMLButtonElement | null) => {
@@ -45,6 +47,19 @@ export function Matches({ result, name, mentionedFounding = false }: MatchesProp
     return () => running.forEach((animation) => animation.cancel());
   }, []);
 
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setWide(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  // The close slide holds its end state; once the panel is hidden, drop it so a later widen shows the detail in place.
+  useLayoutEffect(() => {
+    if (!detailOpen) detailRef.current?.getAnimations().forEach((animation) => animation.cancel());
+  }, [detailOpen]);
+
   // The slide in, and the focus move once it has started.
   useLayoutEffect(() => {
     if (!detailOpen) return;
@@ -62,7 +77,8 @@ export function Matches({ result, name, mentionedFounding = false }: MatchesProp
     if (!isDesktop()) setDetailOpen(true);
   };
 
-  const move = (direction: "up" | "down") => {
+  const move = (direction: "up" | "down", fromRow: boolean) => {
+    if (!fromRow) return void (selectedKey && rowRefs.current.get(selectedKey)?.focus());
     const next = moveSelection(items, selectedKey, direction);
     if (next === null) return;
     setSelectedKey(next);
@@ -72,6 +88,8 @@ export function Matches({ result, name, mentionedFounding = false }: MatchesProp
   const closeDetail = () => {
     const panel = detailRef.current;
     if (isDesktop() || !detailOpen || closing.current) return;
+    // The list is inert while the detail is open; free it first or the focus call is ignored.
+    if (listRef.current) listRef.current.inert = false;
     if (selectedKey) rowRefs.current.get(selectedKey)?.focus();
     const done = () => {
       closing.current = false;
@@ -95,6 +113,9 @@ export function Matches({ result, name, mentionedFounding = false }: MatchesProp
         onSelect={select}
         onMove={move}
         registerRow={registerRow}
+        inert={!wide && detailOpen}
+        nextLabel={nextLabel}
+        onNext={onNext}
       />
       <MatchDetail ref={detailRef} item={selected} routes={result.routes} mentionedFounding={mentionedFounding} open={detailOpen} onClose={closeDetail} />
     </section>

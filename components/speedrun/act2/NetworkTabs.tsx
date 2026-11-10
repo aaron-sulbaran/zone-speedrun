@@ -8,6 +8,8 @@ import { NETWORK_TABS, type NetworkTab } from "@/lib/speedrun/phase";
 const copy = speedrunCopy.network;
 const ICONS: Record<NetworkTab, LucideIcon> = { matches: Users, board: LayoutDashboard, brief: Mail, decisions: CircleHelp };
 
+export const NEXT_BUTTON = "rounded-full bg-sr-ink px-6 py-3 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+
 export const tabId = (tab: NetworkTab) => `sr-tab-${tab}`;
 export const panelId = (tab: NetworkTab) => `sr-panel-${tab}`;
 

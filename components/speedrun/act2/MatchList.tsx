@@ -1,9 +1,11 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
 import { forwardRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { reasonLine, type ListItem } from "@/lib/speedrun/matchList";
 import { CompanyLogo } from "./MatchCard";
+import { NEXT_BUTTON } from "./NetworkTabs";
 
 const copy = speedrunCopy.matches;
 const CHIP = "rounded-full bg-sr-hud px-2 py-0.5 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2";
@@ -15,7 +17,10 @@ type MatchListProps = {
   matchCount: number;
   mentionedFounding: boolean;
   onSelect: (key: string) => void;
-  onMove: (direction: "up" | "down") => void;
+  onMove: (direction: "up" | "down", fromRow: boolean) => void;
+  inert: boolean;
+  nextLabel: string;
+  onNext: () => void;
   registerRow: (key: string, node: HTMLButtonElement | null) => void;
 };
 
@@ -24,7 +29,7 @@ function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFoundin
     return (
       <>
         <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-sr-purple font-srcond text-lg uppercase text-sr-surface">
-          F
+          {copy.founderRow.charAt(0)}
         </span>
         <span className="min-w-0">
           <span data-row-company="" className="block break-words font-semibold leading-tight">
@@ -54,16 +59,17 @@ function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFoundin
 
 // The rows are plain buttons: Up and Down move the selection and the focus with it, so focus never leaves the list.
 export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function MatchList(
-  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow },
+  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow, inert, nextLabel, onNext },
   ref,
 ) {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
-    onMove(event.key === "ArrowUp" ? "up" : "down");
+    // From the heading (not a row) the first press lands on the selected row instead of skipping past it.
+    onMove(event.key === "ArrowUp" ? "up" : "down", (event.target as HTMLElement).closest("[data-match-row]") !== null);
   };
   return (
-    <div ref={ref} data-match-list="" onKeyDown={onKeyDown} className="h-full overflow-y-auto overscroll-contain lg:w-[380px] lg:shrink-0 lg:pr-3">
+    <div ref={ref} data-match-list="" inert={inert} onKeyDown={onKeyDown} className="h-full overflow-y-auto overscroll-contain lg:w-[380px] lg:shrink-0 lg:pr-3">
       <h2 id="sr-matches-heading" data-phase-heading="" tabIndex={-1} className="break-words font-srcond text-sm uppercase tracking-widest text-sr-purple focus:outline-none">
         {copy.listHeading(name)}
       </h2>
@@ -84,6 +90,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
               className="flex w-full items-start gap-3 rounded-xl border border-sr-soft bg-sr-surface p-3 text-left transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-[current=true]:border-sr-ink motion-reduce:transition-none"
             >
               <RowBody item={item} mentionedFounding={mentionedFounding} />
+              <ChevronRight aria-hidden="true" size={18} className="ml-auto h-[18px] w-[18px] shrink-0 self-center text-sr-ink2" />
             </button>
           </li>
         ))}
@@ -93,6 +100,11 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
           {copy.empty}
         </p>
       )}
+      <div className="mt-8 pb-4">
+        <button type="button" onClick={onNext} className={NEXT_BUTTON}>
+          {nextLabel}
+        </button>
+      </div>
     </div>
   );
 });
