@@ -613,7 +613,7 @@ test("the closing block arrives last", async ({ page }) => {
 
 for (const [width, height] of [[1440, 900], [390, 844]] as const) {
   // Catches: the flight or the links aiming at the hidden twin of the chart (a zero rect), or never being created.
-  test(`the 84 flies to the visible chart value and the links reveal on the visible chart at ${width} by ${height}`, async ({ page }) => {
+  test(`the 84 flies to the visible chart value and the chart is held on the visible twin at ${width} by ${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/speedrun");
     await page.waitForSelector(RUNNING);
@@ -664,11 +664,11 @@ test.describe("reduced motion", () => {
       }).observe(document, { childList: true, subtree: true });
     });
     await page.goto("/speedrun");
-    await page.waitForSelector('[data-hero][data-intro="done"]');
+    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 500 });
     const opacities = await page.evaluate(() => [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity));
     expect(opacities.length).toBeGreaterThan(5);
     expect(opacities.every((opacity) => opacity === "1")).toBe(true);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     expect(await page.evaluate(() => (window as unknown as { __flights: number }).__flights)).toBe(0);
   });
 });
@@ -737,7 +737,7 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     });
     expect(result.before).toEqual({ chartHeld: true, noteHidden: true });
     expect(result.after.opacity).toBe("1");
-    expect(result.after.clip).not.toContain("100%");
+    expect(["none", "inset(0px)", "inset(0px 0% 0px 0px)"]).toContain(result.after.clip);
     expect(result.after.note).toBe("1");
   });
 }
@@ -759,10 +759,30 @@ test("the clone leaves the moment the flight lands, and the chart's value is the
 test.describe("without checkVisibility", () => {
   // Catches: checkVisibility called without a fallback, which throws in older Safari and leaves the hero blank.
   test("the intro still reaches done", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(() => {
       delete (Element.prototype as unknown as { checkVisibility?: unknown }).checkVisibility;
     });
     await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    // At 390 the narrow twin is the visible one; a fallback of "always shown" would aim the flight at the hidden wide twin.
+    const landing = await page.evaluate(() => {
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]")!;
+      const flight = clone.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone)!;
+      flight.pause();
+      flight.currentTime = Number(flight.effect!.getComputedTiming().endTime) + 1;
+      const centre = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      };
+      const shown = [...document.querySelectorAll("[data-flow-source-value]")].filter((el) => el.getClientRects().length > 0);
+      const measured = { shown: shown.length, clone: centre(clone), target: centre(shown[0]) };
+      flight.play();
+      return measured;
+    });
+    expect(landing.shown).toBe(1);
+    expect(Math.abs(landing.clone.x - landing.target.x)).toBeLessThan(3);
+    expect(Math.abs(landing.clone.y - landing.target.y)).toBeLessThan(3);
     await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
     await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
   });
