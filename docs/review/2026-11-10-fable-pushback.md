@@ -4,7 +4,7 @@ Reviewer: Claude Fable 5.2, independent of the build.
 
 **What I read:** `AGENTS.md`, the 2026-11-09 Splits spec, the ledger's rulings and deferred minors (by heading, not every line), `lib/content/speedrun.ts`, and `git log main..HEAD` (14 commits).
 
-**What I did not do:** run the page, open production, or read the components line by line. This was written against an 11 minute clock. Anything I inferred instead of checking is marked (unverified).
+**What I did not do:** run the page, open production, or read the components line by line. This was written against an 11 minute clock. Anything I inferred instead of checking is marked (unverified). I never saw the page render, so every claim about how it looks or feels is a claim about the copy and the spec.
 
 ## Verdict
 
@@ -31,7 +31,7 @@ The matches, the founder route, the board and the brief are the proof that Aaron
 **What I would do:**
 - Put one sentence in the hero that says what Splits is. The meta description already has it: "What joining the speedrun talent network could give you on day one" (`speedrun.ts:11`).
 - Make the skip path a first-class button on the join card, not a secondary link.
-- Put a deep link that lands on the matches in the application itself, if one exists (unverified, see the questions).
+- Give the application a link that lands on the matches. None exists today: the only URL parameter the page reads is the dev-only `?tune` (`components/speedrun/SpeedrunExperience.tsx:24`). So every reviewer starts at the hero, every time, including the second visit.
 
 The same problem hides the best material for a product reader. "what I decided, and why." and "What I'd measure" (`speedrun.ts:436-471`) are the strongest product thinking in the build, and they live in the fourth tab of four, behind everything above. A hiring manager wants that page first. Link it from the hero or the join card.
 
@@ -128,7 +128,7 @@ The spec's "Why" is four pixel measurements. The redesign's whole premise is Aar
 1. Is the application already submitted? If yes, reviewers may be on the old page right now, and merging beats polishing. If no, what date does it go in?
 2. Who outside this build has read the new page? If nobody, why not before round 3?
 3. Is jobhuntingsux.com speedrun's own? If yes, should the hero say so in a word?
-4. Can a link land a reviewer directly on the matches? `SpeedrunExperience.tsx` reads the URL, and I ran out of time before seeing what for. If it cannot, is that worth one small change?
+4. No link can land a reviewer directly on the matches. Is a `?demo=sam` style entry worth one small change before the merge, so the application can point at the product itself?
 5. Did you mean to ship the paragraph drafts as written?
 6. What does the talent team get from Splits that they do not have today? Where does the page say it?
 7. Where does the page ask for the conversation, and tell them how to reach you?
