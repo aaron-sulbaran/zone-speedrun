@@ -215,6 +215,44 @@ test("phone: the list is inert behind an open detail, and not inert once widened
   await expect(list).not.toHaveAttribute("inert", "");
 });
 
+test("phone: Up and Down on Next: Board leave focus on the button", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await joinAs(page, "sam");
+  await toMatches(page);
+  const next = page.locator("[data-match-list]").getByRole("button", { name: speedrunCopy.network.nextTo.matches });
+  await next.focus();
+  // Catches: the list-level Up and Down handler hijacking the button and jumping focus to the selected row.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowUp");
+  await expect(next).toBeFocused();
+});
+
+test("phone: a detail reopened after scrolling starts at its top", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await joinAs(page, "sam");
+  await toMatches(page);
+  await rows(page).first().click();
+  await expect(detail(page)).toBeVisible();
+  await detail(page).getByRole("button", { name: copy.connect.follow }).click();
+  await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
+  const room = await detail(page).evaluate((el) => {
+    el.scrollTop = el.scrollHeight;
+    return { over: el.scrollHeight - el.clientHeight, at: el.scrollTop };
+  });
+  // Precondition: the card must overflow, or a zero offset proves nothing.
+  expect(room.over).toBeGreaterThan(0);
+  expect(room.at).toBeGreaterThan(0);
+  // Close without scrolling Back into view (a Playwright click on Back would zero the offset itself).
+  await detail(page).evaluate((el) => el.querySelector<HTMLElement>("[data-detail-back]")!.click());
+  await expect(detail(page)).toBeHidden();
+  await rows(page).first().click();
+  await expect(detail(page)).toBeVisible();
+  // Catches: a detail reopening mid-scroll, because a hidden scroller gets its offset back when shown.
+  expect(await detail(page).evaluate((el) => el.scrollTop)).toBe(0);
+});
+
 test("phone: Next: Board ends the list, inside its scroller, and opens the Board tab", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await joinAs(page, "sam");
@@ -239,6 +277,7 @@ test("Dev sees the founder route row first, and its detail has both links", asyn
   await joinAs(page, "dev");
   await toMatches(page);
   const first = rows(page).first();
+  // Catches: the founder row sorting below the company rows, or its detail losing a link.
   await expect(first).toHaveAttribute("data-match-row", "founder", { timeout: 20_000 });
   await expect(first).toContainText(copy.founderRow);
   await expect(first).toContainText(copy.founder.mentioned);

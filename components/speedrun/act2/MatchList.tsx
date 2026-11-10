@@ -64,9 +64,13 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
 ) {
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    const target = event.target as HTMLElement;
+    const fromRow = target.closest("[data-match-row]") !== null;
+    // Only rows and the heading take part; the Next button and anything else keep their own Up and Down.
+    if (!fromRow && target.id !== "sr-matches-heading") return;
     event.preventDefault();
     // From the heading (not a row) the first press lands on the selected row instead of skipping past it.
-    onMove(event.key === "ArrowUp" ? "up" : "down", (event.target as HTMLElement).closest("[data-match-row]") !== null);
+    onMove(event.key === "ArrowUp" ? "up" : "down", fromRow);
   };
   return (
     <div ref={ref} data-match-list="" inert={inert} onKeyDown={onKeyDown} className="h-full overflow-y-auto overscroll-contain lg:w-[380px] lg:shrink-0 lg:pr-3">

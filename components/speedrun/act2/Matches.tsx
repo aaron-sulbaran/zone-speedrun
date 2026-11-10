@@ -69,7 +69,13 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
     if (panel && !prefersReducedMotion()) {
       panel.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], { duration: motion().stepMs, easing: STEP_EASE });
     }
-    panel?.querySelector<HTMLElement>("[data-detail-heading]")?.focus({ preventScroll: true });
+    if (panel) {
+      // A hidden scroller keeps its offset in Blink and gets it back on show, so a reopen would land mid-card.
+      panel.scrollTop = 0;
+      panel.querySelector<HTMLElement>("[data-detail-heading]")?.focus({ preventScroll: true });
+      // Short landscape: the page itself scrolls, so bring the detail's top (Back and the heading) into view.
+      if (panel.getBoundingClientRect().top < 0) panel.scrollIntoView({ block: "start" });
+    }
   }, [detailOpen]);
 
   const select = (key: string) => {
