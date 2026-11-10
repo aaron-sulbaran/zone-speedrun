@@ -21,7 +21,7 @@ function cleanUrl(url: string): string {
   }
 }
 
-function Logo({ name, logo }: { name: string; logo: string | null }) {
+export function CompanyLogo({ name, logo }: { name: string; logo: string | null }) {
   const [broken, setBroken] = useState(false);
   if (logo && !broken) {
     // eslint-disable-next-line @next/next/no-img-element
@@ -43,23 +43,21 @@ export function MatchCard({ match }: { match: Match }) {
   const followRef = useRef<HTMLButtonElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !sheet) return;
-    event.stopPropagation();
+    // The detail around the card closes on an Escape nobody has handled; this one is the sheet's.
+    event.preventDefault();
     (sheet === "intro" ? introRef : followRef).current?.focus();
     setSheet(null);
   };
   const toggle = (kind: "intro" | "follow") => setSheet((now) => (now === kind ? null : kind));
 
   return (
-    <li
-      data-match=""
-      data-match-card=""
-      onKeyDown={onKeyDown}
-      className="rounded-xl border border-sr-soft bg-sr-surface p-5 transition-transform duration-200 ease-sr hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-    >
+    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5">
       <div className="flex items-center gap-3">
-        <Logo name={company.name} logo={company.logo} />
+        <CompanyLogo name={company.name} logo={company.logo} />
         <div className="min-w-0">
-          <h4 className="text-lg font-semibold leading-tight">{company.name}</h4>
+          <h3 data-detail-heading="" tabIndex={-1} className="break-words text-lg font-semibold leading-tight focus:outline-none">
+            {company.name}
+          </h3>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {company.cohort && <span className={CHIP}>{company.cohort}</span>}
             {company.stage && <span className={CHIP}>{company.stage}</span>}
@@ -111,6 +109,6 @@ export function MatchCard({ match }: { match: Match }) {
           </p>
         )}
       </div>
-    </li>
+    </div>
   );
 }

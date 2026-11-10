@@ -187,7 +187,7 @@ test("the student branch counts 03 / 07 before the answer and 04 / 08 after it, 
   expect(seen).toEqual({ student: "03 / 07", arrangements: "04 / 08" });
   await expect(page.locator("#act-2 [data-phase-heading]")).toHaveText(speedrunCopy.build.heading("Alex"));
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Alex"));
   await expectVisitorName(page, "Alex");
 });
 
@@ -261,7 +261,7 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
 
   await answerOnboarding(page, { name: "Blake" });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Blake"));
   await expectVisitorName(page, "Blake");
   await replayFromTop(page);
   await expect(page.locator('section[data-act="1"]')).toBeVisible({ timeout: 8000 });
@@ -377,10 +377,11 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await expect(page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(networkHeading(page)).toBeFocused({ timeout: 10_000 });
-  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Dana"));
   // Open the account menu by keyboard too: focus the button, Enter opens it, Escape closes it.
   await accountButton(page).focus();
   await page.keyboard.press("Enter");
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "true");
   await expect(accountPanel(page)).toContainText("Dana");
   await page.keyboard.press("Escape");
   await expect(accountPanel(page)).toBeHidden();
@@ -399,7 +400,7 @@ test("the typed name never leaves the page", async ({ page }) => {
   await page.goto("/speedrun");
   await answerOnboarding(page, { name, why: "Build with a founding team.", places: ["Remote"], connectGmail: true });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading(name));
   await expectVisitorName(page, name);
   await openTab(page, network.tabs.board);
   await openTab(page, network.tabs.brief);
@@ -441,7 +442,7 @@ test.describe("reduced motion", () => {
     await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 10_000 });
     await expect(networkHeading(page)).toBeFocused();
-    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Sam"));
     await expectVisitorName(page, "Sam");
     await expect(page.getByRole("button", { name: speedrunCopy.build.continue })).toHaveCount(0);
   });
@@ -458,7 +459,7 @@ test.describe("reduced motion", () => {
     await expect(networkPhase(page)).toHaveCount(0);
     await proceed.click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 5000 });
-    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Alex"));
     await expectVisitorName(page, "Alex");
   });
 });
@@ -647,7 +648,7 @@ test.describe("short landscape", () => {
   });
 });
 
-// Catches: a long name widening the account button or menu past the screen (Review Focus 4).
+// Catches: a long name widening the account button, the menu or the list header past the screen (Review Focus 4).
 test("a 40-character name fits at 375", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   const name = "W".repeat(40);
@@ -657,6 +658,9 @@ test("a 40-character name fits at 375", async ({ page }) => {
   await skipBuildLog(page);
   let m = await fullPage(page);
   expect(m.scrollWidth).toBeLessThanOrEqual(m.innerWidth);
+  // The list header names the visitor too; the panel scrolls on both axes, so the document cannot see it overflow.
+  await expect(networkHeading(page)).toContainText(name);
+  await expectScrollersFit(page, "40-character name");
   await openAccountMenu(page);
   await expect(accountPanel(page)).toContainText(name);
   m = await fullPage(page);

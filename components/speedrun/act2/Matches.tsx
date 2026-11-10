@@ -1,23 +1,38 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { speedrunCopy } from "@/lib/content";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MatchResult } from "@/lib/speedrun/match";
-import { prefersReducedMotion, SR_EASE } from "@/lib/speedrun/motion";
-import { FounderRoute } from "./FounderRoute";
-import { MatchCard } from "./MatchCard";
+import { listItems, moveSelection } from "@/lib/speedrun/matchList";
+import { motion, prefersReducedMotion, SR_EASE, STEP_EASE } from "@/lib/speedrun/motion";
+import { MatchDetail } from "./MatchDetail";
+import { MatchList } from "./MatchList";
 
 const CASCADE_MS = 420;
 const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
+const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
-export function Matches({ result, mentionedFounding = false }: { result: MatchResult; mentionedFounding?: boolean }) {
-  const copy = speedrunCopy.matches;
+type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean };
+
+// Two panes from lg: the list on the left, the selected match on the right. Below lg the detail slides over the list.
+export function Matches({ result, name, mentionedFounding = false }: MatchesProps) {
+  const items = listItems(result);
+  const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef(new Map<string, HTMLButtonElement>());
+  const closing = useRef(false);
+  const selected = items.find((item) => item.key === selectedKey) ?? null;
+
+  const registerRow = useCallback((key: string, node: HTMLButtonElement | null) => {
+    if (node) rowRefs.current.set(key, node);
+    else rowRefs.current.delete(key);
+  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion()) return;
-    const targets = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-founder-route], [data-match-card]") ?? [])];
+    const targets = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-match-row]") ?? [])];
     const running = targets.map((el, i) =>
       el.animate(
         [
@@ -30,26 +45,58 @@ export function Matches({ result, mentionedFounding = false }: { result: MatchRe
     return () => running.forEach((animation) => animation.cancel());
   }, []);
 
+  // The slide in, and the focus move once it has started.
+  useLayoutEffect(() => {
+    if (!detailOpen) return;
+    const panel = detailRef.current;
+    // The close slide holds its end state until the panel is hidden; drop it so the next open starts clean.
+    panel?.getAnimations().forEach((animation) => animation.cancel());
+    if (panel && !prefersReducedMotion()) {
+      panel.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], { duration: motion().stepMs, easing: STEP_EASE });
+    }
+    panel?.querySelector<HTMLElement>("[data-detail-heading]")?.focus({ preventScroll: true });
+  }, [detailOpen]);
+
+  const select = (key: string) => {
+    setSelectedKey(key);
+    if (!isDesktop()) setDetailOpen(true);
+  };
+
+  const move = (direction: "up" | "down") => {
+    const next = moveSelection(items, selectedKey, direction);
+    if (next === null) return;
+    setSelectedKey(next);
+    rowRefs.current.get(next)?.focus({ preventScroll: false });
+  };
+
+  const closeDetail = () => {
+    const panel = detailRef.current;
+    if (isDesktop() || !detailOpen || closing.current) return;
+    if (selectedKey) rowRefs.current.get(selectedKey)?.focus();
+    const done = () => {
+      closing.current = false;
+      setDetailOpen(false);
+    };
+    if (!panel || prefersReducedMotion()) return done();
+    closing.current = true;
+    const slide = panel.animate([{ transform: "translateX(0)" }, { transform: "translateX(100%)" }], { duration: motion().stepMs, easing: STEP_EASE, fill: "forwards" });
+    slide.finished.then(done, done);
+  };
+
   return (
-    <section data-matches="" aria-labelledby="sr-matches-heading" className="mx-auto w-full max-w-3xl">
-      <h3 id="sr-matches-heading" data-phase-heading="" tabIndex={-1} className="font-srcond focus:outline-none text-sm uppercase tracking-widest text-sr-purple">
-        {copy.heading}
-      </h3>
-      <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
-      <div ref={listRef} className="mt-6 space-y-4">
-        <FounderRoute routes={result.routes} mentioned={mentionedFounding} />
-        {result.matches.length === 0 ? (
-          <p data-matches-empty="" className="rounded-xl border border-sr-soft bg-sr-surface p-6 text-sr-ink2">
-            {copy.empty}
-          </p>
-        ) : (
-          <ul className="space-y-4">
-            {result.matches.map((match) => (
-              <MatchCard key={`${match.company.name}-${match.role?.id ?? "company"}`} match={match} />
-            ))}
-          </ul>
-        )}
-      </div>
+    <section data-matches="" aria-labelledby="sr-matches-heading" className="relative mx-auto h-full w-full max-w-5xl lg:flex lg:gap-6">
+      <MatchList
+        ref={listRef}
+        items={items}
+        selectedKey={selectedKey}
+        name={name}
+        matchCount={result.matches.length}
+        mentionedFounding={mentionedFounding}
+        onSelect={select}
+        onMove={move}
+        registerRow={registerRow}
+      />
+      <MatchDetail ref={detailRef} item={selected} routes={result.routes} mentionedFounding={mentionedFounding} open={detailOpen} onClose={closeDetail} />
     </section>
   );
 }

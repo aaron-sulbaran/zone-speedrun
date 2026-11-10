@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { speedrunCopy } from "@/lib/content";
 import { FOUNDER_KEY, listItems, matchKey, moveSelection, reasonLine } from "./matchList";
 import type { Match, MatchResult } from "./match";
 
@@ -60,5 +61,13 @@ describe("reasonLine", () => {
   it("uses the first reason, else the blurb", () => {
     expect(reasonLine(a)).toBe("because");
     expect(reasonLine(b)).toBe("Beta blurb");
+  });
+});
+
+describe("the list copy", () => {
+  it("names the visitor, or says Your matches without a name", () => {
+    expect(speedrunCopy.matches.listHeading("Sam")).toBe("Sam's matches");
+    expect(speedrunCopy.matches.listHeading(null)).toBe("Your matches");
+    expect(speedrunCopy.matches.listCount(5)).toBe("5 worth your time first");
   });
 });

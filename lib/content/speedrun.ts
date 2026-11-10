@@ -172,8 +172,10 @@ export const speedrunCopy = {
     nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why" },
   },
   matches: {
-    heading: "your first matches",
-    subhead: "The companies we'd put in front of you on day one, and why.",
+    listHeading: (name: string | null) => (name ? `${name}'s matches` : "Your matches"),
+    listCount: (n: number) => `${n} worth your time first`,
+    founderRow: "Founder route",
+    back: "Back to matches",
     connect: { intro: "Ask for a warm intro", apply: "Apply", follow: "Follow" },
     connectSheet: {
       intro: "The talent team would see your profile and this match, and reach out to the founder if it fits. Nothing is sent from this demo.",
