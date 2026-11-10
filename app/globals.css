@@ -1,0 +1,236 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-background: #FAFAF7;
+  --color-foreground: #0A0A0A;
+  --color-muted: #6B6B6B;
+  --color-accent: #1B3A5C;
+  --color-accent-hover: #24496F;
+  --color-border: #E5E5E0;
+  --color-glass: rgba(255, 255, 255, 0.6);
+  --color-glass-strong: rgba(255, 255, 255, 0.78);
+  /* Shared deceleration curve. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Flow chart ribbons on Aaron's side of /speedrun: the accent for flow, a
+     softer accent for rejected, the muted ink for no reply. */
+  --flow-link: color-mix(in srgb, var(--color-accent) 52%, transparent);
+  --flow-open: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --flow-rejected: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  --flow-noreply: color-mix(in srgb, var(--color-muted) 28%, transparent);
+}
+
+[data-theme="dark"] {
+  --color-background: #0E1419;
+  --color-foreground: #F5F2EC;
+  --color-muted: #8A8A8A;
+  --color-accent: #7FA8C9;
+  --color-accent-hover: #9AC0DD;
+  --color-border: #1F2830;
+  --color-glass: rgba(20, 25, 30, 0.5);
+  --color-glass-strong: rgba(20, 25, 30, 0.72);
+  --flow-link: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  --flow-open: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  --flow-rejected: color-mix(in srgb, var(--color-accent) 26%, transparent);
+  --flow-noreply: color-mix(in srgb, var(--color-muted) 34%, transparent);
+}
+
+
+html {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  color-scheme: light;
+  scroll-behavior: smooth;
+  /* Profa Black is one upright 900 cut: never fake a slanted or a bolder
+     weight on top of it. */
+  font-synthesis: none;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 250ms ease-in-out, color 250ms ease-in-out;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-background);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* A ring is for the keyboard. Chrome's :focus-visible leaks after a click
+   (a modal's first control, focus returning to its opener, a ring a key press
+   earned), so lib/input/modality writes data-input="pointer" on <html> after a
+   press and the ring is dropped while it is set. Text entry keeps its ring: a
+   caret alone is a weak cue. The two groups below ring a container, not the
+   focused control. */
+html[data-input="pointer"] :focus-visible:not(input, textarea, select, [contenteditable="true"]),
+html[data-input="pointer"] .pill-toggle:has(:focus-visible),
+html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
+  outline: none;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  z-index: 100;
+  transition: top 200ms ease-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+
+/* ---- /speedrun flow chart: ribbons draw in once, 900 ms ---- */
+[data-flow-armed] .flow-link {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+[data-flow-armed][data-flow-drawn] .flow-link {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 900ms var(--ease-out);
+}
+[data-speedrun] [data-flow-armed][data-flow-drawn] .flow-link {
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-flow-armed] .flow-link {
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+}
+
+/* ---- /speedrun, Act 2: the talent network's look, scoped ---- */
+[data-speedrun] {
+  color-scheme: light;
+  --sr-bg: #ebe9e5;
+  --sr-ink: #000;
+  --sr-ink-2: rgba(0, 0, 0, 0.6);
+  --sr-surface: #fff;
+  --sr-hud: rgba(216, 212, 204, 0.56);
+  --sr-soft: rgba(0, 0, 0, 0.08);
+  --sr-strong: rgba(0, 0, 0, 0.16);
+  --sr-sec: rgba(0, 0, 0, 0.3);
+  --sr-purple: #a162ff;
+  --sr-aqua: #56faf7;
+  --sr-cream: #f8dcbb;
+  --sr-grad-accent: linear-gradient(90deg, #a162ff 0%, #56faf7 55%, #f8dcbb 100%);
+  --sr-term: #1a1a1a;
+  --sr-foot: rgba(244, 242, 238, 0.88);
+}
+/* The paper tone and its ink, scoped to the zone flag instead of :root so the
+   fixed logo can match the section in either theme.
+   <html data-sr-zone> is set by components/speedrun/SrZone.tsx. */
+html[data-sr-zone] {
+  --sr-paper: #ebe9e5;
+  --sr-paper-ink: #0a0a0a;
+}
+html[data-sr-zone] .site-logo {
+  color: var(--sr-paper-ink);
+}
+/* The paste box's prism ring: a conic gradient of the speedrun tokens turns
+   behind the box while it has focus. Reduced motion holds it still. */
+[data-speedrun] .sr-prism {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 2px;
+  background: var(--sr-soft);
+}
+[data-speedrun] .sr-prism::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -100%;
+  top: 50%;
+  width: 300%;
+  aspect-ratio: 1;
+  background: conic-gradient(from 0deg, var(--sr-purple), var(--sr-aqua), var(--sr-cream), var(--sr-purple));
+  opacity: 0;
+  transform: translateY(-50%) rotate(0deg);
+  transition: opacity 260ms cubic-bezier(.16, 1, .3, 1);
+}
+[data-speedrun] .sr-prism:focus-within::before {
+  opacity: 1;
+  animation: sr-prism-spin 4s linear infinite;
+}
+@keyframes sr-prism-spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-speedrun] .sr-prism::before {
+    transition: none;
+  }
+  [data-speedrun] .sr-prism:focus-within::before {
+    animation: none;
+  }
+}
+/* ---- end /speedrun ---- */
+/* The join card's sticky footer must not cover the control that just took focus
+   (WCAG 2.4.11): focused controls keep the footer's height clear below them.
+   The footer's own buttons are excluded: a stuck control with that margin would force a jump. */
+[data-speedrun] .sr-join :is(input, button, [tabindex]):not([data-join-footer] *):focus {
+  scroll-margin-bottom: 10rem;
+}
+
+/* The join card's selection sweep (their founder application's chip): a -75deg
+   gradient wider than the pill slides across in CHIP_EASE, the text color turns
+   140ms after 100ms, and the pill pulses once. Reduced motion keeps the color change. */
+[data-speedrun] .sr-chip {
+  background-image: linear-gradient(-75deg, var(--sr-ink) 0%, var(--sr-ink) 40%, var(--sr-hud) 60%, var(--sr-hud) 100%);
+  background-size: 250% 100%;
+  background-position: 0 0;
+  color: var(--sr-ink);
+  transition:
+    background-position var(--sr-chip-ms, 320ms) cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 200ms ease,
+    color 140ms ease 100ms;
+}
+[data-speedrun] .sr-chip[aria-pressed="true"] {
+  background-position: 100% 0;
+  color: var(--sr-surface);
+  animation: sr-chip-pulse 250ms ease-out;
+}
+[data-speedrun] .sr-chip:not([aria-pressed="true"]):not(:disabled):not(:focus-visible):hover {
+  box-shadow: inset 0 0 0 999px var(--sr-soft);
+}
+[data-speedrun] .sr-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--sr-purple);
+}
+@keyframes sr-chip-pulse {
+  50% {
+    transform: scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-speedrun] .sr-chip {
+    transition: color 140ms ease;
+  }
+  [data-speedrun] .sr-chip[aria-pressed="true"] {
+    animation: none;
+  }
+}

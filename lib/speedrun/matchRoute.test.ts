@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POST } from "../../app/speedrun/api/match/route";
+import { POST } from "../../app/api/match/route";
 
 const post = (body: string) => new Request("http://x.test/speedrun/api/match", { method: "POST", body, headers: { "x-forwarded-for": "9.9.9.9" } });
 

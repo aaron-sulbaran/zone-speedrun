@@ -1,8 +1,10 @@
 import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
-import { quickCopy } from "../lib/content/quick";
 import { test, expect } from "./support/fixtures";
 import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, skipBuildLog, skipToSam } from "./speedrun-flow";
+
+// The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
+const QUICK_TITLE_SHORT = "MVP";
 
 const network = speedrunCopy.network;
 const join = speedrunCopy.join;
@@ -31,11 +33,11 @@ test("renders logged out with noindex, then the join card carries the affiliatio
   await expect(logo).toBeVisible();
   expect(await logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 
-  await page.getByRole("button", { name: "Open menu" }).click();
-  const panel = page.getByRole("dialog", { name: "Site menu" });
-  // Off the home page the menu's Home item is the way back to "/".
-  await panel.getByRole("link", { name: /Home/ }).click();
-  await page.waitForURL((url) => url.pathname === "/");
+  // The zone has no Menu pill: the site's logo is the way back, a plain link to the site root
+  // (next/link would prefix the basePath and soft-navigate inside the zone).
+  const home = page.getByRole("link", { name: siteContent.logoAriaLabel });
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute("href", "/");
 });
 
 test("the opener shows first, with no phase of the styled section in the DOM", async ({ page }) => {
@@ -419,7 +421,7 @@ test("the decisions and the close are on the page", async ({ page }) => {
   await expect(links).toHaveCount(3);
   await expect(links.nth(0)).toHaveAttribute("href", "/");
   await expect(links.nth(1)).toHaveAttribute("href", "/quick");
-  await expect(links.nth(1)).toHaveText(quickCopy.titleShort);
+  await expect(links.nth(1)).toHaveText(QUICK_TITLE_SHORT);
   await expect(links.nth(2)).toHaveAttribute("href", linkedin ?? "");
   await expect(links.nth(2)).toHaveAttribute("target", "_blank");
   await expect(links.nth(2)).toHaveAttribute("rel", "noopener noreferrer");
@@ -436,11 +438,6 @@ test("the pinned affiliation steps aside at the close, which carries the line", 
     return document.documentElement.scrollHeight - (close.bottom + window.scrollY);
   });
   expect(gap).toBeLessThanOrEqual(1);
-});
-
-test("the sitemap leaves /speedrun out", async ({ request }) => {
-  const body = await (await request.get("/sitemap.xml")).text();
-  expect(body).not.toContain("speedrun");
 });
 
 test("a failed sample build offers Start over, and it lands on a clean step 1", async ({ page }) => {

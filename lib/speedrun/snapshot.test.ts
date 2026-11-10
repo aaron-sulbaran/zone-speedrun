@@ -21,7 +21,8 @@ describe("speedrun snapshot", () => {
   it("points every logo at a file that exists", () => {
     for (const company of snapshot.companies) {
       if (company.logo) {
-        expect(existsSync(path.join(process.cwd(), "public", company.logo))).toBe(true);
+        // Logo urls carry the basePath; the files sit at the top of public/.
+        expect(existsSync(path.join(process.cwd(), "public", company.logo.replace(/^\/speedrun/, "")))).toBe(true);
       }
     }
   });

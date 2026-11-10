@@ -14,7 +14,7 @@ describe("brief route limiters", () => {
         return async () => ({ ok: true, retryAfterMs: 0 });
       },
     }));
-    await import("../../app/speedrun/api/brief/route");
+    await import("../../app/api/brief/route");
     const to = specs.find((spec) => spec.perKey.prefix === "speedrun:brief:to");
     const ip = specs.find((spec) => spec.perKey.prefix === "speedrun:brief:ip");
     expect(to?.daily?.prefix).toBe("speedrun:brief:daily");
@@ -66,7 +66,7 @@ describe("brief route end to end, with fakes", () => {
         }),
       };
     });
-    const route = await import("../../app/speedrun/api/brief/route");
+    const route = await import("../../app/api/brief/route");
     return { route, callbacks, fetcher, keys };
   }
 
