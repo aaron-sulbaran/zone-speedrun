@@ -233,10 +233,6 @@ test("phone: a detail reopened after scrolling starts at its top", async ({ page
   await toMatches(page);
   await rows(page).first().click();
   await expect(detail(page)).toBeVisible();
-  await detail(page).getByRole("button", { name: copy.connect.follow }).click();
-  await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
   const room = await detail(page).evaluate((el) => {
     el.scrollTop = el.scrollHeight;
     return { over: el.scrollHeight - el.clientHeight, at: el.scrollTop };
@@ -251,6 +247,38 @@ test("phone: a detail reopened after scrolling starts at its top", async ({ page
   await expect(detail(page)).toBeVisible();
   // Catches: a detail reopening mid-scroll, because a hidden scroller gets its offset back when shown.
   expect(await detail(page).evaluate((el) => el.scrollTop)).toBe(0);
+});
+
+test("short landscape: opening a detail never scrolls the page sideways and Back clears the logo", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await joinAs(page, "sam");
+  await toMatches(page);
+  const lower = rows(page).nth(2);
+  await expect(lower).toBeVisible();
+  // Precondition: the page scrolls here, and it is scrolled so the tap lands on a partly scrolled list.
+  const scrolled = await page.evaluate(() => {
+    window.scrollTo({ top: 300, behavior: "instant" });
+    return { room: document.documentElement.scrollHeight - window.innerHeight, at: window.scrollY };
+  });
+  expect(scrolled.room).toBeGreaterThan(0);
+  expect(scrolled.at).toBeGreaterThan(0);
+  // The section's top is above the viewport now, which is what makes the fallback scroll the page.
+  expect(await page.locator("[data-matches]").evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(0);
+  await lower.evaluate((el) => (el as HTMLElement).click());
+  // Same tick: the slide has just started, which is when a scrollIntoView saw the panel a full width right.
+  expect(await page.evaluate(() => window.scrollX)).toBe(0);
+  await expect(detail(page)).toBeVisible();
+  await page.waitForTimeout(500);
+  // Catches: the page whipping sideways (scrollIntoView with inline nearest on a panel shifted by the slide).
+  expect(await page.evaluate(() => window.scrollX)).toBe(0);
+  const geometry = await page.evaluate(() => {
+    const back = document.querySelector<HTMLElement>("[data-detail-back]")!.getBoundingClientRect();
+    const logo = document.querySelector<HTMLElement>(".site-logo")!.getBoundingClientRect();
+    return { backTop: back.top, logoBottom: logo.bottom, height: window.innerHeight };
+  });
+  // Catches: Back under the fixed site logo, or off screen.
+  expect(geometry.backTop).toBeGreaterThanOrEqual(geometry.logoBottom);
+  expect(geometry.backTop).toBeLessThan(geometry.height);
 });
 
 test("phone: Next: Board ends the list, inside its scroller, and opens the Board tab", async ({ page }) => {

@@ -10,6 +10,8 @@ import { MatchList } from "./MatchList";
 const CASCADE_MS = 420;
 const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
+// Clears the fixed site logo (top-4 plus 40 px), matching the shell's pt-20.
+const LOGO_CLEARANCE = 80;
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
 type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
@@ -66,6 +68,10 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
     const panel = detailRef.current;
     // The close slide holds its end state until the panel is hidden; drop it so the next open starts clean.
     panel?.getAnimations().forEach((animation) => animation.cancel());
+    // Short landscape: the page itself scrolls. Measure before the slide starts (the panel is shifted a full width right
+    // once it runs) and move the window vertically only, so the page never travels sideways.
+    const rectTop = panel?.getBoundingClientRect().top ?? 0;
+    if (rectTop < LOGO_CLEARANCE && panel && !isDesktop() && window.innerHeight <= 559) window.scrollBy({ top: rectTop - LOGO_CLEARANCE, behavior: "instant" });
     if (panel && !prefersReducedMotion()) {
       panel.animate([{ transform: "translateX(100%)" }, { transform: "translateX(0)" }], { duration: motion().stepMs, easing: STEP_EASE });
     }
@@ -73,8 +79,6 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
       // A hidden scroller keeps its offset in Blink and gets it back on show, so a reopen would land mid-card.
       panel.scrollTop = 0;
       panel.querySelector<HTMLElement>("[data-detail-heading]")?.focus({ preventScroll: true });
-      // Short landscape: the page itself scrolls, so bring the detail's top (Back and the heading) into view.
-      if (panel.getBoundingClientRect().top < 0) panel.scrollIntoView({ block: "start" });
     }
   }, [detailOpen]);
 
