@@ -23,14 +23,14 @@ Count what a reviewer has to do before seeing one match:
 - read a hero about Aaron's search;
 - press "See where speedrun could go";
 - watch the style switch;
-- answer the join questions, or notice the secondary link "Skip the questions: see Sam's board" (`lib/content/speedrun.ts:56`);
+- answer the join questions, or find "Skip the questions: see Sam's board" (`lib/content/speedrun.ts:56`). It is an outlined ghost button, and below `lg` it sits under the join card (`components/speedrun/act2/Hero.tsx:12-24`). So on a phone the shortcut to the product is below the whole questionnaire;
 - watch the build log.
 
 The matches, the founder route, the board and the brief are the proof that Aaron can do the job. All of it sits four to six interactions deep. The old page could be skimmed by scrolling, which costs a reviewer nothing. The spec's goal "the page after onboarding never scrolls" is a layout property. No goal in the spec says "a reviewer knows what Splits is within N seconds".
 
 **What I would do:**
 - Put one sentence in the hero that says what Splits is. The meta description already has it: "What joining the speedrun talent network could give you on day one" (`speedrun.ts:11`).
-- Make the skip path a first-class button on the join card, not a secondary link.
+- Make the skip path the first thing on the join screen at 390, above the card and in the filled style, not a ghost button under it.
 - Give the application a link that lands on the matches. None exists today: the only URL parameter the page reads is the dev-only `?tune` (`components/speedrun/SpeedrunExperience.tsx:24`). So every reviewer starts at the hero, every time, including the second visit.
 
 The same problem hides the best material for a product reader. "what I decided, and why." and "What I'd measure" (`speedrun.ts:436-471`) are the strongest product thinking in the build, and they live in the fourth tab of four, behind everything above. A hiring manager wants that page first. Link it from the hero or the join card.
