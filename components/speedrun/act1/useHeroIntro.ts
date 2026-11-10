@@ -142,6 +142,8 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
       clone?.remove();
       stopListening();
       setIntro(el, "done");
+      // The CSS done rule holds the end state; drop the fill so no clip lingers on the chart at rest.
+      animations.forEach((animation) => animation.cancel());
     };
     function skip(event: Event) {
       if (el.dataset.intro !== "running") return;

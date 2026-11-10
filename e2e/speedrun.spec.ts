@@ -625,11 +625,23 @@ test("the act 2 section is sized with the dynamic viewport, never 100vh", async 
         if (rule instanceof CSSStyleRule && section.matches(rule.selectorText) && rule.style.minHeight) found.push(rule.style.minHeight);
       }
     }
-    return found;
+    // The shell inside the section is what must never scroll: its own height rule is the one that counts.
+    const shell = document.querySelector("[data-shell]")!;
+    const shellHeights: string[] = [];
+    const collect = (rules: CSSRuleList) => {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSStyleRule && shell.matches(rule.selectorText) && rule.style.height) shellHeights.push(rule.style.height);
+        else if (rule instanceof CSSGroupingRule) collect(rule.cssRules);
+      }
+    };
+    for (const sheet of Array.from(document.styleSheets)) collect(sheet.cssRules);
+    return { found, shellHeights };
   });
-  expect(heights.length).toBeGreaterThan(0);
-  expect(heights).not.toContain("100vh");
-  expect(heights).toContain("100dvh");
+  expect(heights.shellHeights).toContain("100dvh");
+  expect(heights.shellHeights).not.toContain("100vh");
+  expect(heights.found.length).toBeGreaterThan(0);
+  expect(heights.found).not.toContain("100vh");
+  expect(heights.found).toContain("100dvh");
 });
 
 test.describe("short landscape", () => {
@@ -643,6 +655,24 @@ test.describe("short landscape", () => {
     expect(await panel.evaluate((el) => getComputedStyle(el).overflowY)).toBe("visible");
     const m = await fullPage(page);
     expect(m.scrollHeight).toBeGreaterThan(m.innerHeight);
+  });
+});
+
+test.describe("short portrait", () => {
+  // iPhone SE portrait with Safari's bars showing is about 548 px tall: the capped shell must stay capped, not flip to page scroll.
+  test.use({ viewport: { width: 375, height: 548 } });
+  // Catches: the short-height fallback applying in portrait, which flips the layout to page scroll when the toolbar collapses.
+  test("a short portrait screen keeps the shell capped to the viewport", async ({ page }) => {
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const result = await page.evaluate(() => ({
+      shell: document.querySelector("[data-shell]")!.getBoundingClientRect().height,
+      innerHeight: window.innerHeight,
+      scrollHeight: document.documentElement.scrollHeight,
+    }));
+    expect(result.shell).toBe(result.innerHeight);
+    expect(result.scrollHeight).toBeLessThanOrEqual(result.innerHeight);
   });
 });
 
@@ -812,6 +842,11 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
         const r = el.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
       };
+      const digitsWidth = (el: Element) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getBoundingClientRect().width;
+      };
       const visible = (selector: string) => [...document.querySelectorAll(selector)].filter((el) => el.checkVisibility());
       const targets = visible("[data-flow-source-value]");
       const clipped = document.getAnimations().filter((a) => {
@@ -823,6 +858,7 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
         targets: targets.length,
         clone: clone ? centre(clone) : null,
         target: targets[0] ? centre(targets[0]) : null,
+        digitsWidth: targets[0] ? digitsWidth(targets[0]) : 0,
         clippedVisible: clipped.length > 0 && clipped.every((a) => (a.effect as KeyframeEffect).target!.checkVisibility()),
       };
     });
@@ -831,6 +867,9 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     expect(result.clippedVisible).toBe(true);
     expect(Math.abs(result.clone!.x - result.target!.x)).toBeLessThan(3);
     expect(Math.abs(result.clone!.y - result.target!.y)).toBeLessThan(3);
+    // Catches: the clone landing at the right centre but several times the size of the digits it replaces.
+    expect(result.digitsWidth).toBeGreaterThan(0);
+    expect(Math.abs(result.clone!.w - result.digitsWidth) / result.digitsWidth).toBeLessThan(0.3);
     await page.locator("[data-hero]").dispatchEvent("pointerdown");
     await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
     await expect(page.locator("[data-intro-flight]")).toHaveCount(0);
@@ -916,11 +955,31 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
         return style.opacity === "0" || style.clipPath.startsWith("inset(0px 100%");
       };
       const note = document.querySelector("[data-hero-chart-note]")!;
+      // Seek to just before the flight lands: the links cue starts at the flight's end, so the chart must still be clipped shut.
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]");
+      const flight = clone?.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone);
+      const flightEnd = flight ? Number(flight.effect!.getComputedTiming().endTime) : 0;
+      for (const animation of document.getAnimations()) {
+        const target = (animation.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        if (target && (target.closest("[data-hero]") || target === clone)) {
+          animation.pause();
+          animation.currentTime = flightEnd - 50;
+        }
+      }
+      const seeked = { flightEnd, chartClip: getComputedStyle(chart).clipPath };
       const before = { chartHeld: held(chart), noteHidden: getComputedStyle(note).opacity === "0" };
       document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
       const style = getComputedStyle(chart);
-      return { before, after: { opacity: style.opacity, clip: style.clipPath, note: getComputedStyle(note).opacity } };
+      // Catches: the intro's fill-both animations lingering on the chart and words after done.
+      const lingering = document.getAnimations().filter((a) => {
+        const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        return Boolean(target?.closest("[data-hero]"));
+      }).length;
+      return { lingering, seeked, before, after: { opacity: style.opacity, clip: style.clipPath, note: getComputedStyle(note).opacity } };
     });
+    expect(result.lingering).toBe(0);
+    expect(result.seeked.flightEnd).toBeGreaterThan(50);
+    expect(result.seeked.chartClip.startsWith("inset(0px 100%")).toBe(true);
     expect(result.before).toEqual({ chartHeld: true, noteHidden: true });
     expect(result.after.opacity).toBe("1");
     expect(["none", "inset(0px)", "inset(0px 0% 0px 0px)"]).toContain(result.after.clip);
@@ -959,16 +1018,20 @@ test.describe("without checkVisibility", () => {
       flight.currentTime = Number(flight.effect!.getComputedTiming().endTime) + 1;
       const centre = (el: Element) => {
         const r = el.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
       };
       const shown = [...document.querySelectorAll("[data-flow-source-value]")].filter((el) => el.getClientRects().length > 0);
-      const measured = { shown: shown.length, clone: centre(clone), target: centre(shown[0]) };
+      const range = document.createRange();
+      range.selectNodeContents(shown[0]);
+      const measured = { shown: shown.length, clone: centre(clone), target: centre(shown[0]), digitsWidth: range.getBoundingClientRect().width };
       flight.play();
       return measured;
     });
     expect(landing.shown).toBe(1);
     expect(Math.abs(landing.clone.x - landing.target.x)).toBeLessThan(3);
     expect(Math.abs(landing.clone.y - landing.target.y)).toBeLessThan(3);
+    expect(landing.digitsWidth).toBeGreaterThan(0);
+    expect(Math.abs(landing.clone.w - landing.digitsWidth) / landing.digitsWidth).toBeLessThan(0.3);
     await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
     await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
   });
