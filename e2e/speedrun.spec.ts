@@ -977,9 +977,9 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
       }).length;
       return { lingering, seeked, before, after: { opacity: style.opacity, clip: style.clipPath, note: getComputedStyle(note).opacity } };
     });
-    expect(result.lingering).toBe(0);
     expect(result.seeked.flightEnd).toBeGreaterThan(50);
     expect(result.seeked.chartClip.startsWith("inset(0px 100%")).toBe(true);
+    expect(result.lingering).toBe(0);
     expect(result.before).toEqual({ chartHeld: true, noteHidden: true });
     expect(result.after.opacity).toBe("1");
     expect(["none", "inset(0px)", "inset(0px 0% 0px 0px)"]).toContain(result.after.clip);
