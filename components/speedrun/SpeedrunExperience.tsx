@@ -89,7 +89,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
       {phase === "opener" ? (
         <SplitsHero onStart={() => setPlaySignal((n) => n + 1)} />
       ) : (
-        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-screen [overflow-y:clip] focus:outline-none ${themeClassName}`}>
+        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-dvh [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
             {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}

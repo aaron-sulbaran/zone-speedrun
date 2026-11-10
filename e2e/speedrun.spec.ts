@@ -378,7 +378,13 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(networkHeading(page)).toBeFocused({ timeout: 10_000 });
   await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
-  await expectVisitorName(page, "Dana");
+  // Open the account menu by keyboard too: focus the button, Enter opens it, Escape closes it.
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(accountPanel(page)).toContainText("Dana");
+  await page.keyboard.press("Escape");
+  await expect(accountPanel(page)).toBeHidden();
+  await expect(accountButton(page)).toBeFocused();
 });
 
 test("the typed name never leaves the page", async ({ page }) => {
@@ -436,7 +442,7 @@ test.describe("reduced motion", () => {
     await expect(networkPhase(page)).toBeVisible({ timeout: 10_000 });
     await expect(networkHeading(page)).toBeFocused();
     await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
-  await expectVisitorName(page, "Sam");
+    await expectVisitorName(page, "Sam");
     await expect(page.getByRole("button", { name: speedrunCopy.build.continue })).toHaveCount(0);
   });
 
@@ -453,7 +459,7 @@ test.describe("reduced motion", () => {
     await proceed.click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 5000 });
     await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.heading);
-  await expectVisitorName(page, "Alex");
+    await expectVisitorName(page, "Alex");
   });
 });
 
@@ -487,10 +493,12 @@ for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
     for (const label of Object.values(network.tabs)) {
       await openTab(page, label);
       expect(await page.evaluate(() => document.documentElement.scrollWidth), label).toBeLessThanOrEqual(390);
+      await expectScrollersFit(page, label);
     }
     await page.locator("[data-close]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await expectScrollersFit(page, "close");
   });
 }
 
@@ -524,6 +532,20 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
 });
 
 const TABS = Object.values(network.tabs);
+/** Wide panel content scrolls sideways inside its panel (overflow-y:auto makes overflow-x auto) and never reaches the document's scrollWidth, so read the scrollers too. */
+const scrollerFits = (page: Page) =>
+  page.evaluate(() => {
+    const read = (el: Element | null) => (el ? { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth } : null);
+    const panel = Array.from(document.querySelectorAll('[role="tabpanel"]')).find((el) => !(el as HTMLElement).hidden) ?? null;
+    return { panel: read(panel), main: read(document.querySelector("[data-shell-main]")) };
+  });
+async function expectScrollersFit(page: Page, label: string) {
+  const fit = await scrollerFits(page);
+  for (const [name, m] of Object.entries(fit)) {
+    expect(m, `${label} ${name}`).not.toBeNull();
+    expect(m!.scrollWidth, `${label} ${name}`).toBeLessThanOrEqual(m!.clientWidth);
+  }
+}
 const fullPage = (page: Page) => page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, innerHeight: window.innerHeight, scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
 
 for (const size of [
@@ -555,6 +577,7 @@ for (const width of [375, 768, 1440]) {
       await openTab(page, label);
       const m = await fullPage(page);
       expect(m.scrollWidth, label).toBeLessThanOrEqual(m.innerWidth);
+      await expectScrollersFit(page, label);
     }
   });
 }
@@ -572,18 +595,42 @@ test("tabs sit at the bottom on a phone and in the top bar on desktop", async ({
   await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
 });
 
-// Catches: the concept badge dropped on narrow screens, or the pinned pill still floating over the shell.
-test("the badge shows at every width, and the pinned pill is gone in the network phase", async ({ page }) => {
+// Catches: the disclaimer truncated, clipped or pushed off screen (text-overflow ellipsis keeps toHaveText green), or the pinned pill still floating over the shell.
+test("the badge shows in full at every width, and the pinned pill is gone in the network phase", async ({ page }) => {
   await page.goto("/speedrun");
   await skipToSam(page);
   await skipBuildLog(page);
-  for (const width of [375, 768, 1440]) {
+  for (const width of [375, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 844 });
     const badge = page.locator("[data-concept-badge]");
     await expect(badge).toBeVisible();
     await expect(badge).toHaveText(network.badge);
     await expect(page.locator('[data-affiliation="pinned"]')).toHaveCount(0);
+    await expect.poll(() => badge.evaluate((el) => el.scrollWidth - el.clientWidth), { message: `badge clipped at ${width}` }).toBeLessThanOrEqual(0);
+    const box = (await badge.boundingBox())!;
+    expect(box.x, `badge left at ${width}`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `badge right at ${width}`).toBeLessThanOrEqual(width);
   }
+});
+
+// Catches: the shell sized with the large viewport (100vh), which lets iOS Safari scroll a shell that must never scroll. Chromium has no dynamic toolbar, so read the rule that sizes the section.
+test("the act 2 section is sized with the dynamic viewport, never 100vh", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const heights = await page.evaluate(() => {
+    const section = document.getElementById("act-2")!;
+    const found: string[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (rule instanceof CSSStyleRule && section.matches(rule.selectorText) && rule.style.minHeight) found.push(rule.style.minHeight);
+      }
+    }
+    return found;
+  });
+  expect(heights.length).toBeGreaterThan(0);
+  expect(heights).not.toContain("100vh");
+  expect(heights).toContain("100dvh");
 });
 
 test.describe("short landscape", () => {
