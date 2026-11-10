@@ -109,7 +109,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - Read and brief run only with their switch on and a reachable store, and email also needs the allowlist. A missing, slow or erroring store denies (`lib/speedrun/sharedLimit.ts`, `liveFlags` in `lib/speedrun/guard.ts`).
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
-- **Motion values.** Every one lives in `lib/speedrun/motion.ts`. The one exception is the 3,500 ms no-JS failsafe for the hero intro in `app/globals.css`. The `?tune` panel exists only in dev.
+- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog, Rise, and the switch line's fade), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
 
 ## Gotchas
 
@@ -138,4 +138,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-10 at d5aabdb
+Last verified: 2026-11-10 at 950151f
