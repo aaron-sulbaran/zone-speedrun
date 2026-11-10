@@ -29,9 +29,19 @@ export const joinPhase = (page: Page) => page.locator('#act-2[data-phase="join"]
 export const networkPhase = (page: Page) => page.locator('#act-2[data-phase="network"]');
 export const networkHeading = (page: Page) => networkPhase(page).locator("[data-phase-heading]");
 
+/** Skips the hero's intro (any pointerdown does) and waits for fonts, so rects are measured at rest. */
+export async function settleHero(page: Page) {
+  const hero = page.locator("[data-hero]");
+  await page.waitForSelector("[data-hero][data-intro]");
+  await hero.dispatchEvent("pointerdown");
+  await expect(hero).toHaveAttribute("data-intro", "done");
+  await page.evaluate(() => document.fonts.ready);
+}
+
 /** Opens /speedrun when the page is blank, presses the switch and waits for the join card to be ready. */
 export async function playSwitch(page: Page) {
   if (page.url() === "about:blank") await page.goto("/speedrun");
+  await settleHero(page);
   await page.getByRole("button", { name: speedrunCopy.act1.closing.button }).click();
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
@@ -120,4 +130,10 @@ export async function openTab(page: Page, label: string) {
   const tab = page.getByRole("tab", { name: label, exact: true });
   await tab.click();
   await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+
+/** Back to the opener from the network (today the page's own button; the account menu takes over later). */
+export async function replayFromTop(page: Page) {
+  await page.getByRole("button", { name: speedrunCopy.network.replayTop }).click();
+  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
 }

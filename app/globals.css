@@ -120,6 +120,29 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   }
 }
 
+/* ---- /speedrun hero intro: hidden until the runner plays it, with a no-JS failsafe ---- */
+@keyframes sr-intro-failsafe {
+  to {
+    opacity: 1;
+  }
+}
+[data-hero]:not([data-intro="done"]) [data-intro-el] {
+  opacity: 0;
+  animation: sr-intro-failsafe 0ms 3500ms forwards;
+}
+[data-hero][data-intro="running"] [data-intro-el] {
+  animation: none;
+}
+[data-hero][data-intro="done"] [data-intro-el] {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-intro-el] {
+    opacity: 1;
+    animation: none;
+  }
+}
+
 /* ---- /speedrun, Act 2: the talent network's look, scoped ---- */
 [data-speedrun] {
   color-scheme: light;

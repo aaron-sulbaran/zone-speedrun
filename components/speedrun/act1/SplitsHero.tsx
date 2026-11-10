@@ -2,8 +2,10 @@
 
 import { speedrunCopy } from "@/lib/content";
 import { AARON_ENTRIES, aaronFlow } from "@/lib/speedrun/aaronMock";
+import { useRef } from "react";
 import { FlowChart } from "../FlowChart";
 import { HeroClose } from "./HeroClose";
+import { useHeroIntro } from "./useHeroIntro";
 
 // Aaron's opener, drawn in its end state: every word is in the server HTML and the
 // data-intro-el hooks mark what the intro motion animates. One screen from lg;
@@ -32,8 +34,10 @@ function Subtitle() {
 
 export function SplitsHero({ onStart }: { onStart: () => void }) {
   const copy = speedrunCopy.act1;
+  const root = useRef<HTMLElement>(null);
+  const { settled } = useHeroIntro(root);
   return (
-    <section data-hero="" data-act="1" className="flex min-h-dvh flex-col justify-center px-6 pb-40 pt-24 md:px-12 lg:pb-8 lg:pt-28">
+    <section ref={root} data-hero="" data-act="1" className="relative flex min-h-dvh flex-col justify-center px-6 pb-40 pt-24 md:px-12 lg:pb-8 lg:pt-28">
       <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-center lg:gap-12">
         <header className="min-w-0">
           <p className="font-label text-label-sm uppercase text-muted">{copy.kicker}</p>
@@ -46,6 +50,7 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
                 </span>
               </span>
             ))}
+            {" "}
             <span data-intro-el="second" data-intro-index="0" className="mt-1 block text-muted">
               {copy.headline2}
             </span>
@@ -65,7 +70,7 @@ export function SplitsHero({ onStart }: { onStart: () => void }) {
         </div>
       </div>
       <div className="mx-auto mt-6 w-full max-w-6xl lg:mt-8">
-        <HeroClose onStart={onStart} />
+        <HeroClose onStart={onStart} settled={settled} />
       </div>
     </section>
   );

@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
 import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
-import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, skipBuildLog, skipToSam } from "./speedrun-flow";
+import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
@@ -77,6 +77,7 @@ for (const [width, height] of [[1440, 900], [1280, 800]] as const) {
   test(`the hero fits one screen at ${width} by ${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/speedrun");
+    await settleHero(page);
     const fit = await page.evaluate(() => ({
       scroll: document.documentElement.scrollHeight,
       inner: window.innerHeight,
@@ -92,6 +93,7 @@ for (const [width, height] of [[390, 844], [375, 667]] as const) {
   test(`on a phone the button is docked and fully visible on load at ${width} by ${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/speedrun");
+    await settleHero(page);
     const dock = await page.evaluate(() => {
       const button = document.querySelector("[data-hero-start]")!;
       const rect = button.getBoundingClientRect();
@@ -123,6 +125,7 @@ test("the chart's applied value matches the subtitle", async ({ page }) => {
 
 test("with motion the same click starts the sweep on the strip", async ({ page }) => {
   await page.goto("/speedrun");
+  await settleHero(page);
   // The hero's button bumps a signal and the sweep starts in the effect after it, so poll for the strip's animations.
   await switchButton(page).click();
   await page.waitForFunction(() => {
@@ -136,6 +139,7 @@ test("the switch lands on the join card at the top of the page with the name inp
   // A short window, so the hero scrolls and "back at the top" is a real claim.
   await page.setViewportSize({ width: 1280, height: 500 });
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   await switchButton(page).click();
@@ -158,6 +162,7 @@ test("a double click on the switch sweeps once and lands on the join card once",
     };
   });
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).dblclick();
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
@@ -327,6 +332,7 @@ test("Start over with a match request in flight lands on a clean step 1 and the 
 
 test("the whole flow works by keyboard alone", async ({ page }) => {
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).focus();
   await page.keyboard.press("Enter");
   const card = page.locator("#join");
@@ -411,6 +417,7 @@ test.describe("reduced motion", () => {
       };
     });
     await page.goto("/speedrun");
+    await settleHero(page);
     await page.getByRole("button", { name: speedrunCopy.act1.closing.button }).click();
     await expect(joinPhase(page)).toBeVisible({ timeout: 4000 });
     await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
@@ -448,6 +455,7 @@ test.describe("short viewport", () => {
   test.use({ viewport: { width: 1440, height: 400 } });
   test("the switch lands at the top and Replay from the top re-arms it", async ({ page }) => {
     await page.goto("/speedrun");
+    await settleHero(page);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await switchButton(page).scrollIntoViewIfNeeded();
     await switchButton(page).click();
@@ -527,4 +535,173 @@ test("a failed sample build offers Start over, and it lands on a clean step 1", 
   await expect(page.locator('[data-phase="join"]')).toBeVisible({ timeout: 5000 });
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
+});
+
+// ---- the hero's intro ----
+
+const RUNNING = '[data-hero][data-intro="running"]';
+
+// Catches: the skip listener removed, or one that does not finish the animations in the same tick.
+test("a pointerdown during the intro shows the end state in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const state = await page.evaluate(() => {
+    document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    return {
+      intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+      opacities: [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity),
+      clones: document.querySelectorAll("[data-intro-flight]").length,
+    };
+  });
+  expect(state.intro).toBe("done");
+  expect(state.opacities.length).toBeGreaterThan(5);
+  expect(state.opacities.every((opacity) => opacity === "1")).toBe(true);
+  expect(state.clones).toBe(0);
+});
+
+// Catches: a skip that swallows the first key, so focus never moves.
+test("Tab during the intro finishes it and moves focus", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  await page.keyboard.press("Tab");
+  const after = await page.evaluate(() => ({
+    intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+    focusOnBody: document.activeElement === document.body,
+  }));
+  expect(after.intro).toBe("done");
+  expect(after.focusOnBody).toBe(false);
+});
+
+// Catches: the press guard removed, so a press on the button during the intro plays the switch too.
+test("a press on the button before the intro settles skips it and does not play the switch", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __stripAnimations: number };
+    w.__stripAnimations = 0;
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+      if (this.matches("[data-shift-strip]")) w.__stripAnimations += 1;
+      return original.apply(this, args);
+    };
+  });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  await page.locator("[data-hero-start]").click();
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => (window as unknown as { __stripAnimations: number }).__stripAnimations)).toBe(0);
+  await expect(page.locator("#act-2")).toHaveCount(0);
+});
+
+// Catches: reordered cues, so the closing block stops arriving last.
+test("the closing block arrives last", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const delays = await page.evaluate(() => {
+    const out: Record<string, number> = {};
+    for (const animation of document.getAnimations()) {
+      const target = (animation.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+      const kind = target?.closest("[data-intro-el]")?.getAttribute("data-intro-el");
+      if (!target || !kind) continue;
+      const delay = Number(animation.effect!.getTiming().delay);
+      out[kind] = Math.max(out[kind] ?? 0, delay);
+    }
+    return out;
+  });
+  expect(delays.close).toBe(3000);
+  for (const [kind, delay] of Object.entries(delays)) if (kind !== "close") expect(delay, kind).toBeLessThan(delays.close);
+});
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the flight or the links aiming at the hidden twin of the chart (a zero rect), or never being created.
+  test(`the 84 flies to the visible chart value and the links reveal on the visible chart at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const result = await page.evaluate(() => {
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]");
+      const flight = clone?.getAnimations().find((a) => a.effect && (a.effect as KeyframeEffect).target === clone);
+      flight?.pause();
+      if (flight) flight.currentTime = Number(flight.effect!.getComputedTiming().endTime) + 1;
+      const centre = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+      };
+      const visible = (selector: string) => [...document.querySelectorAll(selector)].filter((el) => el.checkVisibility());
+      const targets = visible("[data-flow-source-value]");
+      const clipped = document.getAnimations().filter((a) => {
+        const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        return target?.matches("[data-flow-links]");
+      });
+      return {
+        hasClone: Boolean(clone),
+        targets: targets.length,
+        clone: clone ? centre(clone) : null,
+        target: targets[0] ? centre(targets[0]) : null,
+        clippedVisible: clipped.length > 0 && clipped.every((a) => (a.effect as KeyframeEffect).target!.checkVisibility()),
+      };
+    });
+    expect(result.hasClone).toBe(true);
+    expect(result.targets).toBe(1);
+    expect(result.clippedVisible).toBe(true);
+    expect(Math.abs(result.clone!.x - result.target!.x)).toBeLessThan(3);
+    expect(Math.abs(result.clone!.y - result.target!.y)).toBeLessThan(3);
+    await page.locator("[data-hero]").dispatchEvent("pointerdown");
+    await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+    await expect(page.locator("[data-intro-flight]")).toHaveCount(0);
+    await expect(page.locator("[data-flow-source-value]").filter({ visible: true })).toHaveCSS("opacity", "1");
+  });
+}
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  // Catches: the intro ignoring reduced motion (hidden words, or a flying clone).
+  test("the end state shows at once and nothing flies", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __flights: number };
+      w.__flights = 0;
+      new MutationObserver((records) => {
+        for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-intro-flight]")) w.__flights += 1;
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto("/speedrun");
+    await page.waitForSelector('[data-hero][data-intro="done"]');
+    const opacities = await page.evaluate(() => [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => (window as unknown as { __flights: number }).__flights)).toBe(0);
+  });
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+  // Catches: the CSS failsafe removed, which would leave the hero's words at opacity 0 forever.
+  test("the words still appear", async ({ page }) => {
+    await page.goto("/speedrun");
+    await page.waitForTimeout(4000);
+    const items = page.locator("[data-intro-el]");
+    expect(await items.count()).toBeGreaterThan(5);
+    for (const item of await items.all()) await expect(item).toHaveCSS("opacity", "1");
+  });
+});
+
+// Catches: the intro playing only on the first load, so Replay from the top shows a hero with no motion.
+test("Replay from the top plays the intro again", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introSeen: string[] };
+    w.__introSeen = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const value = (record.target as Element).getAttribute("data-intro");
+        if (record.attributeName === "data-intro" && value) w.__introSeen.push(value);
+      }
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await page.evaluate(() => ((window as unknown as { __introSeen: string[] }).__introSeen = []));
+  await replayFromTop(page);
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
+  expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toContain("running");
 });
