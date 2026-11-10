@@ -109,7 +109,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - Read and brief run only with their switch on and a reachable store, and email also needs the allowlist. A missing, slow or erroring store denies (`lib/speedrun/sharedLimit.ts`, `liveFlags` in `lib/speedrun/guard.ts`).
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
-- **Motion values.** Every one lives in `lib/speedrun/motion.ts`. The `?tune` panel exists only in dev.
+- **Motion values.** Every one lives in `lib/speedrun/motion.ts`. The one exception is the 3,500 ms no-JS failsafe for the hero intro in `app/globals.css`. The `?tune` panel exists only in dev.
 
 ## Gotchas
 
@@ -119,6 +119,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **BotID** through the site's cross-project rewrite is unverified. Check it before switching read or brief on.
 - **No analytics yet.** The insights script's root path would route to the site's project.
 - **Browser checks.** A hidden built-in browser pane pauses rAF and Web Animations, so check end states there and time motion in Playwright.
+- **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
 - **e2e pins** name the regression they catch, and must go red without their guard.
 
 ## Run and deploy
@@ -132,9 +133,9 @@ A PR per change with CI green before merge. Second-model review on anything touc
 ## Map
 
 - `app/`: the page and `api/{read,brief,match}`
-- `components/speedrun/`: `act1/`, `act2/`, `phases/`, the switch and the experience
+- `components/speedrun/`: `act1/`, `act2/`, `phases/`, `shell/`, the switch and the experience
 - `lib/speedrun/`: pure logic, `snapshot.json`, tests
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-09 at 09f49dd
+Last verified: 2026-11-10 at d5aabdb
