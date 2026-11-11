@@ -111,7 +111,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
 - **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog, Rise, and the switch line's fade), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
 - **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45. The intro ends on pointerdown, keydown, wheel, touchmove or scroll, and the spotlight beat is skipped when its words are not fully in view.
-- **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant, stacked on md (`md:short-landscape:...`) so it sorts after the md rules. Never add it as a Tailwind screen: a raw screen reorders the `max-lg` variants.
+- **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant, stacked on md (`md:short-landscape:...`) so it sorts after the md rules. Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
 
 ## Gotchas
 
@@ -141,4 +141,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-10 at a292bf1
+Last verified: 2026-11-11 at b01c0b2
