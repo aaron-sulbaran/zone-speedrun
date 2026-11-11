@@ -197,16 +197,13 @@ export type LabelProbe = {
   clipped: string[];
 };
 
-// The dilate radius of the label backing (BACKING in lib/speedrun/flowLabels.ts), restated so a wrong constant there goes red.
-const BACKING_PX = 3;
-
 /**
  * Geometry probe for the visible flow chart(s) under `root`. A chart's content group is the one holding its
  * `<text>` labels; the hero marks it `[data-flow-content]`. Run it once fonts are ready.
  */
 export async function probeFlowLabels(page: Page, root: string): Promise<LabelProbe> {
   return page.evaluate(
-    ({ rootSelector, backing }) => {
+    ({ rootSelector }) => {
       type Box = { x: number; y: number; width: number; height: number };
       const hit = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
       const grow = (b: Box, by: number): Box => ({ x: b.x - by, y: b.y - by, width: b.width + 2 * by, height: b.height + 2 * by });
@@ -231,42 +228,57 @@ export async function probeFlowLabels(page: Page, root: string): Promise<LabelPr
         const boxes = texts.map((t) => ({ t, b: t.getBBox(), s: (t.textContent ?? "").replace(/\s+/g, " ").trim() }));
         out.labels += boxes.length;
         boxes.forEach((a, i) => {
-          const mine = grow(a.b, backing);
+          // The backing is whatever the label's own filter draws: its dilate radius is read from the page, not restated here.
+          const id = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(a.t).filter)?.[1];
+          const filter = id ? document.getElementById(id) : null;
+          const flood = filter?.querySelector("feFlood");
+          const radius = Number(filter?.querySelector('feMorphology[operator="dilate"]')?.getAttribute("radius") ?? 0);
+          const mine = grow(a.b, radius);
           const under = rects.find((r) => hit(mine, r.getBBox()));
           if (under) out.onNodes.push(`${a.s} [${at(a.b)}] on [${at(under.getBBox())}]`);
           boxes.slice(i + 1).forEach((b) => {
-            if (hit(mine, grow(b.b, backing))) out.overlapping.push(`${a.s} / ${b.s}`);
+            const other = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(b.t).filter)?.[1];
+            const otherRadius = Number(document.getElementById(other ?? "")?.querySelector('feMorphology[operator="dilate"]')?.getAttribute("radius") ?? 0);
+            if (hit(mine, grow(b.b, otherRadius))) out.overlapping.push(`${a.s} / ${b.s}`);
           });
 
           const client = a.t.getBoundingClientRect();
-          const reach = backing * scale;
+          const reach = radius * scale;
           if (client.left - reach < svgRect.left - 0.5 || client.right + reach > svgRect.right + 0.5 || client.top - reach < svgRect.top - 0.5 || client.bottom + reach > svgRect.bottom + 0.5) {
             out.clipped.push(`${a.s} [${at(a.b)}]`);
           }
 
-          const id = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(a.t).filter)?.[1];
-          const filter = id ? document.getElementById(id) : null;
-          const flood = filter?.querySelector("feFlood");
-          const nodes = [...(filter?.querySelectorAll("feMergeNode") ?? [])];
+          // A missing attribute means the SVG defaults for a filter region: -10%, -10%, 120%, 120% of the text's box. Percentages and fractions both parse.
+          const fraction = (name: string, fallback: number) => {
+            const raw = filter?.getAttribute(name);
+            if (raw === null || raw === undefined || raw === "") return fallback;
+            return raw.trim().endsWith("%") ? parseFloat(raw) / 100 : parseFloat(raw);
+          };
           const region = filter
             ? {
-                x: a.b.x + a.b.width * parseFloat(filter.getAttribute("x") ?? "-0.1"),
-                y: a.b.y + a.b.height * parseFloat(filter.getAttribute("y") ?? "-0.1"),
-                width: a.b.width * parseFloat(filter.getAttribute("width") ?? "1.4"),
-                height: a.b.height * parseFloat(filter.getAttribute("height") ?? "1.2"),
+                x: a.b.x + a.b.width * fraction("x", -0.1),
+                y: a.b.y + a.b.height * fraction("y", -0.1),
+                width: a.b.width * fraction("width", 1.2),
+                height: a.b.height * fraction("height", 1.2),
               }
             : null;
           const covers = !!region && region.x <= mine.x && region.y <= mine.y && region.x + region.width >= mine.x + mine.width && region.y + region.height >= mine.y + mine.height;
           const painted = (other: Element) => !!(a.t.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
           const reasons: string[] = [];
-          if (!flood) reasons.push("no filter");
+          if (!filter || !flood) reasons.push("no filter");
           else {
             if (getComputedStyle(flood).floodColor !== backdropOf(svg)) reasons.push(`flood ${getComputedStyle(flood).floodColor} is not the backdrop ${backdropOf(svg)}`);
             if (getComputedStyle(flood).floodOpacity !== "1") reasons.push("flood not opaque");
-            if (getComputedStyle(flood).colorInterpolationFilters.toLowerCase() !== "srgb") reasons.push("not sRGB");
-            if (nodes.at(-1)?.getAttribute("in") !== "SourceGraphic") reasons.push("text not merged last");
+            // color-interpolation-filters is set on the <filter>; the primitives inherit it.
+            if (getComputedStyle(filter).colorInterpolationFilters.toLowerCase() !== "srgb") reasons.push("not sRGB");
+            if (!(radius > 0)) reasons.push("no dilate");
+            const composite = filter.querySelector("feComposite");
+            if (composite?.getAttribute("operator") !== "in") reasons.push("backing not clipped to the dilated glyphs (feComposite is not operator in)");
+            const merge = [...filter.querySelectorAll("feMergeNode")].map((node) => node.getAttribute("in"));
+            const backingAt = merge.indexOf(composite?.getAttribute("result") ?? "\0");
+            if (backingAt < 0 || backingAt > merge.indexOf("SourceGraphic")) reasons.push("backing not merged before the text");
+            if (merge.at(-1) !== "SourceGraphic") reasons.push("text not merged last");
             if (!covers) reasons.push("filter region too small");
-            if (!filter?.querySelector('feMorphology[operator="dilate"]')) reasons.push("no dilate");
           }
           if (rects.some(painted) || paths.some(painted)) reasons.push("a node or link paints after it");
           if (reasons.length) out.unbacked.push(`${a.s}: ${reasons.join(", ")}`);
@@ -274,6 +286,6 @@ export async function probeFlowLabels(page: Page, root: string): Promise<LabelPr
       }
       return out;
     },
-    { rootSelector: root, backing: BACKING_PX },
+    { rootSelector: root },
   );
 }

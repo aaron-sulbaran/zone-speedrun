@@ -6,6 +6,10 @@ export const ASCENT = 12;
 export const DESCENT = 3;
 /** Baseline step from a label to its value line (the tall chart stacks the two). */
 export const VALUE_LINE = 14;
+/** The gap between a label and its value on one line (the wide charts). */
+export const VALUE_GAP = 5;
+/** The label filter's region as fractions of the text's box: wide enough for the backing at both ends and above and below. */
+export const BACKING_REGION = { x: -0.2, y: -0.5, width: 1.4, height: 2 };
 /** How far the opaque backing reaches past the glyphs (the filter's dilate radius). */
 export const BACKING = 3;
 /** The drawn thickness of a node bar in the tall chart. */

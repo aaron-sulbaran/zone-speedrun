@@ -2,7 +2,7 @@ import { useId } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { FlowData } from "@/lib/speedrun/funnel";
 import { layoutFlow, type FlowSize, type PlacedNode } from "@/lib/speedrun/flowLayout";
-import { BACKING, BAR, placeLabel } from "@/lib/speedrun/flowLabels";
+import { BACKING, BACKING_REGION, BAR, FONT, VALUE_GAP, VALUE_LINE, placeLabel } from "@/lib/speedrun/flowLabels";
 import { HERO_NARROW, HERO_WIDE, TALL, WIDE } from "@/lib/speedrun/flowSizes";
 import { FlowReveal } from "./FlowReveal";
 import { TONES, type Tone } from "./flowTones";
@@ -71,9 +71,9 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
     // The hero's applied count is the number the intro flies in from the subtitle.
     const sourceValue = layout.hero && node.id === "stage:applied" ? { "data-flow-source-value": "" } : {};
     return (
-      <text key={node.id} x={spot.x} y={spot.y} textAnchor={spot.anchor} fontSize={12} fill={colors.text} aria-hidden="true" filter={`url(#${backingId})`}>
+      <text key={node.id} x={spot.x} y={spot.y} textAnchor={spot.anchor} fontSize={FONT} fill={colors.text} aria-hidden="true" filter={`url(#${backingId})`}>
         {node.label}
-        <tspan {...(spot.stacked ? { x: spot.x, dy: 14 } : { dx: 5 })} fill={colors.subtext} {...sourceValue}>
+        <tspan {...(spot.stacked ? { x: spot.x, dy: VALUE_LINE } : { dx: VALUE_GAP })} fill={colors.subtext} {...sourceValue}>
           {node.value}
         </tspan>
       </text>
@@ -85,7 +85,7 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
       <title id={titleId}>{title}</title>
       <defs>
         {/* Text-hugging opaque backing: the glyphs dilated by BACKING, flooded in the halo colour, under the text. Server-safe, nothing measured. */}
-        <filter id={backingId} x="-0.2" y="-0.5" width="1.4" height="2" colorInterpolationFilters="sRGB">
+        <filter id={backingId} x={BACKING_REGION.x} y={BACKING_REGION.y} width={BACKING_REGION.width} height={BACKING_REGION.height} colorInterpolationFilters="sRGB">
           <feMorphology in="SourceAlpha" operator="dilate" radius={BACKING} result="grown" />
           <feFlood style={{ floodColor: colors.halo }} />
           <feComposite in2="grown" operator="in" result="backing" />

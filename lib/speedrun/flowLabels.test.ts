@@ -54,6 +54,25 @@ describe("placed labels on real layouts", () => {
     });
   }
 
+  // Catches: LABEL_RISE or LABEL_DROP lowered until a label's backing touches the bar it names.
+  it("every label's backing clears its own bar by at least a pixel", () => {
+    const sizes = [["wide", WIDE, false, false], ["hero wide", HERO_WIDE, false, false], ["hero narrow", HERO_NARROW, true, false], ["tall", TALL, false, true]] as const;
+    for (const [, size, compact, vertical] of sizes) {
+      for (const flow of flows) {
+        const { nodes } = layoutFlow(flow, size);
+        const ctx = ctxFor(nodes, size.nodeWidth, { compact, vertical });
+        for (const node of nodes) {
+          const spot = placeLabel(node, ctx);
+          if (!spot || node.kind === "lane") continue;
+          const span = backingSpan(spot);
+          const barBottom = node.y + (vertical ? BAR : node.h);
+          if (spot.y > node.y) expect(span.top).toBeGreaterThanOrEqual(barBottom + 1);
+          else expect(span.bottom).toBeLessThanOrEqual(node.y - 1);
+        }
+      }
+    }
+  });
+
   // Catches: the last row's value line cut by the viewBox, and ribbons starting under their label.
   it("tall: the backing ends before the ribbon starts and inside the chart", () => {
     for (const flow of flows) {
