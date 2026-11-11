@@ -54,7 +54,7 @@
 | File | Status | Responsibility |
 |---|---|---|
 | `lib/speedrun/introRequest.ts` | Modify | Add `sendToFounder`, `founderYes`, `markIntroSent`; add `resolveShortlist` unless PR 6 has an equivalent |
-| `lib/speedrun/demoState.ts` | Modify | Add actions `advanceIntro`, `sendIntro`, `passIntro` |
+| `lib/speedrun/demoState.ts` | Modify | Add `passed`; add actions `advanceIntro`, `sendIntro`, `passIntro`; guard `requestIntro` and `swapIntro` against passed keys |
 | `lib/speedrun/deskSamples.ts` | Create | Sample cards, the finished sample, rivals per function, the learned lines |
 | `lib/speedrun/desk.ts` | Create | `DeskState`, `deskStep`, `deskColumns`, `stageOf` |
 | `lib/speedrun/phase.ts` | Modify | `side` in `PhaseState`, the `side` event |
@@ -90,16 +90,23 @@
   export function founderYes(r: IntroRequest): IntroRequest | null;    // withFounder → connected, else null
   export function markIntroSent(r: IntroRequest): IntroRequest | null; // connected && !introSent → introSent: true, else null
   export function resolveShortlist(result: MatchResult, keys: string[]): Match[]; // keys in order, unknown keys dropped (skip if PR 6 exports an equivalent; use theirs)
-  // demoState.ts, DemoAction gains:
+  // demoState.ts
+  DemoState gains: passed: { key: string; by: "team" | "founder" }[];  // cleared by pickPerson, built and reset, as PR 6 clears shortlist
+  DemoAction gains:
   | { type: "advanceIntro"; to: "withFounder" | "connected" }
   | { type: "sendIntro" }
   | { type: "passIntro"; by: "team" | "founder" }
   ```
   - **Each action applies its transition** to `state.introRequest`. A null result (illegal) leaves the state unchanged.
   - **These three are reducer cases of their own.** They never route through PR 6's `requestIntro` or `swapIntro`, which only apply while the request is `requested`, and only for shortlist keys (PR 6, Task 4).
-  - **`passIntro`** calls PR 6's `pass` with `resolveShortlist(state.result, state.shortlist)` and `state.intake`, and stores `live` as the new `introRequest`. PR 6's `pass` already skips keys that are ineligible or no longer in the shortlist.
-    - With a live request, it moves the live key to `shortlist[0]`, keeping PR 6's invariant that the request sits on #1, as `swapIntro` does. The passed match stays in the shortlist, after it.
-    - The passed request isn't kept: the desk shows only the live one. `passedBy` stays on `pass`'s return for tests.
+  - **The live request is found by `introRequest.matchKey`, never by shortlist position.** PR 6's `moveShortlist` can lift another pick above it.
+  - **`passIntro`:**
+    - It appends `{ key: introRequest.matchKey, by }` to `passed`.
+    - It calls PR 6's `pass` with `resolveShortlist(state.result, state.shortlist.filter(key => !passed.some(p => p.key === key)))`, with the new entry included, and `state.intake`. PR 6's `pass` already skips keys that are ineligible or gone from the shortlist; filtering `passed` out first stops it handing the request back to a match already passed. PR 6's Task 4 re-syncs `ranked` from the shortlist and doesn't know about passes.
+    - It stores `live` as the new `introRequest`.
+    - With a live request, it moves the live key to `shortlist[0]`, as `swapIntro` does. The passed match stays in the shortlist.
+    - The passed request isn't kept: the desk shows only the live one.
+  - **PR 6's `requestIntro` and `swapIntro` gain one guard:** they refuse a key that's in `passed`. A candidate can't put the request back on a match the team or the founder already passed.
   - **`resolveShortlist`** is new here: PR 6 has no equivalent (confirmed by the Builder at PR 6's `61552bb`).
 
 - [ ] **Step 1: Write the failing tests.** In `introRequest.test.ts`:
@@ -113,7 +120,11 @@
   - after `advanceIntro` to `withFounder`, PR 6's `swapIntro` is refused;
   - `passIntro` with a shortlist of three eligible matches makes #2 live at `requested`, with `shortlist[0]` and `introRequest.ranked[0]` both equal to the new live key (`// Catches:` the request leaving #1, which PR 6's Matches can't show);
   - `passIntro` with no other eligible match sets `introRequest` to null;
-  - `passIntro` works on a `withFounder` request, where PR 6's guarded `swapIntro` would refuse it (`// Catches:` a pass routed through the swap's guard).
+  - `passIntro` works on a `withFounder` request, where PR 6's guarded `swapIntro` would refuse it (`// Catches:` a pass routed through the swap's guard);
+  - with picks A, B and C, all eligible: pass A, then `moveShortlist` A up above B (PR 6's sync puts A back into `ranked`), then pass B. C is live, not A (`// Catches:` the request handed back to a passed match);
+  - `swapIntro` and `requestIntro` onto a passed key are refused;
+  - `moveShortlist` lifting another pick above the live request leaves `introRequest.matchKey` unchanged, and `passIntro` still passes that match, not `shortlist[0]`;
+  - `pickPerson`, `built` and `reset` clear `passed`.
 - [ ] **Step 2: Run them.** Run `pnpm test lib/speedrun/introRequest.test.ts lib/speedrun/demoState.test.ts`. Expected: FAIL on the new cases.
 - [ ] **Step 3: Implement** the transitions and the three reducer cases.
 - [ ] **Step 4: Run the checks.** Run `pnpm test`, then `pnpm tsc --noEmit`. Expected: pass.
@@ -378,11 +389,13 @@
 - Consumes: `onSide`, which reaches Matches through `NetworkPhase`.
 - Produces: `data-earned-door`.
 
-**The earned door** (Ruling 72). On the match that carries the live request, where the request button was, while the status is `requested`, show:
+**The earned door** (Ruling 72). On the match whose key is `introRequest.matchKey` (never by position), where the request button was, while the status is `requested`, show:
 - the line `team.earned.line`, verbatim from the spec: "Sent. It just landed on the speedrun team's desk. What does this unlock for them?";
 - the filled primary button `team.earned.button` ("See the talent team's side"), which calls `onSide("team")` and moves focus to the desk's heading.
 
 At `withFounder` or `connected`, the line names the status in the desk's words instead (`team.stages`), with the same button.
+
+**A passed match** (a key in `state.passed`) shows `team.passedLine.team` ("The team sent someone else this time.") or `team.passedLine.founder` ("The founder said not now.") in place of the request controls. Both are drafts. Hook: `data-intro-passed`.
 
 **The Why card** (spec section 7): append `{ title: "Every intro teaches the matching.", body: "A short survey asks both sides whether a miss was the match or the people. Only the match misses change who gets matched." }` to `decisions.cards`.
 
@@ -390,6 +403,8 @@ At `withFounder` or `connected`, the line names the status in the desk's words i
   - spend the request, and `[data-earned-door]` shows on that match with the line. Its button shows the desk with the visitor's card first in Requested, and focus on the desk heading (`// Catches:` the earned moment missing);
   - under `reducedMotion: "reduce"`, the visitor's card has no running animation on arrival (`document.getAnimations()` count is 0 inside `[data-desk]`) (`// Catches:` motion under reduced motion);
   - the Why tab lists "Every intro teaches the matching." (`// Catches:` the survey's decision missing);
+  - after Not now on the desk, the passed match on Matches shows `[data-intro-passed]` with the founder line, and no request or "Move my request here" button (`// Catches:` re-requesting a match the founder passed);
+  - after moving another pick above the live request on the Board, `[data-earned-door]` is still on the requested match (`// Catches:` the door following #1 instead of the request);
   - at 320 and 390, on the team side, with the drawer open and with the founder panel open, `document.documentElement.scrollWidth` equals the viewport width. Both panels' widths are at least the viewport minus 32 (Review Focus 5).
 - [ ] **Step 2: Run it red** (`-g "earned|reduced|why card|desk phone"`). Show at least one pin red first by dropping its guard, running, and restoring. Save the log.
 - [ ] **Step 3: Implement** the change.
