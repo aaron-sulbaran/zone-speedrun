@@ -82,6 +82,8 @@ The Splits plan's Global Constraints bind this round in full: `docs/superpowers/
 
 ### Task 3: The 84 spotlight (Rulings 20 and 21)
 
+> **Superseded in part by Ruling 27** (see the spec). The cut-out, the CSS mask, the mask-centre pin and the 0.92 veil below describe the first build. What ships is a full veil at 0.95 with a lit body-level copy of "84 applications", and a caption that is gone before the flight (`introSpotlightCaptionOutMs`).
+
 **Files:**
 - `lib/speedrun/heroIntro.ts` and its test;
 - `lib/speedrun/motion.ts` and `tuning.ts`, plus presets;

@@ -44,8 +44,8 @@ The 84's landing target (`[data-flow-source-value]` on the Applied value) stays.
 1. The headline words and "I would know." play as today.
 2. The subtitle comes in word by word, not as one fade.
 3. **The flash:** "84 applications" pulses twice. Only opacity and scale animate.
-4. **The dark:** a veil fades in over the whole viewport, with a soft cut-out around "84 applications". The words stay exactly where they are, lit through the hole, and everything else goes near-black. The caption (Ruling 21) fades in under the hole. It holds.
-5. **The hand-off:** the 84 flies to Applied as today, while the veil and the caption fade out over the flight. The chart's reveal, the paragraphs and the close keep their current offsets from the 84's landing.
+4. **The dark:** a near-black veil fades in over the whole viewport. A lit copy of "84 applications" sits above it, at the words' exact place, so everything else goes near-black and only those words show. The caption (Ruling 21) fades in under them. It holds. (Ruling 27 replaced the first build's soft cut-out.)
+5. **The hand-off:** the caption fades out at the end of the hold. The 84 flies to Applied as today while the veil lifts, and the lit copy crossfades back to the page's words. The chart's reveal, the paragraphs and the close keep their current offsets from the 84's landing.
 
 Rules for the beat:
 - Every timing and the veil's opacity are `Motion` keys, tunable in `?tune`.
@@ -59,6 +59,22 @@ Rules for the beat:
 - It's a transient emphasis on the veil. Paragraph 1 already carries the friends line, and the caption never changes the hero's layout.
 - It lives in `lib/content/speedrun.ts`, and Aaron edits it.
 - **Cost if wrong:** one string, or a one-line removal.
+
+## Rulings made during the build
+
+**Ruling 22.** Safari focus fixes and a desktop WebKit e2e project under `E2E_ALL=1`, from the site lead's WebKit gate on PR 4. The connect sheet takes focus when it opens, and the paste button is focused from code. The account menu treats focus landing on an ancestor as not leaving. Tab pins press `tabKey`.
+
+**Ruling 23.** The footer scroll applies to the people step only. ArrangementCards is multi-select, and scrolling after its first toggle would carry the other cards away. Only pointer picks scroll; arrow keys only select.
+
+**Ruling 24.** The footer scroll targets the whole footer, not just the button, so the privacy and affiliation lines stay readable ("auto scroll for them to the bottom").
+
+**Ruling 25.** The chart's stacked bars sit 24 apart (they were 9 in the narrow hero), so a label above a bar never reaches the bar above it. The narrow hero's bars are about 40% thinner as a result, and still read well at 375.
+
+**Ruling 26.** Label backings are a dilated, text-hugging halo (radius 3, sRGB) in the colour of whatever sits behind the chart. Where a label crosses a ribbon this reads as a slightly lumpy highlight, but there are no square bites and no line runs through a number. Tight rectangles would need text measured on the client, and the no-JS hero would lose them. Aaron's phone look can veto this.
+
+**Ruling 27.** The spotlight uses a full veil plus a lit copy of the words, not a cut-out. In light theme the cut-out read as a large glowing white oval that also lit "Austin, I sent" and covered half a phone screen. Aaron asked for "the entire screen kind of goes black except for those 2 words". The veil's default opacity is 0.95, so it reads black, and the caption is gone before the 84 flies, so the flight never crosses it on a phone.
+
+**Ruling 28.** The join footer is in flow, and the pick scroll applies, on landscape phones too (`max-height: 559px` and landscape, the shell's existing condition), not only below md. The same "cutting off text" problem showed there.
 
 ## Out of this round
 
