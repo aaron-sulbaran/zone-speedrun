@@ -8,10 +8,12 @@ export const DESCENT = 3;
 export const VALUE_LINE = 14;
 /** The gap between a label and its value on one line (the wide charts). */
 export const VALUE_GAP = 5;
-/** The label filter's region as fractions of the text's box: wide enough for the backing at both ends and above and below. */
-export const BACKING_REGION = { x: -0.2, y: -0.5, width: 1.4, height: 2 };
-/** How far the opaque backing reaches past the glyphs (the filter's dilate radius). */
-export const BACKING = 3;
+/** The outline's stroke width. paint-order puts it under the fill, so half of it shows past the glyphs. */
+export const OUTLINE_WIDTH = 4;
+/** How far the outline reaches past the glyphs. */
+export const BACKING = OUTLINE_WIDTH / 2;
+/** The reach the layout still keeps clear around a label (the old filter's 3), so thinning the outline moved nothing. */
+export const CLEARANCE = 3;
 /** The drawn thickness of a node bar in the tall chart. */
 export const BAR = 6;
 /** A lane label sits this far left of its bar, and its baseline this far under the bar's middle. */
@@ -21,10 +23,10 @@ const LANE_BASELINE = 4;
 export const LABEL_RISE = 7;
 /** A label below its bar has its baseline this far under it. */
 export const LABEL_DROP = 16;
-/** Space needed between stacked bars so a label (and its backing) above one never reaches the bar over it, plus 2 of air. */
-export const LABEL_ROOM = LABEL_RISE + ASCENT + BACKING + 2;
+/** Space needed between stacked bars so a label (and its outline) above one never reaches the bar over it, plus 2 of air. */
+export const LABEL_ROOM = LABEL_RISE + ASCENT + CLEARANCE + 2;
 /** Room the tall chart needs under a bar for its two-line label and the backing, before the ribbon starts. */
-export const TALL_ROOM = BAR + LABEL_DROP + VALUE_LINE + DESCENT + BACKING;
+export const TALL_ROOM = BAR + LABEL_DROP + VALUE_LINE + DESCENT + CLEARANCE;
 
 type LabelContext = { vertical: boolean; compact: boolean; lastColumn: number; nodeWidth: number };
 type LabelSpot = { x: number; y: number; anchor: "start" | "end"; stacked: boolean };

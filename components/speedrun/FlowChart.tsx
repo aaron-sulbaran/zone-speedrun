@@ -2,7 +2,7 @@ import { useId } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { FlowData } from "@/lib/speedrun/funnel";
 import { layoutFlow, type FlowSize, type PlacedNode } from "@/lib/speedrun/flowLayout";
-import { BACKING, BACKING_REGION, BAR, FONT, VALUE_GAP, VALUE_LINE, placeLabel } from "@/lib/speedrun/flowLabels";
+import { CLEARANCE, BAR, FONT, OUTLINE_WIDTH, VALUE_GAP, VALUE_LINE, placeLabel } from "@/lib/speedrun/flowLabels";
 import { HERO_NARROW, HERO_WIDE, TALL, WIDE } from "@/lib/speedrun/flowSizes";
 import { FlowReveal } from "./FlowReveal";
 import { TONES, type Tone } from "./flowTones";
@@ -16,8 +16,8 @@ const WIDE_LEFT = 104;
 const WIDE_LEFT_NO_LANE = 8;
 const WIDE_TOP = 26;
 const TALL_RIGHT = 64;
-// The backing reaches past the glyphs, so charts whose labels meet an edge (the tall chart's left and bottom, the wide chart's right) get room for it.
-const BACKING_PAD = BACKING + 1;
+// The outline reaches past the glyphs, so charts whose labels meet an edge (the tall chart's left and bottom, the wide chart's right) get room for it.
+const BACKING_PAD = CLEARANCE + 1;
 
 type Props = { data: FlowData; tone: Tone; title: string; animate?: boolean; size?: "full" | "hero" };
 
@@ -56,7 +56,6 @@ function layoutFor(kind: "wide" | "tall" | "heroWide" | "heroNarrow", lanes: boo
 
 function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: string; kind: "wide" | "tall" | "heroWide" | "heroNarrow" }) {
   const titleId = useId();
-  const backingId = `${titleId}-backing`;
   const colors = TONES[tone];
   const vertical = kind === "tall";
   const hasLanes = data.nodes.some((n) => n.kind === "lane");
@@ -65,13 +64,16 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
   const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
   const context = { vertical, compact: layout.compact, lastColumn, nodeWidth: layout.size.nodeWidth };
 
+  // A plain text outline in the halo colour, like the site's /recruiting Sankey: stroked under the fill, so only the outer half shows.
+  const outline = { paintOrder: "stroke", stroke: colors.halo, strokeWidth: OUTLINE_WIDTH, strokeLinejoin: "round" } as const;
+
   const label = (node: PlacedNode) => {
     const spot = placeLabel(node, context);
     if (!spot) return null;
     // The hero's applied count is the number the intro flies in from the subtitle.
     const sourceValue = layout.hero && node.id === "stage:applied" ? { "data-flow-source-value": "" } : {};
     return (
-      <text key={node.id} x={spot.x} y={spot.y} textAnchor={spot.anchor} fontSize={FONT} fill={colors.text} aria-hidden="true" filter={`url(#${backingId})`}>
+      <text key={node.id} x={spot.x} y={spot.y} textAnchor={spot.anchor} fontSize={FONT} fill={colors.text} aria-hidden="true" style={outline}>
         {node.label}
         <tspan {...(spot.stacked ? { x: spot.x, dy: VALUE_LINE } : { dx: VALUE_GAP })} fill={colors.subtext} {...sourceValue}>
           {node.value}
@@ -83,18 +85,6 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
   return (
     <svg viewBox={layout.view} role="img" aria-labelledby={titleId} className={layout.className}>
       <title id={titleId}>{title}</title>
-      <defs>
-        {/* Text-hugging opaque backing: the glyphs dilated by BACKING, flooded in the halo colour, under the text. Server-safe, nothing measured. */}
-        <filter id={backingId} x={BACKING_REGION.x} y={BACKING_REGION.y} width={BACKING_REGION.width} height={BACKING_REGION.height} colorInterpolationFilters="sRGB">
-          <feMorphology in="SourceAlpha" operator="dilate" radius={BACKING} result="grown" />
-          <feFlood style={{ floodColor: colors.halo }} />
-          <feComposite in2="grown" operator="in" result="backing" />
-          <feMerge>
-            <feMergeNode in="backing" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
       <g transform={layout.offset ? `translate(${layout.offset.x} ${layout.offset.y})` : undefined} {...(layout.hero ? { "data-flow-content": "" } : {})}>
         <g>
           {links.map((link) => (
@@ -114,7 +104,7 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
             <rect key={node.id} x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
           ))}
         </g>
-        {/* Labels paint last, so no bar or link draws over one; each carries an opaque halo-colour backing. */}
+        {/* Labels paint last, so no bar or link draws over one; each carries the halo-colour outline. */}
         <g>{nodes.map(label)}</g>
       </g>
     </svg>

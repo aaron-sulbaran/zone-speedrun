@@ -19,6 +19,9 @@ export type Motion = {
   coverMs: number;
   holdMs: number;
   revealMs: number;
+  lineDelayMs: number;
+  lineFadeMs: number;
+  lineHoldMs: number;
   bandVw: number;
   fadeOutMs: number;
   fadeInMs: number;
@@ -56,8 +59,11 @@ export type Motion = {
 
 export const MOTION: Motion = {
   coverMs: 480,
-  holdMs: 120,
+  holdMs: 370,
   revealMs: 560,
+  lineDelayMs: 300,
+  lineFadeMs: 252,
+  lineHoldMs: 505,
   bandVw: 28,
   fadeOutMs: 240,
   fadeInMs: 180,

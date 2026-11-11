@@ -17,9 +17,9 @@ export const speedrunCopy = {
     headline1: "job hunting sux.",
     headline2: "I would know.",
     subtitle: {
-      before: "As an ECE student at UT Austin, I sent ",
+      before: "As an ECE student at UT Austin, I've sent ",
       count: (n: number) => `${n} applications`,
-      after: " this fall.",
+      after: " this fall... and counting.",
     },
     spotlightCaption: "Some of my friends have sent 400.",
     p1: "I've been grinding for internships for a long time. Every recruiting season I know I'm not the only one suffering, because my friends are too.",
@@ -91,7 +91,7 @@ export const speedrunCopy = {
       },
       resume: {
         question: "Help founders match you faster.",
-        helper: "Pick a sample person. Live reading of your own resume turns on soon.",
+        helper: "Pick a sample person. Reading your own resume is built but switched off in this concept.",
         helperLive: "Pick a sample person, or upload your own resume.",
         uploadLabel: "Upload a resume",
         uploadTypes: "PDF or .txt, up to 4 MB",
@@ -103,7 +103,7 @@ export const speedrunCopy = {
           unreadable:
             "I could not find any text in that file. A scanned image has none, so try a PDF with selectable text, or a .txt.",
           slow_down: "That is a lot of reads for now. Give it a few minutes, or borrow a sample person.",
-          live_off: "Reading your own resume is off right now. Borrow a sample person instead.",
+          live_off: "Reading your own resume is switched off in this concept. Borrow a sample person instead.",
           bot: "That request looked automated, so it was blocked. Borrow a sample person instead.",
           internal: "Something went wrong on my side. Try again in a minute, or borrow a sample person.",
           network: "Something went wrong reading that file. Try again, or borrow a sample person.",
@@ -422,7 +422,7 @@ export const speedrunCopy = {
       button: "Send it to me",
       emailLabel: "Your email address",
       note: "One email, now. This site doesn't keep your address. Resend, the email service, keeps a delivery record of the one email it sends.",
-      off: "Email sending is off in this demo for now.",
+      off: "Email sending is switched off in this concept.",
       sent: "If that address is on the demo's list, the brief is on its way.",
       failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
@@ -472,7 +472,7 @@ export const speedrunCopy = {
   },
   close: {
     eyebrow: "Built by Aaron Sulbaran",
-    body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read, with an AI model on top only when switched on. The inbox and the people are made up; the decisions are mine.",
+    body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read. Reading your own resume and emailing the brief are built but switched off: that's my 80/20, enough to show the product. If I were on the team, I'd finish the rest. The inbox and the people are made up; the decisions are mine.",
     // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
     links: [
       { key: "site", label: "My site", href: "/" },

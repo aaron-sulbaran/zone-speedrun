@@ -40,7 +40,8 @@ describe("the shift", () => {
     }
   });
 
-  it("keeps the whole sweep near a second", () => {
-    expect(MOTION.coverMs + MOTION.holdMs + MOTION.revealMs).toBeLessThan(1300);
+  it("keeps the whole sweep under a second and a half, with the line gone before the reveal ends", () => {
+    expect(MOTION.coverMs + MOTION.holdMs + MOTION.revealMs).toBeLessThan(1500);
+    expect(MOTION.lineDelayMs + 2 * MOTION.lineFadeMs + MOTION.lineHoldMs).toBeLessThanOrEqual(MOTION.coverMs + MOTION.holdMs + MOTION.revealMs);
   });
 });

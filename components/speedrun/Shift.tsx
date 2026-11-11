@@ -70,10 +70,11 @@ export function Switch({ onCovered, onRevealStart, playSignal }: SwitchProps) {
     const run = (runRef.current += 1);
     send("go");
     if (window.matchMedia(REDUCE).matches) return playReduced(run);
-    const { coverMs, holdMs, revealMs, bandVw } = motion();
+    const { coverMs, holdMs, revealMs, bandVw, lineDelayMs, lineFadeMs, lineHoldMs } = motion();
+    const lineMs = 2 * lineFadeMs + lineHoldMs;
     strip.style.visibility = "visible";
     const cover = track(strip.animate([{ transform: "translateX(100vw)" }, { transform: "translateX(0)" }], { duration: coverMs, easing: COVER_EASE, fill: "forwards" }));
-    track(line.animate([{ opacity: 0 }, { opacity: 1 }, { opacity: 1 }, { opacity: 0 }], { duration: 760, delay: 300, fill: "forwards" }));
+    track(line.animate([{ opacity: 0, offset: 0 }, { opacity: 1, offset: lineFadeMs / lineMs }, { opacity: 1, offset: (lineFadeMs + lineHoldMs) / lineMs }, { opacity: 0, offset: 1 }], { duration: lineMs, delay: lineDelayMs, fill: "forwards" }));
     cover.finished.then(() => {
       if (run !== runRef.current) return;
       send("covered");
