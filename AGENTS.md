@@ -56,7 +56,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Framework:** Next.js 16.2 (App Router, `basePath: '/speedrun'`), React 19.2, TypeScript strict.
 - **Styling and motion:** Tailwind 3.4 over CSS custom properties; Web Animations through `lib/speedrun/motion.ts`; Lucide icons.
 - **Libraries:** zod for input, AI SDK 7 through the AI Gateway (off by default), Upstash Redis for shared limits, BotID, and unpdf for in-browser résumé text.
-- **Tooling:** pnpm. Tests are vitest (`lib/**/*.test.ts`) and Playwright (`e2e/`, against a local production build, Chromium).
+- **Tooling:** pnpm. Tests are vitest (`lib/**/*.test.ts`) and Playwright (`e2e/`, against a local production build, Chromium, plus desktop WebKit under `E2E_ALL=1`).
 
 ## Conventions
 
