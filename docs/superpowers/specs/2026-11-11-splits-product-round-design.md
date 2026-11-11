@@ -91,6 +91,8 @@ From lg up:
 - **40. The Next buttons stop looking like the selected tab.** "Next: Board" and the others become a secondary text link with an arrow, in the content column. Today they're the same black pill as the selected tab.
 - **41. Matches' two panes share an edge.** The detail pane is sticky and as tall as the list's viewport, and its own content scrolls. The selected row is unmistakable: an ink border and the solid surface, while unselected rows take the HUD tone. Today it's a 1 px border only.
 
+  **The primary action is the heaviest mark in the detail pane.** "Request a warm intro" (Ruling 44) is a filled button. When it's unavailable, Apply is the filled one. Follow, and the other button, stay secondary. Source: the design-review cold read on 2026-11-11. Shrunk to 480 px in greyscale, the black tab pill and the avatar read first and today's outlined action pills read last. Aaron: "Fold them in".
+
 ### 2. Matches: bring forward, rank, one intro (Rulings 42 to 45)
 
 - **42. Bring forward.** Each match (the list row and the detail) gets a "Bring forward" toggle. Brought-forward matches form the candidate's shortlist, which shows on the Board (section 3). This works without connecting an inbox: the board builds from picks alone.
@@ -216,6 +218,14 @@ Top to bottom on desktop, in one column of the shared content width. The order i
 ### 7. What stays (Rulings 68 and 69)
 
 - **68. The join flow, the build log, the switch, Act 1 and phones' shell are unchanged.** The phone gets the new content stacked, and must pass at 375 and 390 with no sideways scroll.
+
+  **Every tap target in Act 2 is at least 44 by 44 px on phones,** made with padding or a larger hit box, not a bigger font. That covers the new controls, plus these existing ones the design review measured on 2026-11-11 at 390:
+  - the close's links: My site 64x24, MVP 35x24, LinkedIn 92x24;
+  - the table's "show all": 96x28;
+  - the brief's channel pills: 36 px tall;
+  - the account button: 40x40.
+
+  The site's own logo is the site's chrome and is out of scope. Aaron: "Fold them in".
 - **69. The e2e suite's existing flows keep passing.** Tests that pinned removed things (the paste box, arrange controls, the pill tabs) are rewritten or removed, each removal named in the PR.
 
 ## Settled after the builder check (my calls)

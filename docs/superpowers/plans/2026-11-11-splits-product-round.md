@@ -219,7 +219,10 @@ Below lg, nothing changes.
 
 Behaviour (Rulings 42 to 44): the request button is enabled only on shortlist #1, only when it's eligible, and only with no live request. Every other match shows the line "Your intro request is on {company}". While the request is `requested`, a "Move my request here" button swaps it, and the swap moves that match to #1. Today's "Ask for a warm intro" sheet is gone. Apply and Follow stay.
 
+The detail pane's primary action is a filled button (`sr-ink` background) and the heaviest mark in the pane (Ruling 41, folded in): "Request a warm intro" when it's available, otherwise Apply. The rest stay secondary.
+
 - [ ] **Step 1: Write the failing e2e:**
+  - at 1440, the detail pane has exactly one button whose computed background is `sr-ink` (`// Catches:` the action reading last, from the design-review cold read);
   - bringing two matches forward and requesting on #1 sets `data-intro-on` on the other match (`// Catches:` more than one live request);
   - the request button is disabled on #2 (`// Catches:` requests on any pick);
   - "Move my request here" on #2 makes it #1 and moves the line (`// Catches:` a swap that leaves the rank);
@@ -382,7 +385,8 @@ Update "Last verified".
   - `document.documentElement.scrollWidth` equals 375;
   - the table's container has `overflow-x: auto`;
   - an open sheet's width is at least 343;
-  - the last board section's bottom is above the dock's top when scrolled to the end.
+  - the last board section's bottom is above the dock's top when scrolled to the end;
+  - **tap targets** (Ruling 68, folded in): at 390, on every Act 2 tab, every visible `a`, `button`, `[role=tab]` and `summary` inside `[data-shell]` measures at least 44x44. The hit box may come from padding. Exclude the site's own logo. `// Catches:` the close's 24 px links, the 28 px "show all", the 36 px channel pills, and the 40 px account button.
 - [ ] **Step 2: Run them and fix** anything red. Show at least one pin red first: drop the table's overflow container, run, restore.
 - [ ] **Step 3: Run the full default suite** (no `-g`) through the slot script. Expected: all pass, 0 failed. Then `pnpm test`, `pnpm tsc --noEmit`, `pnpm lint`.
 - [ ] **Step 4: Commit the pins,** then the AGENTS.md edit on its own as `docs(agents): ...`.
