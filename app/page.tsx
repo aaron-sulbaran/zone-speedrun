@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { BotIdClient } from "botid/client";
-import { AaronFunnel } from "@/components/speedrun/act1/AaronFunnel";
-import { Opener } from "@/components/speedrun/act1/Opener";
 import { SpeedrunExperience } from "@/components/speedrun/SpeedrunExperience";
 import { siteContent, speedrunCopy } from "@/lib/content";
 import { srCond, srSans } from "@/lib/speedrun/fonts";
@@ -54,12 +52,6 @@ export default function SpeedrunPage() {
       {/* An inline script: /speedrun must be entered by a full page load, never a next/link, or it never runs. */}
       <BotIdClient protect={BOT_PROTECTED} />
       <SpeedrunExperience
-        opener={
-          <>
-            <Opener />
-            <AaronFunnel />
-          </>
-        }
         live={liveFlags()}
         stats={stats}
         themeClassName={`${srSans.variable} ${srCond.variable} bg-sr-bg font-srsans text-sr-ink`}

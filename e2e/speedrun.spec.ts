@@ -1,14 +1,17 @@
 import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, joinPhase, networkHeading, networkPhase, openTab, playSwitch, skipBuildLog, skipToSam } from "./speedrun-flow";
+import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
+import { pressableAtMs } from "../lib/speedrun/heroIntro";
+import { MOTION } from "../lib/speedrun/motion";
+import { introSchedule, seekIntro, accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver, tabKey } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
 
 const network = speedrunCopy.network;
 const join = speedrunCopy.join;
-const switchButton = (page: Page) => page.getByRole("button", { name: speedrunCopy.shift.button });
+const switchButton = (page: Page) => page.getByRole("button", { name: speedrunCopy.act1.closing.button });
 const counter = (page: Page) => page.locator("#join").getByText(/^\d\d \/ \d\d$/);
 
 async function reachNetwork(page: Page, name = "Alex") {
@@ -40,33 +43,110 @@ test("renders logged out with noindex, then the join card carries the affiliatio
   await expect(home).toHaveAttribute("href", "/");
 });
 
-test("the opener shows first, with no phase of the styled section in the DOM", async ({ page }) => {
+test("the hero shows first, with no phase of the styled section in the DOM", async ({ page }) => {
   await page.goto("/speedrun");
   await expect(page.getByRole("heading", { level: 1 })).toContainText(speedrunCopy.act1.headline1);
-  await expect(page.locator('section[data-act="1"]')).toBeVisible();
-  await expect(page.locator('[data-act="1"] [data-funnel-stat="applications"]')).toHaveText("84");
-  expect(await page.locator('[data-act="1"] svg path.flow-link').count()).toBeGreaterThanOrEqual(8);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(speedrunCopy.act1.headline2);
+  await expect(page.locator("section[data-hero]")).toBeVisible();
+  await expect(page.locator("[data-hero-count]")).toHaveText(String(AARON_ENTRIES.length));
+  expect(await page.locator("[data-hero] svg path.flow-link").count()).toBeGreaterThanOrEqual(8);
   await expect(page.locator("#act-2")).toHaveCount(0);
   await expect(page.locator("[data-phase]")).toHaveCount(0);
   await expect(page.locator("#join")).toHaveCount(0);
-  await expect(page.getByText(speedrunCopy.shift.turnLine1)).toBeVisible();
+});
+
+const textOf = (html: string) =>
+  html
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+
+// Catches: hero words rendered client-only (a motion wrapper that mounts after hydration).
+test("every word of the hero is in the server HTML", async ({ request }) => {
+  const html = textOf(await (await request.get("/speedrun")).text());
+  const copy = speedrunCopy.act1;
+  for (const text of [copy.flowTitle, copy.privacyNote, copy.headline1, copy.headline2, copy.subtitle.count(AARON_ENTRIES.length), copy.p1, copy.p2, copy.closing.line, copy.closing.sub, copy.closing.button]) {
+    expect(html).toContain(text);
+  }
+  // Catches: the visual words (the aria-hidden spans the intro animates) missing from the server HTML while the screen-reader sentence alone satisfies the check above.
+  const raw = await (await request.get("/speedrun")).text();
+  const spans = [...raw.matchAll(/<span[^>]*data-intro-el="subtitle"[^>]*>([\s\S]*?)<\/span>/g)].map((match) => textOf(match[1]));
+  const { before, count, after } = copy.subtitle;
+  const words = [...before.split(" "), ...count(AARON_ENTRIES.length).split(" "), ...after.split(" ")].filter(Boolean);
+  expect(spans).toEqual(words);
+  expect(raw.slice(Math.max(0, raw.indexOf('data-intro-el="subtitle"') - 200), raw.indexOf('data-intro-el="subtitle"'))).toContain('aria-hidden="true"');
+});
+
+// Catches: a hero taller than the screen, which would push the closing button below the fold (1440 by 790 and 1366 by 768 are real laptop windows).
+for (const [width, height] of [[1440, 900], [1440, 790], [1366, 768], [1280, 800]] as const) {
+  test(`the hero fits one screen at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await settleHero(page);
+    const fit = await page.evaluate(() => ({
+      scroll: document.documentElement.scrollHeight,
+      inner: window.innerHeight,
+      buttonBottom: document.querySelector("[data-hero-start]")!.getBoundingClientRect().bottom,
+    }));
+    expect(fit.scroll).toBeLessThanOrEqual(fit.inner);
+    expect(fit.buttonBottom).toBeLessThanOrEqual(fit.inner);
+  });
+}
+
+// Catches: an undocked button that sits below the fold on a phone.
+for (const [width, height] of [[390, 844], [375, 667]] as const) {
+  test(`on a phone the button is docked and fully visible on load at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await settleHero(page);
+    const dock = await page.evaluate(() => {
+      const button = document.querySelector("[data-hero-start]")!;
+      const rect = button.getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, inner: window.innerHeight, position: getComputedStyle(button.closest("[data-intro-el='close']")!).position };
+    });
+    expect(dock.top).toBeGreaterThanOrEqual(0);
+    expect(dock.bottom).toBeLessThanOrEqual(dock.inner);
+    expect(dock.position).toBe("fixed");
+  });
+}
+
+// Catches: the hero overflowing sideways at a breakpoint (a wide chart or an unwrapped word).
+for (const width of [375, 390, 768, 1280, 1440]) {
+  test(`no horizontal scroll on the hero at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/speedrun");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  });
+}
+
+// Catches: the chart's applied value and the subtitle's number coming from different sources.
+test("the chart's applied value matches the subtitle", async ({ page }) => {
+  await page.goto("/speedrun");
+  const subtitle = (await page.locator("[data-hero-count]").textContent())!.trim();
+  const chart = page.locator("[data-flow-source-value]").filter({ visible: true });
+  await expect(chart).toHaveCount(1);
+  expect((await chart.textContent())!.trim()).toBe(subtitle);
 });
 
 test("with motion the same click starts the sweep on the strip", async ({ page }) => {
   await page.goto("/speedrun");
-  const [animations, visibility] = await page.evaluate((label) => {
-    const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
+  await settleHero(page);
+  // The hero's button bumps a signal and the sweep starts in the effect after it, so poll for the strip's animations.
+  await switchButton(page).click();
+  await page.waitForFunction(() => {
     const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
-    button.click();
-    return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-  }, speedrunCopy.shift.button);
-  expect(animations).toBeGreaterThanOrEqual(1);
-  expect(visibility).toBe("visible");
+    return strip.getAnimations().length >= 1 && getComputedStyle(strip).visibility === "visible";
+  }, undefined, { timeout: 2000 });
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
 
 test("the switch lands on the join card at the top of the page with the name input focused", async ({ page }) => {
+  // A short window, so the hero scrolls and "back at the top" is a real claim.
+  await page.setViewportSize({ width: 1280, height: 500 });
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   await switchButton(page).click();
@@ -89,6 +169,7 @@ test("a double click on the switch sweeps once and lands on the join card once",
     };
   });
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).dblclick();
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
@@ -113,7 +194,8 @@ test("the student branch counts 03 / 07 before the answer and 04 / 08 after it, 
   expect(seen).toEqual({ student: "03 / 07", arrangements: "04 / 08" });
   await expect(page.locator("#act-2 [data-phase-heading]")).toHaveText(speedrunCopy.build.heading("Alex"));
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading("Alex"));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Alex"));
+  await expectVisitorName(page, "Alex");
 });
 
 test("tapping Yes then No within the advance beat moves on once, on No", async ({ page }) => {
@@ -177,7 +259,7 @@ test("the four tabs switch with the arrow keys, Home and End, and a panel mounts
 
 test("Start over returns to step 1 with an empty name, and Replay from the top returns to the opener", async ({ page }) => {
   await reachNetwork(page, "Alex");
-  await page.getByRole("button", { name: network.startOver }).click();
+  await startOver(page);
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
@@ -186,8 +268,9 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
 
   await answerOnboarding(page, { name: "Blake" });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading("Blake"));
-  await page.getByRole("button", { name: network.replayTop }).click();
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Blake"));
+  await expectVisitorName(page, "Blake");
+  await replayFromTop(page);
   await expect(page.locator('section[data-act="1"]')).toBeVisible({ timeout: 8000 });
   await expect(page.locator("#act-2")).toHaveCount(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
@@ -195,6 +278,118 @@ test("Start over returns to step 1 with an empty name, and Replay from the top r
   await playSwitch(page);
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
   await expect(counter(page)).toHaveText("01 / 07");
+});
+
+// Regression: the join footer was sticky on phones and covered a fifth of the people step,
+// with the sample cards showing through its fill (Ruling 18). Below md it sits in flow.
+test("at 375 the join footer sits in flow below the last sample card", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const result = await page.evaluate(() => {
+    const footer = document.querySelector<HTMLElement>("[data-join-footer]")!;
+    const cards = document.querySelectorAll<HTMLElement>("[data-person]");
+    return { position: getComputedStyle(footer).position, footerTop: footer.getBoundingClientRect().top, lastCardBottom: cards[cards.length - 1].getBoundingClientRect().bottom, backdrop: getComputedStyle(footer).backdropFilter };
+  });
+  expect(result.position).not.toBe("sticky");
+  expect(result.backdrop).toBe("none");
+  expect(result.footerTop).toBeGreaterThanOrEqual(result.lastCardBottom);
+});
+
+const primaryInView = () => {
+  const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
+  return rect.top >= 0 && rect.bottom <= window.innerHeight;
+};
+
+// Regression: with the footer in flow it can sit below the fold, so a pick must bring the
+// primary button into view or the visitor never finds Continue. The precondition keeps the
+// pin from passing when the button was already visible.
+test("at 375 picking a sample person scrolls the footer button fully into view", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  await page.locator('#join [data-person]').first().click();
+  await expect.poll(() => page.evaluate(primaryInView), { timeout: 3000 }).toBe(true);
+});
+
+// Regression: "auto" still animates because html has scroll-behavior: smooth; reduced motion
+// needs "instant", so the button is in view two frames after the pick.
+test("at 375 with reduced motion the pick scrolls to the footer without animating", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  await page.locator('#join [data-person]').first().click();
+  const inView = await page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
+            resolve(rect.top >= 0 && rect.bottom <= window.innerHeight);
+          }),
+        ),
+      ),
+  );
+  expect(inView).toBe(true);
+});
+
+// Regression: with nothing picked, ArrowDown selects the first card and focus stays on it; the footer scroll used to run a
+// frame later and carry that focused card off screen. Only pointer picks scroll.
+test("at 375 an arrow-key pick keeps the focused card in view", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  await page.locator('#join [data-person]').first().focus();
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(1200);
+  const rect = await page.evaluate(() => document.activeElement!.getBoundingClientRect().toJSON());
+  expect(await page.evaluate(() => document.activeElement?.getAttribute("data-person"))).not.toBeNull();
+  expect(rect.top).toBeGreaterThanOrEqual(0);
+  expect(rect.bottom).toBeLessThanOrEqual(667);
+});
+
+// Catches: Enter or Space on a card (a click with detail 0) running the footer scroll, which carries the focused card off screen like the arrow bug did.
+test("at 375 a Space pick on a focused card leaves the scroll where it is", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  const card = page.locator("#join [data-person]").first();
+  await card.focus();
+  const before = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press("Space");
+  await expect(card).toHaveAttribute("aria-checked", "true");
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  expect(await page.evaluate(primaryInView)).toBe(false);
+});
+
+// Ruling 28. Catches: the footer sticky on a phone held sideways (it covers a third of the 390 px screen), or a pick that leaves the in-flow button below the fold there.
+test("at 844 by 390 the join footer sits in flow and a pick scrolls it into view", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const footer = await page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>("[data-join-footer]")!;
+    const style = getComputedStyle(el);
+    return { position: style.position, backdrop: style.backdropFilter, background: style.backgroundColor };
+  });
+  expect(footer.position).not.toBe("sticky");
+  expect(footer.backdrop).toBe("none");
+  expect(footer.background).toBe("rgba(0, 0, 0, 0)");
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  await page.locator("#join [data-person]").first().click();
+  await expect.poll(() => page.evaluate(primaryInView), { timeout: 3000 }).toBe(true);
+});
+
+// Regression: the in-flow footer must not leak to desktop, where the sticky bar stays.
+test("at 1440 the join footer is still sticky", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector("[data-join-footer]")!).position)).toBe("sticky");
 });
 
 test("Start over during the building beat cancels the build: clean step 1 and no match request", async ({ page }) => {
@@ -256,8 +451,9 @@ test("Start over with a match request in flight lands on a clean step 1 and the 
   await expect(counter(page)).toHaveText("01 / 07");
 });
 
-test("the whole flow works by keyboard alone", async ({ page }) => {
+test("the whole flow works by keyboard alone", async ({ page, browserName }) => {
   await page.goto("/speedrun");
+  await settleHero(page);
   await switchButton(page).focus();
   await page.keyboard.press("Enter");
   const card = page.locator("#join");
@@ -296,11 +492,19 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await expect(page.locator('[data-phase="building"]')).toBeVisible({ timeout: 8000 });
   await expect(networkPhase(page).or(page.locator("[data-build-log]"))).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('[data-phase="building"] [data-phase-heading]')).toBeFocused();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(tabKey(browserName));
   await expect(page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(networkHeading(page)).toBeFocused({ timeout: 10_000 });
-  await expect(networkHeading(page)).toHaveText(network.heading("Dana"));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Dana"));
+  // Open the account menu by keyboard too: focus the button, Enter opens it, Escape closes it.
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "true");
+  await expect(accountPanel(page)).toContainText("Dana");
+  await page.keyboard.press("Escape");
+  await expect(accountPanel(page)).toBeHidden();
+  await expect(accountButton(page)).toBeFocused();
 });
 
 test("the typed name never leaves the page", async ({ page }) => {
@@ -315,7 +519,8 @@ test("the typed name never leaves the page", async ({ page }) => {
   await page.goto("/speedrun");
   await answerOnboarding(page, { name, why: "Build with a founding team.", places: ["Remote"], connectGmail: true });
   await skipBuildLog(page);
-  await expect(networkHeading(page)).toHaveText(network.heading(name));
+  await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading(name));
+  await expectVisitorName(page, name);
   await openTab(page, network.tabs.board);
   await openTab(page, network.tabs.brief);
   await expect(page.locator("[data-brief-subject]")).toContainText(name);
@@ -331,17 +536,22 @@ test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
 
   test("the switch completes with no sweep", async ({ page }) => {
+    // Catches: the reduced-motion path starting the strip's sweep. The sweep starts after the click (a signal and an effect), so count every animate() call on the strip for the whole switch.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __stripAnimations: number };
+      w.__stripAnimations = 0;
+      const original = Element.prototype.animate;
+      Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+        if (this.matches("[data-shift-strip]")) w.__stripAnimations += 1;
+        return original.apply(this, args);
+      };
+    });
     await page.goto("/speedrun");
-    // play() starts the strip's animation synchronously inside the click, so read it in the same tick.
-    const [animations, visibility] = await page.evaluate((label) => {
-      const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label)!;
-      const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
-      button.click();
-      return [strip.getAnimations().length, getComputedStyle(strip).visibility] as const;
-    }, speedrunCopy.shift.button);
-    expect([animations, visibility]).toEqual([0, "hidden"]);
+    await settleHero(page);
+    await page.getByRole("button", { name: speedrunCopy.act1.closing.button }).click();
     await expect(joinPhase(page)).toBeVisible({ timeout: 4000 });
     await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toBeFocused();
+    expect(await page.evaluate(() => (window as unknown as { __stripAnimations: number }).__stripAnimations)).toBe(0);
     await expect(page.locator("[data-shift-strip]")).toBeHidden();
   });
 
@@ -351,7 +561,8 @@ test.describe("reduced motion", () => {
     await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 10_000 });
     await expect(networkHeading(page)).toBeFocused();
-    await expect(networkHeading(page)).toHaveText(network.heading("Sam"));
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Sam"));
+    await expectVisitorName(page, "Sam");
     await expect(page.getByRole("button", { name: speedrunCopy.build.continue })).toHaveCount(0);
   });
 
@@ -367,7 +578,8 @@ test.describe("reduced motion", () => {
     await expect(networkPhase(page)).toHaveCount(0);
     await proceed.click();
     await expect(networkPhase(page)).toBeVisible({ timeout: 5000 });
-    await expect(networkHeading(page)).toHaveText(network.heading("Alex"));
+    await expect(networkHeading(page)).toHaveText(speedrunCopy.matches.listHeading("Alex"));
+    await expectVisitorName(page, "Alex");
   });
 });
 
@@ -375,6 +587,7 @@ test.describe("short viewport", () => {
   test.use({ viewport: { width: 1440, height: 400 } });
   test("the switch lands at the top and Replay from the top re-arms it", async ({ page }) => {
     await page.goto("/speedrun");
+    await settleHero(page);
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await switchButton(page).scrollIntoViewIfNeeded();
     await switchButton(page).click();
@@ -382,7 +595,7 @@ test.describe("short viewport", () => {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await page.getByRole("button", { name: speedrunCopy.hero.ctaSecondary }).first().click();
     await skipBuildLog(page);
-    await page.getByRole("button", { name: network.replayTop }).click();
+    await replayFromTop(page);
     await expect(page.locator('section[data-act="1"]')).toBeVisible({ timeout: 8000 });
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await expect(switchButton(page)).toBeEnabled();
@@ -400,14 +613,16 @@ for (const key of ["maya", "ravi", "sam", "lena", "dev"] as const) {
     for (const label of Object.values(network.tabs)) {
       await openTab(page, label);
       expect(await page.evaluate(() => document.documentElement.scrollWidth), label).toBeLessThanOrEqual(390);
+      await expectScrollersFit(page, label);
     }
     await page.locator("[data-close]").scrollIntoViewIfNeeded();
     await page.waitForTimeout(500);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await expectScrollersFit(page, "close");
   });
 }
 
-test("the decisions and the close are on the page", async ({ page }) => {
+test("the Why tab holds the decisions, then the close card with the affiliation line", async ({ page }) => {
   await page.goto("/speedrun");
   await skipToSam(page);
   await skipBuildLog(page);
@@ -415,7 +630,9 @@ test("the decisions and the close are on the page", async ({ page }) => {
   const section = page.locator("[data-decisions]");
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
   await expect(section.locator("[data-decision-card]")).toHaveCount(6);
-  await expect(page.locator("[data-close]").getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
+  const close = page.locator("[data-close]");
+  await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
+  await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
   const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
   await expect(links).toHaveCount(3);
@@ -425,19 +642,220 @@ test("the decisions and the close are on the page", async ({ page }) => {
   await expect(links.nth(2)).toHaveAttribute("href", linkedin ?? "");
   await expect(links.nth(2)).toHaveAttribute("target", "_blank");
   await expect(links.nth(2)).toHaveAttribute("rel", "noopener noreferrer");
+  // The close card comes after the decisions inside the same panel.
+  const order = await page.evaluate(() => {
+    const decisions = document.querySelector("[data-decisions]")!;
+    const close = document.querySelector("[data-close]")!;
+    return { sameParent: decisions.parentElement === close.parentElement, after: !!(decisions.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  });
+  expect(order).toEqual({ sameParent: true, after: true });
 });
 
-test("the pinned affiliation steps aside at the close, which carries the line", async ({ page }) => {
+const TABS = Object.values(network.tabs);
+/** Wide panel content scrolls sideways inside its panel (overflow-y:auto makes overflow-x auto) and never reaches the document's scrollWidth, so read the scrollers too. */
+const scrollerFits = (page: Page) =>
+  page.evaluate(() => {
+    const read = (el: Element | null) => (el ? { scrollWidth: el.scrollWidth, clientWidth: el.clientWidth } : null);
+    const panel = Array.from(document.querySelectorAll('[role="tabpanel"]')).find((el) => !(el as HTMLElement).hidden) ?? null;
+    return { panel: read(panel), main: read(document.querySelector("[data-shell-main]")) };
+  });
+async function expectScrollersFit(page: Page, label: string) {
+  const fit = await scrollerFits(page);
+  for (const [name, m] of Object.entries(fit)) {
+    expect(m, `${label} ${name}`).not.toBeNull();
+    expect(m!.scrollWidth, `${label} ${name}`).toBeLessThanOrEqual(m!.clientWidth);
+  }
+}
+const fullPage = (page: Page) => page.evaluate(() => ({ scrollHeight: document.documentElement.scrollHeight, innerHeight: window.innerHeight, scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
+
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  // Catches: a shell that is not capped to the viewport, so the document scrolls under the panels.
+  test(`the shell never scrolls the document at ${size.width} by ${size.height}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    for (const label of TABS) {
+      await openTab(page, label);
+      const m = await fullPage(page);
+      expect(m.scrollHeight, label).toBe(m.innerHeight);
+    }
+  });
+}
+
+for (const width of [375, 768, 1440]) {
+  // Catches: a bar, badge, tab row or panel wider than the screen.
+  test(`no horizontal scroll in the shell at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    for (const label of TABS) {
+      await openTab(page, label);
+      const m = await fullPage(page);
+      expect(m.scrollWidth, label).toBeLessThanOrEqual(m.innerWidth);
+      await expectScrollersFit(page, label);
+    }
+  });
+}
+
+// Catches: wrong grid areas, so the tabs sit in the top bar on a phone or under the panels on desktop.
+test("tabs sit at the bottom on a phone and in the top bar on desktop", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/speedrun");
   await skipToSam(page);
   await skipBuildLog(page);
-  await page.locator("[data-close]").scrollIntoViewIfNeeded();
-  await expect(page.locator('[data-affiliation="pinned"]')).toHaveAttribute("aria-hidden", "true");
-  const gap = await page.evaluate(() => {
-    const close = document.querySelector("[data-close]")!.getBoundingClientRect();
-    return document.documentElement.scrollHeight - (close.bottom + window.scrollY);
+  const list = page.getByRole("tablist", { name: network.tabsLabel });
+  // The phase entrance slides the frame for a moment, so measure once it has settled.
+  await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
+});
+
+// Catches: the disclaimer truncated, clipped or pushed off screen (text-overflow ellipsis keeps toHaveText green), or the pinned pill still floating over the shell.
+test("the badge shows in full at every width, and the pinned pill is gone in the network phase", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  for (const width of [375, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    const badge = page.locator("[data-concept-badge]");
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText(network.badge);
+    await expect(page.locator('[data-affiliation="pinned"]')).toHaveCount(0);
+    await expect.poll(() => badge.evaluate((el) => el.scrollWidth - el.clientWidth), { message: `badge clipped at ${width}` }).toBeLessThanOrEqual(0);
+    const box = (await badge.boundingBox())!;
+    expect(box.x, `badge left at ${width}`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `badge right at ${width}`).toBeLessThanOrEqual(width);
+  }
+});
+
+// Catches: the shell sized with the large viewport (100vh), which lets iOS Safari scroll a shell that must never scroll. Chromium has no dynamic toolbar, so read the rule that sizes the section.
+test("the act 2 section is sized with the dynamic viewport, never 100vh", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const heights = await page.evaluate(() => {
+    const section = document.getElementById("act-2")!;
+    const found: string[] = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (rule instanceof CSSStyleRule && section.matches(rule.selectorText) && rule.style.minHeight) found.push(rule.style.minHeight);
+      }
+    }
+    // The shell inside the section is what must never scroll: its own height rule is the one that counts.
+    const shell = document.querySelector("[data-shell]")!;
+    const shellHeights: string[] = [];
+    const collect = (rules: CSSRuleList) => {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSStyleRule && shell.matches(rule.selectorText) && rule.style.height) shellHeights.push(rule.style.height);
+        else if (rule instanceof CSSGroupingRule) collect(rule.cssRules);
+      }
+    };
+    for (const sheet of Array.from(document.styleSheets)) collect(sheet.cssRules);
+    return { found, shellHeights };
   });
-  expect(gap).toBeLessThanOrEqual(1);
+  expect(heights.shellHeights).toContain("100dvh");
+  expect(heights.shellHeights).not.toContain("100vh");
+  expect(heights.found.length).toBeGreaterThan(0);
+  expect(heights.found).not.toContain("100vh");
+  expect(heights.found).toContain("100dvh");
+});
+
+test.describe("short landscape", () => {
+  test.use({ viewport: { width: 844, height: 390 } });
+  // Catches: the max-height fallback removed, which traps the panels in a shell shorter than their content.
+  test("a short landscape screen falls back to page scroll", async ({ page }) => {
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const panel = page.getByRole("tabpanel").filter({ visible: true });
+    expect(await panel.evaluate((el) => getComputedStyle(el).overflowY)).toBe("visible");
+    const m = await fullPage(page);
+    expect(m.scrollHeight).toBeGreaterThan(m.innerHeight);
+  });
+});
+
+test.describe("short portrait", () => {
+  // iPhone SE portrait with Safari's bars showing is about 548 px tall: the capped shell must stay capped, not flip to page scroll.
+  test.use({ viewport: { width: 375, height: 548 } });
+  // Catches: the short-height fallback applying in portrait, which flips the layout to page scroll when the toolbar collapses.
+  test("a short portrait screen keeps the shell capped to the viewport", async ({ page }) => {
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const result = await page.evaluate(() => ({
+      shell: document.querySelector("[data-shell]")!.getBoundingClientRect().height,
+      innerHeight: window.innerHeight,
+      scrollHeight: document.documentElement.scrollHeight,
+    }));
+    expect(result.shell).toBe(result.innerHeight);
+    expect(result.scrollHeight).toBeLessThanOrEqual(result.innerHeight);
+  });
+});
+
+// Catches: the account menu staying open after focus moves elsewhere (a Tab out, or a script), because it only closed on Escape and outside presses.
+test("the account menu closes when focus leaves it", async ({ page }) => {
+  await reachNetwork(page);
+  await openAccountMenu(page);
+  await page.getByRole("tab", { selected: true }).focus();
+  await expect(accountPanel(page)).toBeHidden();
+});
+
+// Catches: a long name widening the account button, the menu or the list header past the screen (Review Focus 4).
+test("a 40-character name fits at 375", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const name = "W".repeat(40);
+  expect(Array.from(name)).toHaveLength(40);
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name });
+  await skipBuildLog(page);
+  let m = await fullPage(page);
+  expect(m.scrollWidth).toBeLessThanOrEqual(m.innerWidth);
+  // The list header names the visitor too; the panel scrolls on both axes, so the document cannot see it overflow.
+  await expect(networkHeading(page)).toContainText(name);
+  await expectScrollersFit(page, "40-character name");
+  // The list scrolls inside the panel, so a name wider than the list shows up there, not on the panel.
+  const list = await page.locator("[data-match-list]").evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
+  expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth);
+  await openAccountMenu(page);
+  await expect(accountPanel(page)).toContainText(name);
+  m = await fullPage(page);
+  expect(m.scrollWidth).toBeLessThanOrEqual(m.innerWidth);
+  const box = await accountPanel(page).boundingBox();
+  expect(box!.x).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+});
+
+// Catches: Escape closing the menu but leaving focus on the page, or not closing it at all.
+test("Escape closes the account menu and returns focus to its button", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await openAccountMenu(page);
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "true");
+  await accountPanel(page).getByRole("button", { name: network.account.startOver }).focus();
+  await page.keyboard.press("Escape");
+  await expect(accountPanel(page)).toBeHidden();
+  await expect(accountButton(page)).toBeFocused();
+  await expect(accountButton(page)).toHaveAttribute("aria-expanded", "false");
+});
+
+// Catches: an action that runs but leaves the menu open over the phase that is about to leave.
+test("Start over from the menu closes it", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await openAccountMenu(page);
+  // One frame after the press: React has committed the close, the phase exit (hundreds of ms) has not finished.
+  const after = await page.evaluate(async (label) => {
+    const panel = document.querySelector<HTMLElement>("[data-account-panel]")!;
+    const button = [...panel.querySelectorAll("button")].find((b) => b.textContent === label)!;
+    button.click();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    return { hidden: panel.hidden, stillNetwork: !!document.querySelector('[data-phase="network"]') };
+  }, network.account.startOver);
+  expect(after).toEqual({ hidden: true, stillNetwork: true });
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
 
 test("a failed sample build offers Start over, and it lands on a clean step 1", async ({ page }) => {
@@ -454,4 +872,864 @@ test("a failed sample build offers Start over, and it lands on a clean step 1", 
   await expect(page.locator('[data-phase="join"]')).toBeVisible({ timeout: 5000 });
   await expect(counter(page)).toHaveText("01 / 07");
   await expect(page.locator("#join").getByLabel(join.steps.name.inputLabel)).toHaveValue("");
+});
+
+// ---- the hero's intro ----
+
+const RUNNING = '[data-hero][data-intro="running"]';
+
+// Catches: the skip listener removed, or one that does not finish the animations in the same tick.
+test("a pointerdown during the intro shows the end state in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const state = await page.evaluate(() => {
+    document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    return {
+      intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+      opacities: [...document.querySelectorAll("[data-intro-el], [data-flow-source-value], [data-hero-chart-note]")].filter((el) => el.checkVisibility()).map((el) => getComputedStyle(el).opacity),
+      clones: document.querySelectorAll("[data-intro-flight]").length,
+    };
+  });
+  expect(state.intro).toBe("done");
+  expect(state.opacities.length).toBeGreaterThan(5);
+  expect(state.opacities.every((opacity) => opacity === "1")).toBe(true);
+  expect(state.clones).toBe(0);
+});
+
+// Catches: a skip that swallows the first key, so focus never moves.
+test("Tab during the intro finishes it and moves focus", async ({ page, browserName }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  await page.keyboard.press(tabKey(browserName));
+  const after = await page.evaluate(() => ({
+    intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+    focusOnBody: document.activeElement === document.body,
+  }));
+  expect(after.intro).toBe("done");
+  expect(after.focusOnBody).toBe(false);
+});
+
+// Catches: the press guard removed, so a press on the button during the intro plays the switch too.
+test("a press on the button before the intro settles skips it and does not play the switch", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __stripAnimations: number };
+    w.__stripAnimations = 0;
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+      if (this.matches("[data-shift-strip]")) w.__stripAnimations += 1;
+      return original.apply(this, args);
+    };
+  });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  await page.locator("[data-hero-start]").click();
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => (window as unknown as { __stripAnimations: number }).__stripAnimations)).toBe(0);
+  await expect(page.locator("#act-2")).toHaveCount(0);
+});
+
+// Catches: reordered cues, so the closing block stops arriving last.
+test("the closing block arrives last", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const delays = await page.evaluate(() => {
+    const out: Record<string, number> = {};
+    for (const animation of document.getAnimations()) {
+      const target = (animation.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+      const kind = target?.closest("[data-intro-el]")?.getAttribute("data-intro-el");
+      if (!target || !kind) continue;
+      const delay = Number(animation.effect!.getTiming().delay);
+      out[kind] = Math.max(out[kind] ?? 0, delay);
+    }
+    return out;
+  });
+  const schedule = await introSchedule(page);
+  expect(delays.close).toBe(pressableAtMs(schedule));
+  for (const [kind, delay] of Object.entries(delays)) if (kind !== "close") expect(delay, kind).toBeLessThan(delays.close);
+});
+
+// ---- the 84 spotlight (Rulings 20 and 21) ----
+
+const SPOTLIGHT = "[data-spotlight]";
+const cueAt = (schedule: Awaited<ReturnType<typeof introSchedule>>, target: string, index = 0) => schedule.find((c) => c.target === target && c.index === index)!;
+
+// Catches: the subtitle coming in as one fade again, so an early word and the last word show together.
+test("the subtitle comes in word by word", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  const words = schedule.filter((c) => c.target === "subtitle");
+  await seekIntro(page, words[words.length - 1].atMs - 20);
+  const opacities = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity)));
+  expect(opacities).toHaveLength(words.length);
+  expect(opacities[0]).toBeGreaterThan(0.9);
+  expect(opacities[opacities.length - 1]).toBe(0);
+});
+
+// Catches: the flash dropped or run after the veil, or one that animates something other than the two words.
+test("84 applications pulses before the screen goes dark", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flash = cueAt(await introSchedule(page), "flash");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => {
+      const words = getComputedStyle(document.querySelector("[data-hero-spotlight]")!);
+      const veil = document.querySelector("[data-spotlight-veil]");
+      const lit = document.querySelector("[data-spotlight-lit]");
+      return { transform: words.transform, scale: new DOMMatrix(words.transform).a, opacity: Number(words.opacity), veil: veil ? Number(getComputedStyle(veil).opacity) : 0, lit: lit ? Number(getComputedStyle(lit).opacity) : 0 };
+    });
+  };
+  const before = await read(flash.atMs - 10);
+  const peak = await read(flash.atMs + flash.durationMs * 0.25);
+  const second = await read(flash.atMs + flash.durationMs * 0.75);
+  const after = await read(flash.atMs + flash.durationMs + 10);
+  expect(before).toMatchObject({ transform: "none", opacity: 1 });
+  for (const pulse of [peak, second]) {
+    expect(pulse.transform).not.toBe("none");
+    // Catches: the flash amplitude hard-coded instead of read from the Motion keys.
+    expect(Math.abs(pulse.opacity - MOTION.introSpotlightFlashOpacity)).toBeLessThan(0.02);
+    expect(Math.abs(pulse.scale - MOTION.introSpotlightFlashScale)).toBeLessThan(0.02);
+    expect(pulse.veil).toBe(0);
+    expect(pulse.lit).toBe(0);
+  }
+  expect(after.transform).toBe("none");
+});
+
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844], [375, 812], [320, 700]] as const) {
+  // Catches: a veil that is too weak, pure black, has a hole again, a lit copy off the words (or the same colour as them in light), a missing caption, or a layer not above the chrome.
+  test(`the veil holds on 84 applications with the caption at ${width} in ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const schedule = await introSchedule(page);
+    const veilCue = cueAt(schedule, "veil");
+    await seekIntro(page, veilCue.atMs + veilCue.durationMs + MOTION.introSpotlightHoldMs / 2);
+    const held = await page.evaluate(() => {
+      const layer = document.querySelector<HTMLElement>("[data-spotlight]")!;
+      const veil = layer.querySelector<HTMLElement>("[data-spotlight-veil]")!;
+      const caption = layer.querySelector<HTMLElement>("[data-spotlight-caption]")!;
+      const original = document.querySelector<HTMLElement>("[data-hero-spotlight]")!;
+      const lit = layer.querySelector<HTMLElement>("[data-spotlight-lit]")!;
+      const words = original.getBoundingClientRect();
+      const litRect = lit.getBoundingClientRect();
+      const style = getComputedStyle(veil);
+      const stackingRoot = (el: Element) => {
+        for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+          const s = getComputedStyle(node);
+          if ((s.position !== "static" && s.zIndex !== "auto") || s.opacity !== "1" || s.transform !== "none" || s.filter !== "none" || s.isolation === "isolate") return node.tagName;
+        }
+        return "HTML";
+      };
+      const clone = document.createElement("div");
+      clone.setAttribute("data-intro-flight", "");
+      document.querySelector("[data-hero]")!.appendChild(clone);
+      const root = stackingRoot(clone);
+      clone.remove();
+      return {
+        opacity: Number(style.opacity),
+        colour: style.backgroundColor,
+        mask: style.maskImage,
+        litDelta: Math.max(Math.abs(litRect.left - words.left), Math.abs(litRect.top - words.top), Math.abs(litRect.width - words.width), Math.abs(litRect.height - words.height)),
+        litColour: getComputedStyle(lit).color,
+        wordsColour: getComputedStyle(original).color,
+        litOpacity: Number(getComputedStyle(lit).opacity),
+        litText: lit.textContent,
+        wordsText: original.textContent,
+        litAfterVeil: Boolean(veil.compareDocumentPosition(lit) & Node.DOCUMENT_POSITION_FOLLOWING),
+        litHooks: layer.querySelectorAll("[data-intro-el], [data-hero-count], [data-hero-spotlight]").length,
+        copiesInBody: document.querySelectorAll("[data-spotlight-lit]").length,
+        caption: caption.textContent,
+        captionOpacity: Number(getComputedStyle(caption).opacity),
+        captionBelow: caption.getBoundingClientRect().top >= words.bottom,
+        captionLeft: caption.getBoundingClientRect().left,
+        captionRight: caption.getBoundingClientRect().right,
+        captionCentre: caption.getBoundingClientRect().left + caption.getBoundingClientRect().width / 2,
+        wordsCentre: words.left + words.width / 2,
+        paragraphLeft: original.closest("p")!.getBoundingClientRect().left,
+        captionAlign: getComputedStyle(caption).textAlign,
+        captionLines: (() => {
+          const range = document.createRange();
+          range.selectNodeContents(caption);
+          const rows = new Map<number, number>();
+          for (const rect of range.getClientRects()) rows.set(Math.round(rect.top), (rows.get(Math.round(rect.top)) ?? 0) + rect.width);
+          return [...rows.values()];
+        })(),
+        captionInside: caption.getBoundingClientRect().left >= 0 && caption.getBoundingClientRect().right <= innerWidth,
+        layerAria: layer.getAttribute("aria-hidden"),
+        layerEvents: getComputedStyle(layer).pointerEvents,
+        layerZ: Number(getComputedStyle(layer).zIndex),
+        parent: layer.parentElement === document.body,
+        wordsOpacity: Number(getComputedStyle(document.querySelector("[data-hero-spotlight]")!).opacity),
+        heroRoot: root,
+      };
+    });
+    expect(held.opacity).toBeGreaterThanOrEqual(0.85);
+    expect(held.colour).not.toBe("rgb(0, 0, 0)");
+    expect(held.colour).not.toBe("rgba(0, 0, 0, 0)");
+    expect(held.mask === "none" || held.mask === "").toBe(true);
+    expect(held.litDelta).toBeLessThanOrEqual(1);
+    expect(held.litOpacity).toBeGreaterThan(0.95);
+    expect(held.litText).toBe(held.wordsText);
+    expect(held.litAfterVeil).toBe(true);
+    expect(held.litHooks).toBe(0);
+    expect(held.copiesInBody).toBe(1);
+    // In light the page's text is dark; the lit copy has to differ or it is invisible on the veil.
+    if (scheme === "light") expect(held.litColour).not.toBe(held.wordsColour);
+    expect(held.caption).toBe(speedrunCopy.act1.spotlightCaption);
+    expect(held.captionOpacity).toBeGreaterThan(0.95);
+    expect(held.captionBelow).toBe(true);
+    expect(held.captionInside).toBe(true);
+    if (width < 768) {
+      // Catches: the caption centred under the words and clamped to 16 px, so on a phone it sits left of the text column (Ruling 31).
+      expect(Math.abs(held.captionLeft - held.paragraphLeft)).toBeLessThanOrEqual(1);
+      // Catches: the caption centred or right-aligned, so a wrapped second line stops lining up with the paragraph.
+      expect(["left", "start"]).toContain(held.captionAlign);
+      // Catches: a caption allowed to outgrow the paragraph and run into the right gutter.
+      expect(held.captionRight).toBeLessThanOrEqual(width - 16);
+      // Catches: an unbalanced wrap at 320 that leaves "400." alone on the caption's second line.
+      if (held.captionLines.length > 1) expect(held.captionLines.at(-1)! / held.captionLines[0]).toBeGreaterThan(0.5);
+    } else {
+      // Catches: the phone alignment leaking onto desktop, or the centring under the lit words changing.
+      expect(Math.abs(held.captionCentre - held.wordsCentre)).toBeLessThanOrEqual(1);
+    }
+    expect(held.layerAria).toBe("true");
+    expect(held.layerEvents).toBe("none");
+    expect(held.parent).toBe(true);
+    expect(held.layerZ).toBeGreaterThan(40);
+    expect(held.wordsOpacity).toBe(1);
+    // The flying 84 is in the page's own stacking context, so its z-index (above the layer's) is what puts it over the veil.
+    expect(held.heroRoot).toBe("HTML");
+  });
+}
+
+// Width of the text itself, so a copy in the wrong face or size shows up even when its box was forced to the original's size.
+const RANGE_WIDTH = `(el) => { const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect().width; }`;
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the lit copy and the flying 84 taking the computed `font` shorthand, which some engines serialize as "", so they fall back to the body face and size.
+  test(`the lit copy and the flying 84 keep the original type when the font shorthand reads empty at ${width}`, async ({ page }) => {
+    // Engines differ in what a computed `font` shorthand reads as; here it reads "" (the properties are interceptors on the object, so the getter cannot be patched on a prototype).
+    await page.addInitScript(() => {
+      const original = window.getComputedStyle.bind(window);
+      window.getComputedStyle = (element: Element, pseudo?: string | null) =>
+        new Proxy(original(element, pseudo), {
+          get(target, key) {
+            if (key === "font") return "";
+            const value = Reflect.get(target, key, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+    });
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const veilCue = cueAt(await introSchedule(page), "veil");
+    await seekIntro(page, veilCue.atMs + veilCue.durationMs + MOTION.introSpotlightHoldMs / 2);
+    const read = await page.evaluate(`(() => {
+      const width = ${RANGE_WIDTH};
+      const q = (selector) => document.querySelector(selector);
+      return { shorthandBlank: getComputedStyle(document.body).font === "", words: width(q("[data-hero-spotlight]")), lit: width(q("[data-spotlight-lit]")), count: width(q("[data-hero-count]")), clone: width(q("[data-intro-flight]")), twin: width(q("[data-spotlight-lit-count]")) };
+    })()`) as { shorthandBlank: boolean; words: number; lit: number; count: number; clone: number; twin: number };
+    // The precondition: without it the pin would pass on an engine that never had the problem.
+    expect(read.shorthandBlank).toBe(true);
+    expect(Math.abs(read.lit - read.words)).toBeLessThanOrEqual(1);
+    expect(Math.abs(read.clone - read.count)).toBeLessThanOrEqual(1);
+    expect(Math.abs(read.twin - read.count)).toBeLessThanOrEqual(1);
+  });
+}
+
+// Catches: the spotlight lighting words the reader cannot see: a window too short for the subtitle (or a page already scrolled) still got a full veil.
+test("a window too short for the words plays no spotlight, and the flight still plays", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __layers: number };
+    w.__layers = 0;
+    new MutationObserver((records) => {
+      for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-spotlight]")) w.__layers += 1;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.setViewportSize({ width: 390, height: 250 });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const placement = await page.evaluate(() => {
+    const rect = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+    return rect.bottom > innerHeight || rect.top < 0;
+  });
+  expect(placement).toBe(true);
+  const flight = cueAt(await introSchedule(page), "flight");
+  await seekIntro(page, flight.atMs + flight.durationMs / 2);
+  const state = await page.evaluate(() => ({ layersEver: (window as unknown as { __layers: number }).__layers, layers: document.querySelectorAll("[data-spotlight]").length, flight: document.querySelectorAll("[data-intro-flight]").length, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") }));
+  expect(state).toEqual({ layersEver: 0, layers: 0, flight: 1, intro: "running" });
+});
+
+// Catches: a scrollbar drag or a script moving the page leaving the dim on a reader who is already leaving it (the skip events had no scroll).
+test("a scroll during the hold ends the intro in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  const after = await page.evaluate(() => {
+    document.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return { layers: document.querySelectorAll("[data-spotlight]").length, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") };
+  });
+  expect(after).toEqual({ layers: 0, intro: "done" });
+});
+
+// Catches: the same, through a real scroll of the page rather than a dispatched event.
+test("a real scroll of the page during the hold ends the intro", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.evaluate(() => ({ scrollable: document.documentElement.scrollHeight > innerHeight, layers: document.querySelectorAll("[data-spotlight]").length }))).toEqual({ scrollable: true, layers: 1 });
+  await page.evaluate(() => window.scrollTo(0, 40));
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+  expect(await page.locator(SPOTLIGHT).count()).toBe(0);
+});
+
+// Catches: Replay from the top from a scrolled page ending its own intro at once, because the remounted hero's scroll skip hears the move back to the top (or measures the words at the old scroll position).
+test("Replay from the top on a scrolled network page still plays the intro", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await reachNetwork(page);
+  await openAccountMenu(page);
+  const scrolled = await page.evaluate(() => {
+    window.scrollTo({ top: 60, behavior: "instant" });
+    return window.scrollY;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await page.evaluate((name) => {
+    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!.click();
+  }, network.account.replayTop);
+  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "running");
+  await page.waitForTimeout(500);
+  expect(await page.locator("[data-hero]").getAttribute("data-intro")).toBe("running");
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+// Catches: the subtitle's word spans read one by one by a screen reader, or the full sentence missing from (or doubled in) the accessible text.
+test("the subtitle reads as one sentence to a screen reader", async ({ page }) => {
+  await page.goto("/speedrun");
+  await settleHero(page);
+  const { before, count, after } = speedrunCopy.act1.subtitle;
+  const sentence = [before, count(AARON_ENTRIES.length), after].join(" ").split(" ").filter(Boolean).join(" ");
+  // What a screen reader reads from the paragraph: its text nodes outside any aria-hidden subtree (the paragraph's own textContent also holds the hidden visual words).
+  const readable = await page.evaluate(() => {
+    let text = "";
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node instanceof Element && node.getAttribute("aria-hidden") !== "true") node.childNodes.forEach(walk);
+    };
+    walk(document.querySelector("[data-hero-spotlight]")!.closest("p")!);
+    return text.replace(/\s+/g, " ").trim();
+  });
+  expect(readable).toBe(sentence);
+  const spans = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => !!el.closest('[aria-hidden="true"]')));
+  expect(spans.length).toBeGreaterThan(8);
+  expect(spans.every(Boolean)).toBe(true);
+});
+
+// Catches: the flying clone's z-index falling under the veil's, so the 84 vanishes into the dark on its way to Applied.
+test("the flying 84 sits above the veil", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  await seekIntro(page, flight.atMs + flight.durationMs / 2);
+  const z = await page.evaluate(() => ({
+    clone: Number(getComputedStyle(document.querySelector("[data-intro-flight]")!).zIndex),
+    layer: Number(getComputedStyle(document.querySelector("[data-spotlight]")!).zIndex),
+  }));
+  expect(z.clone).toBeGreaterThan(z.layer);
+});
+
+// Catches: the lit copy placed from a rect measured mid-pulse (a late font load or a resize during the flash), so it lands off the words.
+test("a resize during the flash still puts the lit copy on the words", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  const flash = cueAt(schedule, "flash");
+  const veilCue = cueAt(schedule, "veil");
+  await seekIntro(page, flash.atMs + flash.durationMs * 0.25);
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  const delta = await page.evaluate(() => {
+    const a = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+    const b = document.querySelector("[data-spotlight-lit]")!.getBoundingClientRect();
+    return Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
+  });
+  expect(delta).toBeLessThanOrEqual(1);
+});
+
+// Catches: the page-coloured 84 appearing at full opacity on the veil at the flight's start (dark on dark in light theme) instead of crossfading from its lit twin.
+test("the flying 84 crossfades from its lit twin", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => ({
+      clone: Number(getComputedStyle(document.querySelector("[data-intro-flight]")!).opacity),
+      twin: Number(getComputedStyle(document.querySelector("[data-spotlight-lit-count]")!).opacity),
+    }));
+  };
+  const start = await read(flight.atMs);
+  const mid = await read(flight.atMs + flight.durationMs * 0.15);
+  expect(start).toEqual({ clone: 0, twin: 1 });
+  expect(mid.clone).toBeGreaterThan(0);
+  expect(mid.twin).toBeLessThan(1);
+});
+
+// Catches: the veil and the caption fading out only at the end of the intro, or not following the flight.
+test("the veil fades out over the flight and the caption is gone as it starts", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => ({
+      veil: Number(getComputedStyle(document.querySelector("[data-spotlight-veil]")!).opacity),
+      caption: Number(getComputedStyle(document.querySelector("[data-spotlight-caption]")!).opacity),
+      lit: Number(getComputedStyle(document.querySelector("[data-spotlight-lit]")!).opacity),
+    }));
+  };
+  const beforeOut = await read(flight.atMs - MOTION.introSpotlightCaptionOutMs - 10);
+  expect(beforeOut.caption).toBeGreaterThan(0.95);
+  // Catches: the caption still visible as the flight starts, so the flying 84 crosses it.
+  const atFlight = await read(flight.atMs);
+  expect(atFlight.caption).toBe(0);
+  const start = await read(flight.atMs - 10);
+  const end = await read(flight.atMs + flight.durationMs);
+  expect(start.veil).toBeGreaterThanOrEqual(0.85);
+  expect(start.caption).toBeLessThan(0.5);
+  expect(start.lit).toBeGreaterThan(0.95);
+  expect(end).toEqual({ veil: 0, caption: 0, lit: 0 });
+  // Catches: the lit copy cutting out at the flight's start instead of crossfading with the originals under it.
+  const mid = await read(flight.atMs + flight.durationMs * 0.2);
+  expect(mid.lit).toBeGreaterThan(0);
+  expect(mid.lit).toBeLessThan(1);
+});
+
+// Catches: the skip leaving the layer behind, or removing it a tick after the intro is marked done.
+test("a keydown during the hold removes the layer in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  const after = await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    return {
+      layers: document.querySelectorAll("[data-spotlight]").length,
+      intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+      animations: document.getAnimations().filter((a) => ((a.effect as KeyframeEffect | null)?.target as Element | null | undefined)?.closest("[data-spotlight], [data-hero-spotlight]")).length,
+      // Catches: the lit copy, its twin or the flying clone outliving a hold skip. Read in this same synchronous turn, so a clone that is only removed later (when its animation settles) still fails.
+      lit: document.querySelectorAll("[data-spotlight-lit]").length,
+      twin: document.querySelectorAll("[data-spotlight-lit-count]").length,
+      flight: document.querySelectorAll("[data-intro-flight]").length,
+    };
+  });
+  expect(after).toEqual({ layers: 0, intro: "done", animations: 0, lit: 0, twin: 0, flight: 0 });
+});
+
+// Catches: the layer outliving the intro, or the beat's animations lingering at rest.
+test("at done the layer is gone", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 10_000 });
+  expect(await page.evaluate(() => ({ layers: document.querySelectorAll("[data-spotlight]").length, veils: document.querySelectorAll("[data-spotlight-veil], [data-spotlight-caption]").length, lit: document.querySelectorAll("[data-spotlight-lit], [data-spotlight-lit-count]").length }))).toEqual({ layers: 0, veils: 0, lit: 0 });
+  const words = await page.evaluate(() => getComputedStyle(document.querySelector("[data-hero-spotlight]")!).transform);
+  expect(words).toBe("none");
+});
+
+// Catches: the beat holding the hero's words back after a skip, so the subtitle stays partly transparent.
+test("a skip during the subtitle shows every word", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  await seekIntro(page, cueAt(schedule, "subtitle", 4).atMs + 50);
+  const state = await page.evaluate(() => {
+    document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    return [...document.querySelectorAll('[data-intro-el="subtitle"]')].map((el) => getComputedStyle(el).opacity);
+  });
+  expect(state.length).toBeGreaterThan(8);
+  expect(state.every((opacity) => opacity === "1")).toBe(true);
+});
+
+test.describe("reduced motion spotlight", () => {
+  test.use({ reducedMotion: "reduce" });
+  // Catches: the layer mounting before the reduced-motion check, so a reader who asked for no motion gets a veil.
+  test("the layer never mounts", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __layers: number };
+      w.__layers = 0;
+      new MutationObserver((records) => {
+        for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-spotlight]")) w.__layers += 1;
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto("/speedrun");
+    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 1500 });
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => (window as unknown as { __layers: number }).__layers)).toBe(0);
+    expect(await page.locator(SPOTLIGHT).count()).toBe(0);
+  });
+});
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the flight or the links aiming at the hidden twin of the chart (a zero rect), or never being created.
+  test(`the 84 flies to the visible chart value and the chart is held on the visible twin at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const result = await page.evaluate(() => {
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]");
+      const flight = clone?.getAnimations().find((a) => a.effect && (a.effect as KeyframeEffect).target === clone);
+      flight?.pause();
+      if (flight) flight.currentTime = Number(flight.effect!.getComputedTiming().endTime) + 1;
+      const centre = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+      };
+      const digitsWidth = (el: Element) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getBoundingClientRect().width;
+      };
+      const visible = (selector: string) => [...document.querySelectorAll(selector)].filter((el) => el.checkVisibility());
+      const targets = visible("[data-flow-source-value]");
+      const clipped = document.getAnimations().filter((a) => {
+        const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        return target?.matches("[data-flow-content]");
+      });
+      return {
+        hasClone: Boolean(clone),
+        targets: targets.length,
+        clone: clone ? centre(clone) : null,
+        target: targets[0] ? centre(targets[0]) : null,
+        digitsWidth: targets[0] ? digitsWidth(targets[0]) : 0,
+        clippedVisible: clipped.length > 0 && clipped.every((a) => (a.effect as KeyframeEffect).target!.checkVisibility()),
+      };
+    });
+    expect(result.hasClone).toBe(true);
+    expect(result.targets).toBe(1);
+    expect(result.clippedVisible).toBe(true);
+    expect(Math.abs(result.clone!.x - result.target!.x)).toBeLessThan(3);
+    expect(Math.abs(result.clone!.y - result.target!.y)).toBeLessThan(3);
+    // Catches: the clone landing at the right centre but several times the size of the digits it replaces.
+    expect(result.digitsWidth).toBeGreaterThan(0);
+    expect(Math.abs(result.clone!.w - result.digitsWidth) / result.digitsWidth).toBeLessThan(0.3);
+    await page.locator("[data-hero]").dispatchEvent("pointerdown");
+    await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+    await expect(page.locator("[data-intro-flight]")).toHaveCount(0);
+    await expect(page.locator("[data-flow-source-value]").filter({ visible: true })).toHaveCSS("opacity", "1");
+  });
+}
+
+test.describe("reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  // Catches: the intro ignoring reduced motion (hidden words, or a flying clone).
+  test("the end state shows at once and nothing flies", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __flights: number };
+      w.__flights = 0;
+      new MutationObserver((records) => {
+        for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-intro-flight]")) w.__flights += 1;
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto("/speedrun");
+    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 500 });
+    const opacities = await page.evaluate(() => [...document.querySelectorAll("[data-intro-el]")].map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
+    await page.waitForTimeout(1000);
+    expect(await page.evaluate(() => (window as unknown as { __flights: number }).__flights)).toBe(0);
+  });
+});
+
+test.describe("without JavaScript", () => {
+  test.use({ javaScriptEnabled: false });
+  // Catches: the CSS failsafe removed, which would leave the hero's words at opacity 0 forever.
+  test("the words still appear", async ({ page }) => {
+    await page.goto("/speedrun");
+    await page.waitForTimeout(3800);
+    const opacities = await page.locator("[data-intro-el], [data-flow-content], [data-hero-chart-note]").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
+  });
+});
+
+// Catches: the intro playing only on the first load, so Replay from the top shows a hero with no motion.
+test("Replay from the top plays the intro again", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introSeen: string[] };
+    w.__introSeen = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const value = (record.target as Element).getAttribute("data-intro");
+        if (record.attributeName === "data-intro" && value) w.__introSeen.push(value);
+      }
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await page.evaluate(() => ((window as unknown as { __introSeen: string[] }).__introSeen = []));
+  await replayFromTop(page);
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
+  expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toContain("running");
+});
+
+test.describe("reduced motion without JavaScript", () => {
+  test.use({ reducedMotion: "reduce", javaScriptEnabled: false });
+  // Catches: a gate that applies under reduced motion, which hides the hero until the 3.5 s failsafe.
+  test("the hero shows the moment the page loads", async ({ page }) => {
+    await page.goto("/speedrun");
+    const opacities = await page.locator("[data-intro-el], [data-flow-content], [data-hero-chart-note]").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => getComputedStyle(el).opacity));
+    expect(opacities.length).toBeGreaterThan(5);
+    expect(opacities.every((opacity) => opacity === "1")).toBe(true);
+  });
+});
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the chart (nodes and labels, not only the links) showing before the 84 lands, or staying clipped after a skip.
+  test(`the whole chart is held back until the 84 lands, and a skip shows it at once at ${width} by ${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const result = await page.evaluate(() => {
+      const chart = [...document.querySelectorAll<SVGElement>("[data-flow-content]")].find((el) => el.checkVisibility())!;
+      const held = (el: Element) => {
+        const style = getComputedStyle(el);
+        return style.opacity === "0" || style.clipPath.startsWith("inset(0px 100%");
+      };
+      const note = document.querySelector("[data-hero-chart-note]")!;
+      // Seek to just before the flight lands: the links cue starts at the flight's end, so the chart must still be clipped shut.
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]");
+      const flight = clone?.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone);
+      const flightEnd = flight ? Number(flight.effect!.getComputedTiming().endTime) : 0;
+      for (const animation of document.getAnimations()) {
+        const target = (animation.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        if (target && (target.closest("[data-hero]") || target === clone)) {
+          animation.pause();
+          animation.currentTime = flightEnd - 50;
+        }
+      }
+      const seeked = { flightEnd, chartClip: getComputedStyle(chart).clipPath };
+      const before = { chartHeld: held(chart), noteHidden: getComputedStyle(note).opacity === "0" };
+      document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+      const style = getComputedStyle(chart);
+      // Catches: the intro's fill-both animations lingering on the chart and words after done.
+      const lingering = document.getAnimations().filter((a) => {
+        const target = (a.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+        return Boolean(target?.closest("[data-hero]"));
+      }).length;
+      return { lingering, seeked, before, after: { opacity: style.opacity, clip: style.clipPath, note: getComputedStyle(note).opacity } };
+    });
+    expect(result.seeked.flightEnd).toBeGreaterThan(50);
+    expect(result.seeked.chartClip.startsWith("inset(0px 100%")).toBe(true);
+    expect(result.lingering).toBe(0);
+    expect(result.before).toEqual({ chartHeld: true, noteHidden: true });
+    expect(result.after.opacity).toBe("1");
+    expect(["none", "inset(0px)", "inset(0px 0% 0px 0px)"]).toContain(result.after.clip);
+    expect(result.after.note).toBe("1");
+  });
+}
+
+// Catches: the clone outliving its landing, so two 84s overlap until the whole intro ends.
+test("the clone leaves the moment the flight lands, and the chart's value is there", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const after = await page.evaluate(async () => {
+    const clone = document.querySelector<HTMLElement>("[data-intro-flight]")!;
+    const flight = clone.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone)!;
+    await flight.finished;
+    const value = [...document.querySelectorAll("[data-flow-source-value]")].find((el) => el.checkVisibility())!;
+    return { clones: document.querySelectorAll("[data-intro-flight]").length, value: getComputedStyle(value).opacity, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") };
+  });
+  expect(after).toEqual({ clones: 0, value: "1", intro: "running" });
+});
+
+test.describe("without checkVisibility", () => {
+  // Catches: checkVisibility called without a fallback, which throws in older Safari and leaves the hero blank.
+  test("the intro still reaches done", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addInitScript(() => {
+      delete (Element.prototype as unknown as { checkVisibility?: unknown }).checkVisibility;
+    });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    // At 390 the narrow twin is the visible one; a fallback of "always shown" would aim the flight at the hidden wide twin.
+    const landing = await page.evaluate(() => {
+      const clone = document.querySelector<HTMLElement>("[data-intro-flight]")!;
+      const flight = clone.getAnimations().find((a) => (a.effect as KeyframeEffect).target === clone)!;
+      flight.pause();
+      flight.currentTime = Number(flight.effect!.getComputedTiming().endTime) + 1;
+      const centre = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
+      };
+      const shown = [...document.querySelectorAll("[data-flow-source-value]")].filter((el) => el.getClientRects().length > 0);
+      const range = document.createRange();
+      range.selectNodeContents(shown[0]);
+      const measured = { shown: shown.length, clone: centre(clone), target: centre(shown[0]), digitsWidth: range.getBoundingClientRect().width };
+      flight.play();
+      return measured;
+    });
+    expect(landing.shown).toBe(1);
+    expect(Math.abs(landing.clone.x - landing.target.x)).toBeLessThan(3);
+    expect(Math.abs(landing.clone.y - landing.target.y)).toBeLessThan(3);
+    expect(landing.digitsWidth).toBeGreaterThan(0);
+    expect(Math.abs(landing.clone.w - landing.digitsWidth) / landing.digitsWidth).toBeLessThan(0.3);
+    await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 8000 });
+    await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
+  });
+});
+
+// Catches: replaying words the failsafe already showed when hydration is slower than 3.5 s.
+test("a hydration slower than the failsafe goes straight to done", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introSeen: string[] };
+    w.__introSeen = [];
+    new MutationObserver((records) => {
+      for (const record of records) {
+        const value = (record.target as Element).getAttribute("data-intro");
+        if (value) w.__introSeen.push(value);
+      }
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 4500));
+    await route.continue().catch(() => {});
+  });
+  await page.goto("/speedrun", { waitUntil: "commit" });
+  await page.waitForTimeout(4000);
+  await expect(page.locator("[data-intro-el]").first()).toHaveCSS("opacity", "1");
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 15_000 });
+  expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toEqual(["done"]);
+});
+
+// Catches: the button's pressable moment tied to the whole intro ending instead of its own cue.
+test("the button plays the switch from its own cue, before the intro has ended", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __introStart: number };
+    new MutationObserver(() => {
+      if (!w.__introStart && document.querySelector('[data-hero][data-intro="running"]')) w.__introStart = performance.now();
+    }).observe(document, { attributes: true, subtree: true, attributeFilter: ["data-intro"] });
+  });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const pressableAfter = pressableAtMs(await introSchedule(page));
+  const pressedWhile = await page.evaluate(
+    (pressableAfter) =>
+      new Promise<string>((resolve) => {
+        const start = (window as unknown as { __introStart: number }).__introStart;
+        const tick = () => {
+          if (performance.now() - start < pressableAfter + 80) return requestAnimationFrame(tick);
+          const intro = document.querySelector("[data-hero]")!.getAttribute("data-intro")!;
+          const button = document.querySelector<HTMLElement>("[data-hero-start]")!;
+          button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          button.click();
+          resolve(intro);
+        };
+        tick();
+      }),
+    pressableAfter,
+  );
+  expect(pressedWhile).toBe("running");
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
+});
+
+// Catches: labels sitting on node bars, on each other, or under a link (Ruling 19), in the hero chart at a laptop and a phone width.
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [375, 812]] as const) {
+  test(`the hero chart's labels clear the nodes and each other at ${width} in ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await settleHero(page);
+    const probe = await probeFlowLabels(page, "[data-hero]");
+    expect(probe.labels).toBeGreaterThan(8);
+    expect(probe.onNodes).toEqual([]);
+    expect(probe.overlapping).toEqual([]);
+    expect(probe.unbacked).toEqual([]);
+    expect(probe.clipped).toEqual([]);
+  });
+}
+
+// Catches: a menu that closes on the press itself when WebKit moves focus from the account button to its focusable ancestor, so the click on Start over is lost.
+test("keyboard then mouse: Start over and Replay from the top still work from the account menu", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(accountPanel(page)).toBeVisible();
+  await accountPanel(page).getByRole("button", { name: network.account.startOver }).click();
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
+  await reachNetwork(page, "Alex");
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await accountPanel(page).getByRole("button", { name: network.account.replayTop }).click();
+  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+});
+
+// Catches: the explicit tabindex dropped from the Yes and No pills. WebKit focuses a clicked button only when it carries a tabindex, so without it the click leaves focus on the body and the group's arrow handler never gets the key.
+test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", async ({ page }) => {
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const form = page.locator("#join");
+  await form.getByLabel(join.steps.name.inputLabel).fill("Alex");
+  await form.getByRole("button", { name: join.next }).click();
+  await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
+  await form.getByRole("button", { name: join.next }).click();
+  const yes = form.getByRole("radio", { name: join.yes, exact: true });
+  // A pill advances the card 260 ms (choiceAdvanceMs) after the answer, which removes the radios; the hook is armed before the click and reads the state one tick after the key, so nothing races that.
+  await page.evaluate(() => {
+    const w = window as unknown as { __afterArrow?: { checked: string | null; focused: string | null } };
+    document.addEventListener(
+      "keydown",
+      () =>
+        setTimeout(() => {
+          const active = document.activeElement;
+          w.__afterArrow = { checked: document.querySelector('[role="radio"][aria-checked="true"]')?.textContent ?? null, focused: active?.getAttribute("role") === "radio" ? active.textContent : null };
+        }, 0),
+      { once: true, capture: true },
+    );
+  });
+  await yes.click();
+  await page.keyboard.press("ArrowRight");
+  const after = await page.waitForFunction(() => (window as unknown as { __afterArrow?: unknown }).__afterArrow).then((handle) => handle.jsonValue());
+  expect(after).toEqual({ checked: join.no, focused: join.no });
+});
+
+// Catches: the explicit tabindex dropped from the person cards, so WebKit leaves focus on the body after a click and the arrow never reaches the group.
+test("a person card: click, then ArrowDown selects and focuses the next person", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Alex", stopAtResume: true });
+  const form = page.locator("#join");
+  await form.locator('[data-person="sam"]').click();
+  await page.keyboard.press("ArrowDown");
+  await expect(form.locator('[data-person="lena"]')).toHaveAttribute("aria-checked", "true");
+  await expect(form.locator('[data-person="lena"]')).toBeFocused();
+});
+
+// Catches: the explicit tabindex dropped from the network tabs, so WebKit leaves focus on the body after a click and the arrow never reaches the tablist.
+test("a network tab: click, then ArrowRight selects the next tab", async ({ page }) => {
+  await reachNetwork(page);
+  await openTab(page, network.tabs.matches);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: network.tabs.board, exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+// Catches: Enter after a click on a chip going nowhere because the chip is not focused (Safari); focus lands on the card, whose Enter advances.
+test("a target chip: click, then Enter advances the step", async ({ page }) => {
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const form = page.locator("#join");
+  await form.getByLabel(join.steps.name.inputLabel).fill("Alex");
+  await form.getByRole("button", { name: join.next }).click();
+  await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
+  await page.keyboard.press("Enter");
+  await expect(form.getByRole("heading", { name: join.steps.student.question })).toBeVisible();
 });

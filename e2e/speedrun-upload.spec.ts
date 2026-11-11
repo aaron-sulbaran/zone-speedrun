@@ -41,7 +41,7 @@ test("a PDF is read in the browser, only its text is posted, and the board build
   });
 
   await skipBuildLog(page);
-  await expect(page.locator("[data-match-card]").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("[data-match-row]").first()).toBeVisible({ timeout: 20_000 });
   expect(posts).toHaveLength(1);
   expect(posts[0].text).toContain("Ada Example, software engineer");
   expect(posts[0].file).toBeUndefined();

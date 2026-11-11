@@ -8,6 +8,7 @@ import { displayName, isStepValid, stepsFor, type Answers } from "@/lib/speedrun
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { createSubmitBeat } from "@/lib/speedrun/submitBeat";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
+import { SHORT_LANDSCAPE } from "@/lib/speedrun/viewport";
 import type { PersonKey } from "@/lib/speedrun/types";
 import { JoinStep, pad } from "./JoinStep";
 import { useChoiceAdvance } from "./useChoiceAdvance";
@@ -33,6 +34,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
   const [submitting, setSubmitting] = useState<"sample" | "upload" | null>(null);
   const cardRef = useRef<HTMLFormElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement>(null);
   const previous = useRef(joinStep);
   const beat = useMemo(() => createSubmitBeat(), []);
   const advance = useCallback(() => dispatch({ type: "next" }), [dispatch]);
@@ -87,6 +89,12 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
     if (!last) return dispatch({ type: "next" });
     if (!selected) return;
     beginSubmit("sample", () => dispatch({ type: "pickPerson", key: selected }));
+  };
+  // On phones (held either way) the footer sits at the end of the card, so a pick brings it, button included, into view.
+  const revealFooter = () => {
+    if (window.matchMedia("(min-width: 768px)").matches && !window.matchMedia(SHORT_LANDSCAPE).matches) return;
+    // "instant", not "auto": the page's scroll-behavior is smooth, so "auto" would still animate.
+    requestAnimationFrame(() => footerRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "instant" : "smooth" }));
   };
   const choose = (patch: Partial<Answers>) => {
     dispatch({ type: "answer", patch });
@@ -157,10 +165,10 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
         {submitting ? (
           <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{speedrunCopy.build.heading(name)}</p>
         ) : (
-          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
+          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onPick={revealFooter} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
         )}
       </div>
-      <div data-join-footer="" className="sticky bottom-0 z-10 rounded-b-3xl border-t border-sr-soft bg-sr-foot px-6 py-4 backdrop-blur md:px-8">
+      <div ref={footerRef} data-join-footer="" className="rounded-b-3xl border-t border-sr-soft px-6 py-4 md:sticky md:bottom-0 md:z-10 md:bg-sr-foot md:backdrop-blur md:px-8 md:short-landscape:static md:short-landscape:bg-transparent md:short-landscape:[backdrop-filter:none]">
         <div className="flex items-center gap-3">
           <button type="button" onClick={goBack} disabled={joinStep === 0 || submitting !== null} className={GHOST}>
             {copy.back}

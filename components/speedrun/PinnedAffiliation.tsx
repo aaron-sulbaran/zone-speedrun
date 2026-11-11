@@ -9,8 +9,8 @@ import { speedrunCopy } from "@/lib/content";
 export function PinnedAffiliation() {
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
-    // The join card and the close both carry the line themselves. A failed upload
-    // re-mounts the join form, so the covered set is re-read whenever #act-2 changes.
+    // The join card carries the line itself. A failed upload re-mounts the join form,
+    // so the covered set is re-read whenever #act-2 changes.
     const showing = new Set<Element>();
     let covered: Element[] = [];
     const observer = new IntersectionObserver((entries) => {
@@ -21,7 +21,8 @@ export function PinnedAffiliation() {
       setHidden(showing.size > 0);
     });
     const observeCovered = () => {
-      const next = [document.getElementById("join"), document.querySelector("[data-close]")].filter((el): el is Element => el !== null);
+      const join = document.getElementById("join");
+      const next: Element[] = join ? [join] : [];
       if (next.length === covered.length && next.every((el, i) => el === covered[i])) return;
       observer.disconnect();
       showing.clear();

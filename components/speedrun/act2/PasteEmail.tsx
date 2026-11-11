@@ -58,6 +58,8 @@ export function PasteEmail({ existing, onAdd }: { existing: InboxEvent[]; onAdd:
         <button
           type="submit"
           aria-disabled={empty}
+          // Safari does not focus a button on click; focus it first so the box never keeps focus (and a phone keyboard open).
+          onClick={(e) => e.currentTarget.focus({ preventScroll: true })}
           className="rounded-full bg-sr-ink px-5 py-2.5 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-[transform,opacity] duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-disabled:opacity-40 aria-disabled:hover:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
         >
           {copy.paste.button}

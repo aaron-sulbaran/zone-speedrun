@@ -13,7 +13,7 @@ It is a Next.js multi-zone. This repo serves everything under the basePath `/spe
 
 ## Where things live
 
-- **Live state, decisions waiting on Aaron, what's next:** the site's build board, https://claude.ai/artifact/Vq3NnRhYnfdqVSMqpFe5ae. The orchestrator writes it in the same turn each event happens.
+- **Live state, decisions waiting on Aaron, what's next:** this zone's own build board, https://claude.ai/artifact/7JmVMWmD6rLGMwPdKsK4ni (private; protocol in `~/.claude/snippets/command-hub.md`). Its orchestrator, the Speedrun Builder, writes it in the same turn each event happens; the site's board no longer carries speedrun state.
 - **Current increment:** the plans in `docs/superpowers/plans/` and the specs in `docs/superpowers/specs/`.
 - **Decisions:** the board. Rulings before the move live in the site's PR, aaron-sulbaran/aaron-personal-website#112.
 - **Production:** https://aaronsulbaran.com/speedrun, through the site, from Vercel project `zone-speedrun` in team `aaron-sulbaran-projects`.
@@ -56,7 +56,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Framework:** Next.js 16.2 (App Router, `basePath: '/speedrun'`), React 19.2, TypeScript strict.
 - **Styling and motion:** Tailwind 3.4 over CSS custom properties; Web Animations through `lib/speedrun/motion.ts`; Lucide icons.
 - **Libraries:** zod for input, AI SDK 7 through the AI Gateway (off by default), Upstash Redis for shared limits, BotID, and unpdf for in-browser résumé text.
-- **Tooling:** pnpm. Tests are vitest (`lib/**/*.test.ts`) and Playwright (`e2e/`, against a local production build, Chromium).
+- **Tooling:** pnpm. Tests are vitest (`lib/**/*.test.ts`) and Playwright (`e2e/`, against a local production build, Chromium, plus desktop WebKit under `E2E_ALL=1`).
 
 ## Conventions
 
@@ -87,7 +87,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 
 ## Tooling and agents
 
-- **Roles.** Opus 5.5 orchestrates, every subagent runs on Sonnet 5.5, and Fable 5.1 does the end-of-build review. Codex is the second model on anything touching a visitor's résumé, email address or the limits.
+- **Roles.** Opus 5.5 orchestrates and reviews, implementers run on Sonnet 5.5, and Fable 5.1 does the end-of-build review. This writes down Aaron's standing ask: "Make sure Opus review agents actually go through and review what the Sonnet agents wrote." Codex is the second model on anything touching a visitor's résumé, email address or the limits.
 - **Merges and deploys.** Merges to `main` only on Aaron's word. Agents never deploy, link the Vercel project, or trigger a production build.
 - **Accounts and env.** Never enter credentials or create accounts: Aaron installs the store and sets env.
 - **Playwright.** At most two runs at once on this Mac, through the shared slot script.
@@ -109,7 +109,9 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - Read and brief run only with their switch on and a reachable store, and email also needs the allowlist. A missing, slow or erroring store denies (`lib/speedrun/sharedLimit.ts`, `liveFlags` in `lib/speedrun/guard.ts`).
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
-- **Motion values.** Every one lives in `lib/speedrun/motion.ts`. The `?tune` panel exists only in dev.
+- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog, Rise, and the switch line's fade), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
+- **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45. The intro ends on pointerdown, keydown, wheel, touchmove or scroll, and the spotlight beat is skipped when its words are not fully in view.
+- **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant. A bare rule sorts after base utilities and before every screen variant, so stack it on the screen whose rule it has to beat (the join footer uses `md:short-landscape:`; the shell and tabs use it bare or as `max-lg:short-landscape:`). Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
 
 ## Gotchas
 
@@ -119,6 +121,8 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **BotID** through the site's cross-project rewrite is unverified. Check it before switching read or brief on.
 - **No analytics yet.** The insights script's root path would route to the site's project.
 - **Browser checks.** A hidden built-in browser pane pauses rAF and Web Animations, so check end states there and time motion in Playwright.
+- **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
+- **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor (often `#act-2`), so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` (and `Shift+${tabKey}`) from `e2e/speedrun-flow.ts`.
 - **e2e pins** name the regression they catch, and must go red without their guard.
 
 ## Run and deploy
@@ -132,9 +136,9 @@ A PR per change with CI green before merge. Second-model review on anything touc
 ## Map
 
 - `app/`: the page and `api/{read,brief,match}`
-- `components/speedrun/`: `act1/`, `act2/`, `phases/`, the switch and the experience
-- `lib/speedrun/`: pure logic, `snapshot.json`, tests
+- `components/speedrun/`: `act1/`, `act2/`, `phases/`, `shell/`, the switch and the experience
+- `lib/speedrun/`: pure logic, `snapshot.json`, tests (plus the dev-only `introHold.ts`)
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-09 at 09f49dd
+Last verified: 2026-11-11 at b01c0b2

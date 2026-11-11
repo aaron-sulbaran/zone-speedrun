@@ -10,9 +10,9 @@ import { BriefPreview } from "../act2/BriefPreview";
 import { Close } from "../act2/Close";
 import { Decisions } from "../act2/Decisions";
 import { Matches } from "../act2/Matches";
-import { NetworkHeader } from "../act2/NetworkHeader";
-import { NetworkTabs, panelId, tabId } from "../act2/NetworkTabs";
-import { visitorName } from "../visitorName";
+import { NEXT_BUTTON, panelId, tabId } from "../act2/NetworkTabs";
+import { AppShell } from "../shell/AppShell";
+import { visitorFirstName, visitorName } from "../visitorName";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
 type NetworkPhaseProps = {
@@ -23,8 +23,6 @@ type NetworkPhaseProps = {
   onStartOver: () => void;
   onReplayTop: () => void;
 };
-
-const NEXT_BUTTON = "rounded-full bg-sr-ink px-6 py-3 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 // Four tabs: every panel wrapper exists, a panel's content mounts on first selection and then stays
 // (drafts, sent state and toggles survive a switch), and one is visible. A tab change plays the step enter (forward or back by
@@ -38,19 +36,17 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
   const [visited, setVisited] = useState<ReadonlySet<NetworkTab>>(() => new Set([tab]));
   if (!visited.has(tab)) setVisited(new Set(visited).add(tab));
 
-  // The Next button sits in a panel that is about to hide, so focus moves to the new tab.
+  // The Next button (the matches panel's sits at the end of its list) sits in a panel that is about to hide, so focus moves to the new tab.
   const goTo = (next: NetworkTab) => {
     onTab(next);
     requestAnimationFrame(() => document.getElementById(tabId(next))?.focus({ preventScroll: true }));
   };
 
-  // Play the step enter when the tab changes, and keep the tablist in view.
+  // Play the step enter when the tab changes.
   useLayoutEffect(() => {
     const previous = shownTab.current;
     if (previous === tab) return;
     shownTab.current = tab;
-    const list = document.querySelector<HTMLElement>("[role=tablist]");
-    if (list && list.getBoundingClientRect().top < 0) list.scrollIntoView({ block: "start", behavior: "instant" });
     const panel = panels.current[tab];
     if (!panel || prefersReducedMotion()) return;
     const { stepMs, stepPx } = motion();
@@ -63,29 +59,31 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
   const name = visitorName(state);
   return (
     <div ref={frameRef} data-phase-frame="">
-      <div className="px-6 pb-16 pt-24">
-        <NetworkHeader name={name} onStartOver={onStartOver} onReplayTop={onReplayTop} />
-        <NetworkTabs tab={tab} onTab={onTab} />
+      <AppShell name={visitorFirstName(state)} tab={tab} onTab={onTab} onStartOver={onStartOver} onReplayTop={onReplayTop}>
         {NETWORK_TABS.map((id) => {
           const following = nextTab(id);
           return (
-            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="mt-10">
-              {visited.has(id) && id === "matches" && <Matches result={state.result!} mentionedFounding={state.answers.founding === true} />}
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible">
+              {visited.has(id) && id === "matches" && <Matches result={state.result!} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} name={name} />}
-              {visited.has(id) && id === "decisions" && <Decisions />}
-              {following && (
+              {visited.has(id) && id === "decisions" && (
+                <>
+                  <Decisions />
+                  <Close />
+                </>
+              )}
+              {following && id !== "matches" && (
                 <div className="mx-auto mt-12 flex w-full max-w-3xl">
                   <button type="button" onClick={() => goTo(following)} className={NEXT_BUTTON}>
-                    {speedrunCopy.network.nextTo[id as Exclude<NetworkTab, "decisions">]}
+                    {speedrunCopy.network.nextTo[id as Exclude<NetworkTab, "matches" | "decisions">]}
                   </button>
                 </div>
               )}
             </div>
           );
         })}
-      </div>
-      <Close />
+      </AppShell>
     </div>
   );
 }

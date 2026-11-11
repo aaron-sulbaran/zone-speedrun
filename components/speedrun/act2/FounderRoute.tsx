@@ -9,7 +9,9 @@ export function FounderRoute({ routes, mentioned = false }: { routes: Route[]; m
   if (routes.length === 0) return null;
   return (
     <div data-founder-route="" className="rounded-xl border border-sr-soft bg-sr-surface p-6">
-      <h4 className="text-xl font-semibold leading-tight md:text-2xl">{mentioned ? copy.mentioned : copy.heading}</h4>
+      <h3 data-detail-heading="" tabIndex={-1} className="text-xl font-semibold leading-tight focus:outline-none md:text-2xl">
+        {mentioned ? copy.mentioned : copy.heading}
+      </h3>
       <p className="mt-2 max-w-xl text-sm text-sr-ink2">{mentioned ? copy.mentionedBody : copy.body}</p>
       <div className="mt-5 flex flex-wrap gap-2">
         {routes.map((route) => (

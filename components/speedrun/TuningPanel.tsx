@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { introSpanMs } from "@/lib/speedrun/heroIntro";
 import { MOTION, motion, type Motion } from "@/lib/speedrun/motion";
+import { holdIntro } from "@/lib/speedrun/introHold";
 import { getMotionOverrides, resetMotionOverrides, setMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
 import { motionJson, TUNING_PRESETS, TUNING_RANGES } from "@/lib/speedrun/tuningPresets";
 
@@ -32,7 +34,36 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
   );
 }
 
-export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
+// Holds the running intro at a time, so the spotlight can be judged frame by frame.
+function HoldRow() {
+  const [at, setAt] = useState<number | null>(null);
+  const [idle, setIdle] = useState(false);
+  // The slider ends where the intro does, so a longer tuned hold stays reachable. The words are counted off the page.
+  const count = (kind: string) => document.querySelectorAll(`[data-intro-el="${kind}"]`).length;
+  const spanMs = introSpanMs(motion(), { words: count("word"), subtitleWords: count("subtitle"), paragraphs: count("paragraph") });
+  const move = (next: number | null) => {
+    const held = holdIntro(next);
+    setIdle(!held);
+    setAt(held ? next : null);
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="grid grid-cols-[1fr_auto] items-center gap-x-3 text-xs text-foreground">
+        <span>hold the intro at (ms)</span>
+        <span className="tabular-nums">{at ?? "playing"}</span>
+        <input type="range" min={0} max={spanMs} step={10} value={at ?? 0} onChange={(event) => move(Number(event.target.value))} className="col-span-2 w-full accent-accent" />
+      </label>
+      {idle && <p className="text-xs text-muted">No intro is running. Replay the intro first.</p>}
+      {at !== null && (
+        <button type="button" className={buttonClass} onClick={() => move(null)}>
+          Resume the intro
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function TuningPanel({ onReplay, onReplayIntro }: { onReplay: () => void; onReplayIntro: () => void }) {
   const [open, setOpen] = useState(true);
   const [copied, setCopied] = useState<"idle" | "ok" | "failed">("idle");
   useSyncExternalStore(subscribeMotion, getMotionOverrides, getMotionOverrides);
@@ -61,6 +92,7 @@ export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
               </button>
             ))}
           </div>
+          <HoldRow />
           <div className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto pr-1">
             {keys.map((key) => (
               <SliderRow key={key} name={key} value={values[key]} />
@@ -69,6 +101,9 @@ export default function TuningPanel({ onReplay }: { onReplay: () => void }) {
           <div className="flex flex-wrap gap-2">
             <button type="button" className={buttonClass} onClick={onReplay}>
               Replay the switch
+            </button>
+            <button type="button" className={buttonClass} onClick={onReplayIntro}>
+              Replay the intro
             </button>
             <button type="button" className={buttonClass} onClick={resetMotionOverrides}>
               Reset

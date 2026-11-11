@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useReducer, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { demoReducer, initialDemoState, type Live } from "@/lib/speedrun/demoState";
 import { INITIAL_PHASE, phaseEventFor, phaseReducer } from "@/lib/speedrun/phase";
 import { visitorName } from "./visitorName";
 import { PinnedAffiliation } from "./PinnedAffiliation";
+import { SplitsHero } from "./act1/SplitsHero";
 import { Switch } from "./Shift";
 import { SrZone } from "./SrZone";
 import type { DemoStats } from "./act2/Hero";
@@ -22,11 +23,11 @@ const TuningPanel = process.env.NODE_ENV === "development" ? dynamic(() => impor
 const noopSubscribe = () => () => {};
 const wantsTuning = () => TuningPanel !== null && new URLSearchParams(window.location.search).has("tune");
 
-type ExperienceProps = { opener: ReactNode; live: Live; stats: DemoStats; themeClassName: string };
+type ExperienceProps = { live: Live; stats: DemoStats; themeClassName: string };
 
-// One phase on screen at a time. The opener is Aaron's page; the switch covers it
+// One phase on screen at a time. The hero is Aaron's page; its button plays the switch, which covers it
 // and lands on the join phase; the rest follow the demo state or a button.
-export function SpeedrunExperience({ opener, live, stats, themeClassName }: ExperienceProps) {
+export function SpeedrunExperience({ live, stats, themeClassName }: ExperienceProps) {
   const [phaseState, dispatchPhase] = useReducer(phaseReducer, INITIAL_PHASE);
   const [state, dispatch] = useReducer(demoReducer, live, initialDemoState);
   const [held, setHeld] = useState(false);
@@ -37,6 +38,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
   const skipped = skippedBuild === state.buildId;
   const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
   const [playSignal, setPlaySignal] = useState(0);
+  const [heroRun, setHeroRun] = useState(0);
   const { phase, tab } = phaseState;
   const { go, announcement } = usePhaseChange(phase, dispatchPhase);
   const { lines, failed, retry, readUpload } = useDemoBuild(state, dispatch);
@@ -79,6 +81,15 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
     );
   };
 
+  // The panel's intro replay: the hero remounts, so its intro reads the tuned values again.
+  const replayIntro = () => {
+    if (phase === "opener") return setHeroRun((n) => n + 1);
+    go({ type: "replayTop" }, { onLeft: () => {
+      resetDemo();
+      setHeroRun((n) => n + 1);
+    } });
+  };
+
   return (
     <>
       <SrZone active={phase !== "opener"} />
@@ -86,22 +97,19 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
         {announcement}
       </p>
       {phase === "opener" ? (
-        <section data-act="1" className="px-6 pt-32 md:px-12">
-          {opener}
-        </section>
+        <SplitsHero key={heroRun} onStart={() => setPlaySignal((n) => n + 1)} />
       ) : (
-        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-screen [overflow-y:clip] focus:outline-none ${themeClassName}`}>
+        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-dvh [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
             {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}
             {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
             <Egg />
           </div>
-          <PinnedAffiliation />
+          {phase !== "network" && <PinnedAffiliation />}
         </section>
       )}
       <Switch
-        showTurn={phase === "opener"}
         playSignal={playSignal}
         onCovered={() => {
           setHeld(true);
@@ -112,7 +120,7 @@ export function SpeedrunExperience({ opener, live, stats, themeClassName }: Expe
           setArrivalKey((key) => key + 1);
         }}
       />
-      {TuningPanel && tuning && <TuningPanel onReplay={replaySwitch} />}
+      {TuningPanel && tuning && <TuningPanel onReplay={replaySwitch} onReplayIntro={replayIntro} />}
     </>
   );
 }

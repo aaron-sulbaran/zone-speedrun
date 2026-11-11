@@ -1,7 +1,7 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
+import { answerOnboarding, probeFlowLabels, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.board;
 
@@ -169,3 +169,18 @@ test("the tools card links the six real pages and says each opens a new tab", as
     await expect(link).toHaveAccessibleDescription(speedrunCopy.newTab);
   }
 });
+
+// Catches: labels sitting on node bars, on each other, or under a link (Ruling 19), in the Board's full chart (wide from lg, tall below).
+// Dev is the only persona with lanes (six columns); sam has none.
+for (const person of ["sam", "dev"] as const) for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  test(`the board chart's labels clear the nodes and each other for ${person} at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await joinAs(page, person, true);
+    const probe = await probeFlowLabels(page, "[data-board]");
+    expect(probe.labels).toBeGreaterThan(8);
+    expect(probe.onNodes).toEqual([]);
+    expect(probe.overlapping).toEqual([]);
+    expect(probe.unbacked).toEqual([]);
+    expect(probe.clipped).toEqual([]);
+  });
+}

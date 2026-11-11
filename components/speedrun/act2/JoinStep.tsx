@@ -23,6 +23,7 @@ type JoinStepProps = {
   dispatch: Dispatch<DemoAction>;
   selected: PersonKey | null;
   onSelect: (key: PersonKey) => void;
+  onPick: () => void;
   /** A tap on a choice pill: records the answer, then the card advances a beat later. */
   onChoose: (patch: Partial<Answers>) => void;
   onUpload?: (file: File) => void;
@@ -31,7 +32,7 @@ type JoinStepProps = {
 export const pad = (n: number) => String(n).padStart(2, "0");
 
 // One question and its control. The card keys it by step, so each step starts fresh.
-export function JoinStep({ stepKey, index, state, dispatch, selected, onSelect, onChoose, onUpload }: JoinStepProps) {
+export function JoinStep({ stepKey, index, state, dispatch, selected, onSelect, onPick, onChoose, onUpload }: JoinStepProps) {
   const copy = speedrunCopy.join;
   const [typedPlace, setTypedPlace] = useState("");
   const answers = state.answers;
@@ -102,6 +103,7 @@ export function JoinStep({ stepKey, index, state, dispatch, selected, onSelect, 
           <PeoplePicker
             selected={selected}
             onSelect={onSelect}
+            onPick={onPick}
             connected={{ inbox: state.inboxConnected, calendar: state.calendarConnected }}
             onConnect={(which, on) => dispatch({ type: which === "inbox" ? "connectInbox" : "connectCalendar", on })}
             liveReading={state.live.reading}

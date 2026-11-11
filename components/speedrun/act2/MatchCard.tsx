@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { Match } from "@/lib/speedrun/match";
 
@@ -21,7 +21,7 @@ function cleanUrl(url: string): string {
   }
 }
 
-function Logo({ name, logo }: { name: string; logo: string | null }) {
+export function CompanyLogo({ name, logo }: { name: string; logo: string | null }) {
   const [broken, setBroken] = useState(false);
   if (logo && !broken) {
     // eslint-disable-next-line @next/next/no-img-element
@@ -41,25 +41,33 @@ export function MatchCard({ match }: { match: Match }) {
   const applyNoteId = useId();
   const introRef = useRef<HTMLButtonElement>(null);
   const followRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLParagraphElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !sheet) return;
-    event.stopPropagation();
-    (sheet === "intro" ? introRef : followRef).current?.focus();
+    // The detail around the card closes on an Escape nobody has handled; this one is the sheet's.
+    event.preventDefault();
+    (sheet === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
     setSheet(null);
   };
-  const toggle = (kind: "intro" | "follow") => setSheet((now) => (now === kind ? null : kind));
+  // The sheet is not a live region: focus lands on it, so it is announced once.
+  // Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
+  // and a click that closes it puts focus back on the button.
+  useEffect(() => {
+    if (sheet) sheetRef.current?.focus({ preventScroll: true });
+  }, [sheet]);
+  const toggle = (kind: "intro" | "follow") => {
+    if (sheet === kind) (kind === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
+    setSheet(sheet === kind ? null : kind);
+  };
 
   return (
-    <li
-      data-match=""
-      data-match-card=""
-      onKeyDown={onKeyDown}
-      className="rounded-xl border border-sr-soft bg-sr-surface p-5 transition-transform duration-200 ease-sr hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-    >
+    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5">
       <div className="flex items-center gap-3">
-        <Logo name={company.name} logo={company.logo} />
+        <CompanyLogo name={company.name} logo={company.logo} />
         <div className="min-w-0">
-          <h4 className="text-lg font-semibold leading-tight">{company.name}</h4>
+          <h3 data-detail-heading="" tabIndex={-1} className="break-words text-lg font-semibold leading-tight focus:outline-none">
+            {company.name}
+          </h3>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {company.cohort && <span className={CHIP}>{company.cohort}</span>}
             {company.stage && <span className={CHIP}>{company.stage}</span>}
@@ -104,13 +112,13 @@ export function MatchCard({ match }: { match: Match }) {
           </button>
         )}
       </div>
-      <div id={sheetId} role="status">
+      <div id={sheetId}>
         {sheet && (
-          <p data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2">
+          <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">
             {copy.connectSheet[sheet]}
           </p>
         )}
       </div>
-    </li>
+    </div>
   );
 }

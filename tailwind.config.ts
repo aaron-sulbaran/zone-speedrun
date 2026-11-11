@@ -1,4 +1,6 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
+import { SHORT_LANDSCAPE } from "./lib/speedrun/viewport";
 
 const config: Config = {
   content: [
@@ -55,6 +57,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // A variant, not a screen: an object screen (such as { raw }) stops the max-* variants, max-lg: included, from generating at all in Tailwind 3.4. A bare rule sorts after
+  // base utilities and before every screen variant, so stack it on the screen whose rule it has to beat (md:short-landscape: on the join footer).
+  plugins: [plugin(({ addVariant }) => addVariant("short-landscape", `@media ${SHORT_LANDSCAPE}`))],
 };
 export default config;

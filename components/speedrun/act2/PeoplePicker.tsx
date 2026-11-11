@@ -12,6 +12,7 @@ export type Connected = { inbox: boolean; calendar: boolean };
 export function PeoplePicker({
   selected,
   onSelect,
+  onPick,
   connected,
   onConnect,
   liveReading,
@@ -20,6 +21,8 @@ export function PeoplePicker({
 }: {
   selected: PersonKey | null;
   onSelect: (key: PersonKey) => void;
+  // A pointer or touch pick only. Arrow keys select without clicking, and Enter or Space click with detail 0, so a keyboard pick never scrolls focus away.
+  onPick?: () => void;
   connected: Connected;
   onConnect: (which: keyof Connected, on: boolean) => void;
   liveReading: boolean;
@@ -84,7 +87,11 @@ export function PeoplePicker({
               data-person={key}
               data-phase-focus={on || (!selected && index === 0) ? "" : undefined}
               tabIndex={on || (!selected && index === 0) ? 0 : -1}
-              onClick={() => onSelect(key)}
+              onClick={(event) => {
+                onSelect(key);
+                // A keyboard activation reaches onClick with detail 0; only a pointer or touch tap has a count.
+                if (event.detail > 0) onPick?.();
+              }}
               className={`rounded-2xl p-4 text-left transition-[background-color,box-shadow,transform] duration-200 ease-sr active:scale-[.98] motion-reduce:transition-none motion-reduce:active:scale-100 ${
                 on ? "bg-sr-surface shadow-[inset_0_0_0_2px_var(--sr-ink)]" : "bg-sr-hud hover:bg-sr-strong"
               }`}

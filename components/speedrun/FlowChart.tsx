@@ -2,80 +2,78 @@ import { useId } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { FlowData } from "@/lib/speedrun/funnel";
 import { layoutFlow, type FlowSize, type PlacedNode } from "@/lib/speedrun/flowLayout";
+import { BACKING, BACKING_REGION, BAR, FONT, VALUE_GAP, VALUE_LINE, placeLabel } from "@/lib/speedrun/flowLabels";
+import { HERO_NARROW, HERO_WIDE, TALL, WIDE } from "@/lib/speedrun/flowSizes";
 import { FlowReveal } from "./FlowReveal";
+import { TONES, type Tone } from "./flowTones";
 
 // The shared flow chart. "aaron" reads the site's tokens (the --flow-* set);
 // "speedrun" reads the --sr-* tokens, so it only looks right inside [data-speedrun].
 // Both orientations are rendered and CSS shows one: columns across from lg up,
 // rows stacked top to bottom below it, so there is no sideways scroll on phones.
 
-const WIDE = { width: 864, height: 340, nodeWidth: 6, gap: 20, maxPerUnit: 14 } satisfies FlowSize;
-const WIDE_LEFT = 100;
+const WIDE_LEFT = 104;
 const WIDE_LEFT_NO_LANE = 8;
 const WIDE_TOP = 26;
-const TALL = { width: 340, height: 600, nodeWidth: 36, gap: 52, maxPerUnit: 12, orientation: "vertical" } satisfies FlowSize;
 const TALL_RIGHT = 64;
-const BAR = 6;
+// The backing reaches past the glyphs, so charts whose labels meet an edge (the tall chart's left and bottom, the wide chart's right) get room for it.
+const BACKING_PAD = BACKING + 1;
 
-const TONES = {
-  aaron: {
-    link: { flow: "var(--flow-link)", open: "var(--flow-open)", rejected: "var(--flow-rejected)", noreply: "var(--flow-noreply)" },
-    node: "var(--color-accent)",
-    text: "var(--color-foreground)",
-    subtext: "var(--color-muted)",
-    halo: "var(--color-background)",
-  },
-  speedrun: {
-    link: {
-      flow: "color-mix(in srgb, var(--sr-ink) 70%, transparent)",
-      open: "color-mix(in srgb, var(--sr-purple) 70%, transparent)",
-      rejected: "color-mix(in srgb, var(--sr-ink) 42%, transparent)",
-      noreply: "var(--sr-sec)",
-    },
-    node: "var(--sr-ink)",
-    text: "var(--sr-ink)",
-    subtext: "var(--sr-ink-2)",
-    halo: "var(--sr-bg)",
-  },
-} as const;
+type Props = { data: FlowData; tone: Tone; title: string; animate?: boolean; size?: "full" | "hero" };
 
-type Tone = keyof typeof TONES;
-type Props = { data: FlowData; tone: Tone; title: string; animate?: boolean };
+const HERO_LEFT = 8;
+const HERO_RIGHT = 8;
 
-function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; title: string; vertical: boolean }) {
+type Layout = {
+  size: FlowSize;
+  view: string;
+  offset: { x: number; y: number } | null;
+  className: string;
+  hero: boolean;
+  /** The narrow hero has no room for the last two columns' exit labels, and drops the last stage's label below its bar. */
+  compact: boolean;
+};
+
+function layoutFor(kind: "wide" | "tall" | "heroWide" | "heroNarrow", lanes: boolean): Layout {
+  if (kind === "tall") {
+    return { size: TALL, view: `0 0 ${BACKING_PAD + TALL.width + TALL_RIGHT} ${TALL.height + BACKING_PAD}`, offset: { x: BACKING_PAD, y: 0 }, className: "mx-auto block h-auto w-full max-w-[26rem] lg:hidden", hero: false, compact: false };
+  }
+  if (kind === "wide") {
+    const left = lanes ? WIDE_LEFT : WIDE_LEFT_NO_LANE;
+    return { size: WIDE, view: `0 0 ${left + WIDE.width + BACKING_PAD} ${WIDE.height + WIDE_TOP + 6}`, offset: { x: left, y: WIDE_TOP }, className: "hidden h-auto w-full lg:block", hero: false, compact: false };
+  }
+  const box = kind === "heroWide" ? HERO_WIDE : HERO_NARROW;
+  const size = { ...box, width: box.width - HERO_LEFT - HERO_RIGHT, height: box.height - WIDE_TOP - 6 };
+  return {
+    size,
+    view: `0 0 ${box.width} ${box.height}`,
+    offset: { x: HERO_LEFT, y: WIDE_TOP },
+    className: kind === "heroWide" ? "hidden h-auto w-full lg:block" : "mx-auto block h-auto w-full lg:hidden",
+    hero: true,
+    compact: kind === "heroNarrow",
+  };
+}
+
+function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: string; kind: "wide" | "tall" | "heroWide" | "heroNarrow" }) {
   const titleId = useId();
+  const backingId = `${titleId}-backing`;
   const colors = TONES[tone];
-  const { nodes, links } = layoutFlow(data, vertical ? TALL : WIDE);
+  const vertical = kind === "tall";
+  const hasLanes = data.nodes.some((n) => n.kind === "lane");
+  const layout = layoutFor(kind, hasLanes);
+  const { nodes, links } = layoutFlow(data, layout.size);
   const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
-  const left = nodes.some((n) => n.kind === "lane") ? WIDE_LEFT : WIDE_LEFT_NO_LANE;
-  const view = vertical ? `0 0 ${TALL.width + TALL_RIGHT} ${TALL.height}` : `0 0 ${left + WIDE.width} ${WIDE.height + WIDE_TOP + 6}`;
-  const halo = { stroke: colors.halo, strokeWidth: 4, paintOrder: "stroke" } as const;
+  const context = { vertical, compact: layout.compact, lastColumn, nodeWidth: layout.size.nodeWidth };
 
   const label = (node: PlacedNode) => {
-    if (vertical) {
-      return (
-        <text x={node.x} y={node.y + BAR + 13} fontSize={12} fill={colors.text} aria-hidden="true">
-          {node.label}
-          <tspan x={node.x} dy={14} fill={colors.subtext}>
-            {node.value}
-          </tspan>
-        </text>
-      );
-    }
-    const lane = node.kind === "lane";
-    const atEnd = node.column === lastColumn && !lane;
+    const spot = placeLabel(node, context);
+    if (!spot) return null;
+    // The hero's applied count is the number the intro flies in from the subtitle.
+    const sourceValue = layout.hero && node.id === "stage:applied" ? { "data-flow-source-value": "" } : {};
     return (
-      <text
-        x={lane ? node.x - 8 : atEnd ? node.x + WIDE.nodeWidth : node.x}
-        y={lane ? node.y + node.h / 2 + 4 : node.y - 7}
-        textAnchor={lane || atEnd ? "end" : "start"}
-        fontSize={12}
-        fill={colors.text}
-        aria-hidden="true"
-        {...(lane ? {} : halo)}
-      >
+      <text key={node.id} x={spot.x} y={spot.y} textAnchor={spot.anchor} fontSize={FONT} fill={colors.text} aria-hidden="true" filter={`url(#${backingId})`}>
         {node.label}
-        <tspan dx={5} fill={colors.subtext}>
+        <tspan {...(spot.stacked ? { x: spot.x, dy: VALUE_LINE } : { dx: VALUE_GAP })} fill={colors.subtext} {...sourceValue}>
           {node.value}
         </tspan>
       </text>
@@ -83,31 +81,41 @@ function Svg({ data, tone, title, vertical }: { data: FlowData; tone: Tone; titl
   };
 
   return (
-    <svg
-      viewBox={view}
-      role="img"
-      aria-labelledby={titleId}
-      className={vertical ? "mx-auto block h-auto w-full max-w-[26rem] lg:hidden" : "hidden h-auto w-full lg:block"}
-    >
+    <svg viewBox={layout.view} role="img" aria-labelledby={titleId} className={layout.className}>
       <title id={titleId}>{title}</title>
-      <g transform={vertical ? undefined : `translate(${left} ${WIDE_TOP})`}>
-        {links.map((link) => (
-          <path
-            key={`${link.source}>${link.target}`}
-            className="flow-link"
-            d={link.path}
-            pathLength={1}
-            fill="none"
-            stroke={colors.link[link.tone]}
-            strokeWidth={link.width}
-          />
-        ))}
-        {nodes.map((node) => (
-          <g key={node.id}>
-            <rect x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
-            {label(node)}
-          </g>
-        ))}
+      <defs>
+        {/* Text-hugging opaque backing: the glyphs dilated by BACKING, flooded in the halo colour, under the text. Server-safe, nothing measured. */}
+        <filter id={backingId} x={BACKING_REGION.x} y={BACKING_REGION.y} width={BACKING_REGION.width} height={BACKING_REGION.height} colorInterpolationFilters="sRGB">
+          <feMorphology in="SourceAlpha" operator="dilate" radius={BACKING} result="grown" />
+          <feFlood style={{ floodColor: colors.halo }} />
+          <feComposite in2="grown" operator="in" result="backing" />
+          <feMerge>
+            <feMergeNode in="backing" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+      <g transform={layout.offset ? `translate(${layout.offset.x} ${layout.offset.y})` : undefined} {...(layout.hero ? { "data-flow-content": "" } : {})}>
+        <g>
+          {links.map((link) => (
+            <path
+              key={`${link.source}>${link.target}`}
+              className="flow-link"
+              d={link.path}
+              pathLength={1}
+              fill="none"
+              stroke={colors.link[link.tone]}
+              strokeWidth={link.width}
+            />
+          ))}
+        </g>
+        <g>
+          {nodes.map((node) => (
+            <rect key={node.id} x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
+          ))}
+        </g>
+        {/* Labels paint last, so no bar or link draws over one; each carries an opaque halo-colour backing. */}
+        <g>{nodes.map(label)}</g>
       </g>
     </svg>
   );
@@ -176,12 +184,14 @@ function CountsTable({ data }: { data: FlowData }) {
   );
 }
 
-export function FlowChart({ data, tone, title, animate = false }: Props) {
+export function FlowChart({ data, tone, title, animate = false, size = "full" }: Props) {
+  const kinds = size === "hero" ? (["heroWide", "heroNarrow"] as const) : (["wide", "tall"] as const);
   const chart = (
     <div>
-      {/* Both orientations render on purpose and CSS shows one, so the duplicate titles are expected. */}
-      <Svg data={data} tone={tone} title={title} vertical={false} />
-      <Svg data={data} tone={tone} title={title} vertical />
+      {/* Both layouts render on purpose and CSS shows one, so the duplicate titles are expected. */}
+      {kinds.map((kind) => (
+        <Svg key={kind} data={data} tone={tone} title={title} kind={kind} />
+      ))}
       <CountsTable data={data} />
     </div>
   );

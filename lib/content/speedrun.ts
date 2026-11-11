@@ -1,12 +1,11 @@
-// Copy for /speedrun, a concept page for the speedrun talent team. Sections
-// beyond meta, affiliation and logoAlt are filled in by later tasks.
+// Copy for /speedrun, a concept page for the speedrun talent team.
 
 import type { Arrangement } from "@/lib/speedrun/onboarding";
 import type { Fn } from "@/lib/speedrun/types";
 
 export const speedrunCopy = {
   meta: {
-    title: "a concept for the speedrun talent team · Aaron Sulbaran",
+    title: "Splits: a concept for the speedrun talent team \u00b7 Aaron Sulbaran",
     description:
       "What joining the speedrun talent network could give you on day one: a concept and working demo by Aaron Sulbaran.",
   },
@@ -16,28 +15,25 @@ export const speedrunCopy = {
   act1: {
     kicker: "For the a16z speedrun talent team",
     headline1: "job hunting sux.",
-    headline2: "I've been in the loop.",
-    p1: "I love your approach to helping people find jobs. It's like working for a startup that helps people find their startups, whether that's building their own or working for one. Thinking like a founder, as if you're in a startup yourself, is the best way to help someone who wants to learn about startups. That's a special thing.",
-    p2: "So why take the time to do this? One, it's fun. Two, I want to get involved in the startup space, and there's no better way than to understand it so well that you can help others break into it too.",
-    p3: "Which brings me to job hunting sux. Why has it been so hard to find a job? Sometimes it's just not fun. It's an endless loop, and I've been in it. Or I'm lucky enough to land an interview and realize I hate the process. That's something you're tackling at speedrun, and it's something I'd love to tackle with you.",
-    funnelKicker: "My fall search",
-    funnelCaption: "From the job search dashboard I built for myself. Numbers nudged for privacy, and no company names.",
-    stats: [
-      { key: "applications", label: "applications", value: 84 },
-      { key: "assessments", label: "assessments", value: 15 },
-      { key: "interviews", label: "interviews", value: 8 },
-      { key: "intros", label: "founder intros through your team", value: 2 },
-    ],
+    headline2: "I would know.",
+    subtitle: {
+      before: "As an ECE student at UT Austin, I sent ",
+      count: (n: number) => `${n} applications`,
+      after: " this fall.",
+    },
+    spotlightCaption: "Some of my friends have sent 400.",
+    p1: "I've been grinding for internships for a long time. Every recruiting season I know I'm not the only one suffering, because my friends are too.",
+    p2: "I believe in what speedrun is doing: actually helping people land these jobs, not just listing them. Building that with you sounds like a lot of fun.",
+    privacyNote: "Numbers nudged for privacy. No company names.",
+    closing: {
+      line: "That's why I built Splits.",
+      sub: "How my product would look, built in y'all's style.",
+      button: "See where speedrun could go",
+    },
     flowTitle: "My fall search as a flow from applications to offers",
     lanes: { internship: "Internship", coop: "Co-op", fulltime: "Full-time", fellowship: "Fellowship" },
-    rowsLabel: "A few rows from the dashboard",
-    lanesInline: { internship: "internship", coop: "co-op", fulltime: "full-time", fellowship: "fellowship" },
-    rowSeparators: { detail: ", ", status: " \u00b7 " },
   },
   shift: {
-    turnLine1: "I'm not building this for me.",
-    turnLine2: "I'm building it for y'all. So it should look like y'all.",
-    button: "Build it in y'all's style",
     line: "okay. y'all's style.",
   },
   phases: {
@@ -50,9 +46,8 @@ export const speedrunCopy = {
     nameFallback: "you",
   },
   hero: {
-    eyebrow: "Talent network \u00b7 a concept",
+    eyebrow: "Splits \u00b7 a concept",
     headline: [{ text: "you joined. " }, { text: "now what", em: true }, { text: "?" }] as { text: string; em?: boolean }[],
-    lede: "Today, joining gets you a confirmation and a promise to match you if there's a match. Here, the network starts working the day you join: matches with reasons, a board built from your inbox, and a morning brief that only says what changed.",
     stats: {
       companies: "speedrun companies",
       roles: "live speedrun roles",
@@ -61,7 +56,7 @@ export const speedrunCopy = {
     ctaSecondary: "Skip the questions: see Sam's board",
   },
   join: {
-    label: "Talent network \u00b7 Join",
+    label: "Splits \u00b7 Join",
     steps: {
       name: {
         question: "What should we call you?",
@@ -169,18 +164,18 @@ export const speedrunCopy = {
     },
   },
   network: {
-    heading: (name: string) => `You're in the network, ${name}.`,
-    tag: "\u2713 Built for you",
-    next: "Four things were made for you. Look through them in any order.",
-    startOver: "Start over",
-    replayTop: "Replay from the top",
+    wordmark: "Splits",
+    badge: "Concept \u00b7 not affiliated",
+    account: { label: "Your account", startOver: "Start over", replayTop: "Replay from the top" },
     tabsLabel: "Your network",
-    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Decisions" },
-    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Decisions" },
+    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why" },
+    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why" },
   },
   matches: {
-    heading: "your first matches",
-    subhead: "The companies we'd put in front of you on day one, and why.",
+    listHeading: (name: string | null) => (name ? `${name}'s matches` : "Your matches"),
+    listCount: (n: number) => `${n} worth your time first`,
+    founderRow: "Founder route",
+    back: "Back to matches",
     connect: { intro: "Ask for a warm intro", apply: "Apply", follow: "Follow" },
     connectSheet: {
       intro: "The talent team would see your profile and this match, and reach out to the founder if it fits. Nothing is sent from this demo.",

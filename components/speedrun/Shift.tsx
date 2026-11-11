@@ -6,19 +6,18 @@ import { COVER_EASE, motion, SR_EASE } from "@/lib/speedrun/motion";
 import { shiftReducer } from "@/lib/speedrun/shift";
 import { getMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
 
-// The turn line, the button, and the sweep. The sweep plays on the button only,
-// never on scroll. It covers the page from the right, calls onCovered while the
+// The sweep. It plays when the hero's button bumps `playSignal`, never on scroll. It covers the page from the right, calls onCovered while the
 // page is hidden (the parent changes phase there), holds, then reveals to the
-// left. The strip sits at z 39, under the site's logo and Menu pill (z 40), and
-// stays mounted across the phase change, so `showTurn` hides only the words.
+// left. The strip sits at z 39, under the site's chrome (z 40), and
+// stays mounted across the phase change.
 
 const REDUCE = "(prefers-reduced-motion: reduce)";
 // The band trails the cover: the accent fades through the speedrun hues to cream, then to nothing.
 const BAND_BG = "linear-gradient(90deg, var(--color-accent) 0%, var(--sr-purple) 22%, var(--sr-aqua) 58%, var(--sr-cream) 84%, transparent 100%)";
 
-type SwitchProps = { onCovered: () => void; onRevealStart: () => void; showTurn?: boolean; playSignal?: number };
+type SwitchProps = { onCovered: () => void; onRevealStart: () => void; playSignal?: number };
 
-export function Switch({ onCovered, onRevealStart, showTurn = true, playSignal }: SwitchProps) {
+export function Switch({ onCovered, onRevealStart, playSignal }: SwitchProps) {
   const copy = speedrunCopy.shift;
   // A lab override of the band width re-renders the strip too.
   useSyncExternalStore(subscribeMotion, getMotionOverrides, getMotionOverrides);
@@ -95,7 +94,7 @@ export function Switch({ onCovered, onRevealStart, showTurn = true, playSignal }
     }, () => {});
   }
 
-  // The tuning panel's replay: a changed signal plays exactly as the button does.
+  // The dev tuning panel's switch replay: a changed signal plays exactly as the button does.
   const lastSignal = useRef(playSignal);
   const playRef = useRef(play);
   useEffect(() => {
@@ -109,19 +108,6 @@ export function Switch({ onCovered, onRevealStart, showTurn = true, playSignal }
 
   return (
     <>
-      {showTurn && (
-        <div data-act-turn="" className="px-6 pb-24 pt-16 md:px-12">
-          <div className="max-w-2xl">
-            <p className="font-display text-3xl leading-tight text-foreground">{copy.turnLine1}</p>
-            <p className="mt-1 font-display text-3xl leading-tight text-foreground">{copy.turnLine2}</p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={play} className="rounded-full bg-accent px-6 py-4 font-label text-sm text-background transition-transform duration-300 hover:-translate-y-0.5">
-                {copy.button}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       <div
         ref={stripRef}
         data-shift-strip=""
