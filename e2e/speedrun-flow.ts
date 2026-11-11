@@ -27,6 +27,9 @@ export type OnboardingOptions = {
   onStep?: (step: StepKey) => Promise<void>;
 };
 
+/** The key that moves focus forward: macOS WebKit tabs only between form fields, and Safari users press Alt+Tab to reach everything else. */
+export const tabKey = (browserName: string) => (browserName === "webkit" ? "Alt+Tab" : "Tab");
+
 export const joinPhase = (page: Page) => page.locator('#act-2[data-phase="join"]');
 export const networkPhase = (page: Page) => page.locator('#act-2[data-phase="network"]');
 export const networkHeading = (page: Page) => networkPhase(page).locator("[data-phase-heading]");

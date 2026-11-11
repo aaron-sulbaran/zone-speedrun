@@ -4,7 +4,7 @@ import { test, expect } from "./support/fixtures";
 import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
 import { pressableAtMs } from "../lib/speedrun/heroIntro";
 import { MOTION } from "../lib/speedrun/motion";
-import { introSchedule, seekIntro, accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
+import { introSchedule, seekIntro, accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver, tabKey } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
@@ -410,7 +410,7 @@ test("Start over with a match request in flight lands on a clean step 1 and the 
   await expect(counter(page)).toHaveText("01 / 07");
 });
 
-test("the whole flow works by keyboard alone", async ({ page }) => {
+test("the whole flow works by keyboard alone", async ({ page, browserName }) => {
   await page.goto("/speedrun");
   await settleHero(page);
   await switchButton(page).focus();
@@ -451,7 +451,7 @@ test("the whole flow works by keyboard alone", async ({ page }) => {
   await expect(page.locator('[data-phase="building"]')).toBeVisible({ timeout: 8000 });
   await expect(networkPhase(page).or(page.locator("[data-build-log]"))).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('[data-phase="building"] [data-phase-heading]')).toBeFocused();
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(tabKey(browserName));
   await expect(page.locator("[data-build-log]").getByRole("button", { name: speedrunCopy.build.skip })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(networkHeading(page)).toBeFocused({ timeout: 10_000 });
@@ -856,10 +856,10 @@ test("a pointerdown during the intro shows the end state in the same tick", asyn
 });
 
 // Catches: a skip that swallows the first key, so focus never moves.
-test("Tab during the intro finishes it and moves focus", async ({ page }) => {
+test("Tab during the intro finishes it and moves focus", async ({ page, browserName }) => {
   await page.goto("/speedrun");
   await page.waitForSelector(RUNNING);
-  await page.keyboard.press("Tab");
+  await page.keyboard.press(tabKey(browserName));
   const after = await page.evaluate(() => ({
     intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
     focusOnBody: document.activeElement === document.body,

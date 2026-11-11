@@ -39,6 +39,21 @@ export default defineConfig({
         launchOptions: { args: ["--mute-audio"] },
       },
     },
+    // Desktop Safari's engine, only with E2E_ALL=1 so the default run stays Chromium. WebKit does not focus a button
+    // on click and, on macOS, Tab moves only between form fields (e2e/speedrun-flow.ts tabKey).
+    ...(process.env.E2E_ALL
+      ? [
+          {
+            name: "webkit",
+            use: {
+              ...devices["Desktop Safari"],
+              viewport: { width: 1440, height: 900 },
+              deviceScaleFactor: 1,
+              baseURL: BASE_URL,
+            },
+          },
+        ]
+      : []),
   ],
   webServer: OTHER_BUILD
     ? []

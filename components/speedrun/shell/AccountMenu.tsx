@@ -32,9 +32,15 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
     const onPointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
     };
+    // Safari does not focus the button on click, so the root never held focus for a blur to leave; watch where focus lands.
+    const onFocusIn = (event: FocusEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("focusin", onFocusIn);
     return () => {
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("pointerdown", onPointerDown);
     };

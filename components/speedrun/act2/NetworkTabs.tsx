@@ -43,7 +43,11 @@ export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
             aria-selected={selected}
             aria-controls={panelId(id)}
             tabIndex={selected ? 0 : -1}
-            onClick={() => onTab(id)}
+            onClick={(event) => {
+              // Safari does not focus a button on click; the arrows only reach the tablist from a focused tab.
+              event.currentTarget.focus({ preventScroll: true });
+              onTab(id);
+            }}
             className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 font-srcond text-xs uppercase tracking-wider transition-colors lg:flex-row lg:rounded-full lg:px-5 lg:py-2.5 lg:text-sm duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
               selected ? "bg-sr-ink text-sr-surface" : "text-sr-ink hover:bg-sr-strong lg:bg-sr-hud"
             }`}

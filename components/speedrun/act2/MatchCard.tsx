@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { Match } from "@/lib/speedrun/match";
 
@@ -41,6 +41,7 @@ export function MatchCard({ match }: { match: Match }) {
   const applyNoteId = useId();
   const introRef = useRef<HTMLButtonElement>(null);
   const followRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLParagraphElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !sheet) return;
     // The detail around the card closes on an Escape nobody has handled; this one is the sheet's.
@@ -48,7 +49,15 @@ export function MatchCard({ match }: { match: Match }) {
     (sheet === "intro" ? introRef : followRef).current?.focus();
     setSheet(null);
   };
-  const toggle = (kind: "intro" | "follow") => setSheet((now) => (now === kind ? null : kind));
+  // Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
+  // and a click that closes it puts focus back on the button.
+  useEffect(() => {
+    if (sheet) sheetRef.current?.focus({ preventScroll: true });
+  }, [sheet]);
+  const toggle = (kind: "intro" | "follow") => {
+    if (sheet === kind) (kind === "intro" ? introRef : followRef).current?.focus();
+    setSheet(sheet === kind ? null : kind);
+  };
 
   return (
     <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5">
@@ -104,7 +113,7 @@ export function MatchCard({ match }: { match: Match }) {
       </div>
       <div id={sheetId} role="status">
         {sheet && (
-          <p data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2">
+          <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">
             {copy.connectSheet[sheet]}
           </p>
         )}

@@ -128,6 +128,8 @@ test("phone: Escape in the connect sheet closes only the sheet, a second Escape 
   const follow = detail(page).getByRole("button", { name: copy.connect.follow });
   await follow.click();
   await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
+  // Catches: focus staying outside the sheet after a click (Safari does not focus a button on click), so the Escape never arrives.
+  await expect(page.locator("[data-connect-sheet=follow]")).toBeFocused();
   // Catches: a missing preventDefault in the sheet's handler, or a detail that ignores defaultPrevented.
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
@@ -423,6 +425,7 @@ test("Escape closes the connect sheet and keeps focus on its button", async ({ p
   const follow = detail(page).getByRole("button", { name: copy.connect.follow });
   await follow.click();
   await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
+  await expect(page.locator("[data-connect-sheet=follow]")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);
   await expect(follow).toBeFocused();
