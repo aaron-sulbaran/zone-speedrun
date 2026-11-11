@@ -187,13 +187,13 @@ export async function expectVisitorName(page: Page, name: string) {
 
 export type LabelProbe = {
   labels: number;
-  /** Labels whose backing (the glyphs grown by the dilate radius) touches a node bar. */
+  /** Labels whose outline (the glyph box grown by the stroke's outset) touches a node bar. */
   onNodes: string[];
-  /** Pairs of labels whose backings touch. */
+  /** Pairs of labels whose outlines touch. */
   overlapping: string[];
-  /** Labels whose backing is missing or wrong: no filter, not sRGB, not the backdrop colour, not under the text, a region too small, or a node or link painted after the label. */
+  /** Labels whose outline is missing or wrong: paint-order not stroke first, a stroke that is not the backdrop colour, not 4 wide or not round, a leftover filter, or a node or link painted after the label. */
   unbacked: string[];
-  /** Labels whose backing is cut by the edge of their SVG. */
+  /** Labels whose outline is cut by the edge of their SVG. */
   clipped: string[];
 };
 
@@ -216,6 +216,8 @@ export async function probeFlowLabels(page: Page, root: string): Promise<LabelPr
         }
         return "rgba(0, 0, 0, 0)";
       };
+      // The outline reaches half its stroke width past the glyphs; read from the page, not restated here.
+      const outsetOf = (el: Element) => (parseFloat(getComputedStyle(el).strokeWidth) || 0) / 2;
       const svgs = [...document.querySelectorAll<SVGSVGElement>(`${rootSelector} svg[role="img"]`)].filter((s) => s.getBoundingClientRect().width > 0);
       for (const svg of svgs) {
         const g = svg.querySelector("text")?.closest("g")?.parentElement as SVGGElement | null;
@@ -227,59 +229,39 @@ export async function probeFlowLabels(page: Page, root: string): Promise<LabelPr
         const scale = svgRect.width / svg.viewBox.baseVal.width;
         const boxes = texts.map((t) => ({ t, b: t.getBBox(), s: (t.textContent ?? "").replace(/\s+/g, " ").trim() }));
         out.labels += boxes.length;
+        const backdrop = backdropOf(svg);
         boxes.forEach((a, i) => {
-          // The backing is whatever the label's own filter draws: its dilate radius is read from the page, not restated here.
-          const id = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(a.t).filter)?.[1];
-          const filter = id ? document.getElementById(id) : null;
-          const flood = filter?.querySelector("feFlood");
-          const radius = Number(filter?.querySelector('feMorphology[operator="dilate"]')?.getAttribute("radius") ?? 0);
-          const mine = grow(a.b, radius);
+          const outset = outsetOf(a.t);
+          const mine = grow(a.b, outset);
           const under = rects.find((r) => hit(mine, r.getBBox()));
           if (under) out.onNodes.push(`${a.s} [${at(a.b)}] on [${at(under.getBBox())}]`);
           boxes.slice(i + 1).forEach((b) => {
-            const other = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(b.t).filter)?.[1];
-            const otherRadius = Number(document.getElementById(other ?? "")?.querySelector('feMorphology[operator="dilate"]')?.getAttribute("radius") ?? 0);
-            if (hit(mine, grow(b.b, otherRadius))) out.overlapping.push(`${a.s} / ${b.s}`);
+            if (hit(mine, grow(b.b, outsetOf(b.t)))) out.overlapping.push(`${a.s} / ${b.s}`);
           });
 
           const client = a.t.getBoundingClientRect();
-          const reach = radius * scale;
+          const reach = outset * scale;
           if (client.left - reach < svgRect.left - 0.5 || client.right + reach > svgRect.right + 0.5 || client.top - reach < svgRect.top - 0.5 || client.bottom + reach > svgRect.bottom + 0.5) {
             out.clipped.push(`${a.s} [${at(a.b)}]`);
           }
 
-          // A missing attribute means the SVG defaults for a filter region: -10%, -10%, 120%, 120% of the text's box. Percentages and fractions both parse.
-          const fraction = (name: string, fallback: number) => {
-            const raw = filter?.getAttribute(name);
-            if (raw === null || raw === undefined || raw === "") return fallback;
-            return raw.trim().endsWith("%") ? parseFloat(raw) / 100 : parseFloat(raw);
-          };
-          const region = filter
-            ? {
-                x: a.b.x + a.b.width * fraction("x", -0.1),
-                y: a.b.y + a.b.height * fraction("y", -0.1),
-                width: a.b.width * fraction("width", 1.2),
-                height: a.b.height * fraction("height", 1.2),
-              }
-            : null;
-          const covers = !!region && region.x <= mine.x && region.y <= mine.y && region.x + region.width >= mine.x + mine.width && region.y + region.height >= mine.y + mine.height;
           const painted = (other: Element) => !!(a.t.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
           const reasons: string[] = [];
-          if (!filter || !flood) reasons.push("no filter");
-          else {
-            if (getComputedStyle(flood).floodColor !== backdropOf(svg)) reasons.push(`flood ${getComputedStyle(flood).floodColor} is not the backdrop ${backdropOf(svg)}`);
-            if (getComputedStyle(flood).floodOpacity !== "1") reasons.push("flood not opaque");
-            // color-interpolation-filters is set on the <filter>; the primitives inherit it.
-            if (getComputedStyle(filter).colorInterpolationFilters.toLowerCase() !== "srgb") reasons.push("not sRGB");
-            if (!(radius > 0)) reasons.push("no dilate");
-            const composite = filter.querySelector("feComposite");
-            if (composite?.getAttribute("operator") !== "in") reasons.push("backing not clipped to the dilated glyphs (feComposite is not operator in)");
-            const merge = [...filter.querySelectorAll("feMergeNode")].map((node) => node.getAttribute("in"));
-            const backingAt = merge.indexOf(composite?.getAttribute("result") ?? "\0");
-            if (backingAt < 0 || backingAt > merge.indexOf("SourceGraphic")) reasons.push("backing not merged before the text");
-            if (merge.at(-1) !== "SourceGraphic") reasons.push("text not merged last");
-            if (!covers) reasons.push("filter region too small");
+          // The text and its tspans must all paint the same outline: a tspan that overrides it would show a different edge.
+          for (const el of [a.t, ...a.t.querySelectorAll("tspan")]) {
+            const style = getComputedStyle(el);
+            const who = el === a.t ? "text" : "tspan";
+            // Catches: paint-order dropped, so the stroke paints over the glyphs and eats them.
+            if (!style.paintOrder.startsWith("stroke")) reasons.push(`${who} paint-order is ${style.paintOrder}, not stroke first`);
+            // Catches: the outline colour drifting from the chart's backdrop, which would show as a visible edge.
+            if (style.stroke !== backdrop) reasons.push(`${who} stroke ${style.stroke} is not the backdrop ${backdrop}`);
+            // Catches: a thinner or thicker outline than the 2 px the layout was spaced for.
+            if (style.strokeWidth !== "4px") reasons.push(`${who} stroke width is ${style.strokeWidth}, not 4px`);
+            // Catches: mitred corners, which spike out of letters at small sizes.
+            if (style.strokeLinejoin !== "round") reasons.push(`${who} stroke-linejoin is ${style.strokeLinejoin}, not round`);
           }
+          // Catches: the old dilate filter coming back beside, or instead of, the outline.
+          if (getComputedStyle(a.t).filter !== "none") reasons.push(`label carries a filter (${getComputedStyle(a.t).filter})`);
           if (rects.some(painted) || paths.some(painted)) reasons.push("a node or link paints after it");
           if (reasons.length) out.unbacked.push(`${a.s}: ${reasons.join(", ")}`);
         });

@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { aaronFlow } from "./aaronMock";
-import { ASCENT, BACKING, BAR, DESCENT, LABEL_DROP, LABEL_RISE, LABEL_ROOM, TALL_ROOM, VALUE_LINE, backingSpan, placeLabel } from "./flowLabels";
+import { ASCENT, BACKING, BAR, DESCENT, OUTLINE_WIDTH, LABEL_DROP, LABEL_RISE, LABEL_ROOM, TALL_ROOM, VALUE_LINE, backingSpan, placeLabel } from "./flowLabels";
 import { layoutFlow, type PlacedNode } from "./flowLayout";
 import { HERO_NARROW, HERO_WIDE, TALL, WIDE } from "./flowSizes";
 
 const flows = [aaronFlow(), aaronFlow({ lanes: false })];
 
 describe("label room", () => {
+  // Catches: BACKING drifting from the outline's real outset (half of its 4 wide stroke), which placement and collision maths read.
+  it("BACKING is the outline's outset", () => {
+    expect(OUTLINE_WIDTH).toBe(4);
+    expect(BACKING).toBe(2);
+  });
+
   // Catches: LABEL_ROOM shrunk until a label's backing reaches the bar above it.
   it("covers the rise, the glyph height and the backing", () => {
     expect(LABEL_ROOM).toBeGreaterThanOrEqual(LABEL_RISE + ASCENT + BACKING);
