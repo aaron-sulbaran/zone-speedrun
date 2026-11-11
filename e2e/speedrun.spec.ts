@@ -280,29 +280,66 @@ test("at 375 the join footer sits in flow below the last sample card", async ({ 
   const result = await page.evaluate(() => {
     const footer = document.querySelector<HTMLElement>("[data-join-footer]")!;
     const cards = document.querySelectorAll<HTMLElement>("[data-person]");
-    return { position: getComputedStyle(footer).position, footerTop: footer.getBoundingClientRect().top, lastCardBottom: cards[cards.length - 1].getBoundingClientRect().bottom };
+    return { position: getComputedStyle(footer).position, footerTop: footer.getBoundingClientRect().top, lastCardBottom: cards[cards.length - 1].getBoundingClientRect().bottom, backdrop: getComputedStyle(footer).backdropFilter };
   });
   expect(result.position).not.toBe("sticky");
+  expect(result.backdrop).toBe("none");
   expect(result.footerTop).toBeGreaterThanOrEqual(result.lastCardBottom);
 });
 
+const primaryInView = () => {
+  const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
+  return rect.top >= 0 && rect.bottom <= window.innerHeight;
+};
+
 // Regression: with the footer in flow it can sit below the fold, so a pick must bring the
-// primary button into view or the visitor never finds Continue.
+// primary button into view or the visitor never finds Continue. The precondition keeps the
+// pin from passing when the button was already visible.
 test("at 375 picking a sample person scrolls the footer button fully into view", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
   await page.locator('#join [data-person]').first().click();
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
-          return rect.top >= 0 && rect.bottom <= window.innerHeight;
-        }),
-      { timeout: 3000 },
-    )
-    .toBe(true);
+  await expect.poll(() => page.evaluate(primaryInView), { timeout: 3000 }).toBe(true);
+});
+
+// Regression: "auto" still animates because html has scroll-behavior: smooth; reduced motion
+// needs "instant", so the button is in view two frames after the pick.
+test("at 375 with reduced motion the pick scrolls to the footer without animating", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  await page.locator('#join [data-person]').first().click();
+  const inView = await page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            const rect = document.querySelector<HTMLElement>("[data-join-footer] button:last-of-type")!.getBoundingClientRect();
+            resolve(rect.top >= 0 && rect.bottom <= window.innerHeight);
+          }),
+        ),
+      ),
+  );
+  expect(inView).toBe(true);
+});
+
+// Regression: an arrow-key pick moves focus to the next card; the footer scroll used to run a
+// frame later and carry that focused card off screen. Only pointer picks scroll.
+test("at 375 an arrow-key pick keeps the focused card in view", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  await page.locator('#join [data-person]').first().focus();
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(1200);
+  const rect = await page.evaluate(() => document.activeElement!.getBoundingClientRect().toJSON());
+  expect(await page.evaluate(() => document.activeElement?.getAttribute("data-person"))).not.toBeNull();
+  expect(rect.top).toBeGreaterThanOrEqual(0);
+  expect(rect.bottom).toBeLessThanOrEqual(667);
 });
 
 // Regression: the in-flow footer must not leak to desktop, where the sticky bar stays.

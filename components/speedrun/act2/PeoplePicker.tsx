@@ -12,6 +12,7 @@ export type Connected = { inbox: boolean; calendar: boolean };
 export function PeoplePicker({
   selected,
   onSelect,
+  onPick,
   connected,
   onConnect,
   liveReading,
@@ -20,6 +21,8 @@ export function PeoplePicker({
 }: {
   selected: PersonKey | null;
   onSelect: (key: PersonKey) => void;
+  // A pointer pick; arrow keys only select, so focus is never scrolled away.
+  onPick?: () => void;
   connected: Connected;
   onConnect: (which: keyof Connected, on: boolean) => void;
   liveReading: boolean;
@@ -84,7 +87,10 @@ export function PeoplePicker({
               data-person={key}
               data-phase-focus={on || (!selected && index === 0) ? "" : undefined}
               tabIndex={on || (!selected && index === 0) ? 0 : -1}
-              onClick={() => onSelect(key)}
+              onClick={() => {
+                onSelect(key);
+                onPick?.();
+              }}
               className={`rounded-2xl p-4 text-left transition-[background-color,box-shadow,transform] duration-200 ease-sr active:scale-[.98] motion-reduce:transition-none motion-reduce:active:scale-100 ${
                 on ? "bg-sr-surface shadow-[inset_0_0_0_2px_var(--sr-ink)]" : "bg-sr-hud hover:bg-sr-strong"
               }`}

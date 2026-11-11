@@ -90,10 +90,10 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
     beginSubmit("sample", () => dispatch({ type: "pickPerson", key: selected }));
   };
   // On phones the footer sits at the end of the card, so a pick brings it, button included, into view.
-  const selectPerson = (key: PersonKey) => {
-    setSelected(key);
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
-    requestAnimationFrame(() => footerRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" }));
+  const revealFooter = () => {
+    if (window.matchMedia("(min-width: 768px)").matches) return;
+    // "instant", not "auto": the page's scroll-behavior is smooth, so "auto" would still animate.
+    requestAnimationFrame(() => footerRef.current?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "instant" : "smooth" }));
   };
   const choose = (patch: Partial<Answers>) => {
     dispatch({ type: "answer", patch });
@@ -164,7 +164,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
         {submitting ? (
           <p role="status" className="py-10 text-2xl font-semibold leading-tight md:text-3xl">{speedrunCopy.build.heading(name)}</p>
         ) : (
-          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={selectPerson} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
+          <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onPick={revealFooter} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
         )}
       </div>
       <div ref={footerRef} data-join-footer="" className="rounded-b-3xl border-t border-sr-soft px-6 py-4 md:sticky md:bottom-0 md:z-10 md:bg-sr-foot md:backdrop-blur md:px-8">
