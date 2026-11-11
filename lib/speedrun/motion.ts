@@ -7,6 +7,11 @@ export const STEP_EASE = "cubic-bezier(.22,.61,.36,1)";
 export const CARD_EASE = "cubic-bezier(.4,0,.2,1)";
 export const COVER_EASE = "cubic-bezier(.7,0,.84,0)";
 export const CHIP_EASE = "cubic-bezier(.2,.7,.3,1)";
+// The 84 spotlight's curves: the words' pulses ease in and out on their own, the veil and caption ease in from nothing
+// and the caption leaves on an accelerating curve so it is gone as the flight starts.
+export const FLASH_EASE = "ease-in-out";
+export const SPOTLIGHT_IN_EASE = "ease-out";
+export const CAPTION_OUT_EASE = "ease-in";
 export const SR_STEP_MS = 260;
 export const SR_COUNT_MS = 1100;
 

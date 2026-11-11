@@ -42,6 +42,11 @@ export function introEndMs(cues: IntroCue[]): number {
   return Math.max(0, ...cues.map((cue) => cue.atMs + cue.durationMs));
 }
 
+/** How long the whole intro runs for these words; the dev tuning panel's hold slider ends here, whatever the keys are tuned to. */
+export function introSpanMs(m: Motion, counts: { words: number; subtitleWords: number; paragraphs: number }): number {
+  return Math.ceil(introEndMs(introCues(m, counts)));
+}
+
 /** The close cue is the page's own button, so it is pressable the moment it starts. */
 export function pressableAtMs(cues: IntroCue[]): number {
   return cues.find((cue) => cue.target === "close")?.atMs ?? introEndMs(cues);

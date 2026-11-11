@@ -5,24 +5,26 @@ import { speedrunCopy } from "@/lib/content";
 import { introCues, pressableAtMs } from "@/lib/speedrun/heroIntro";
 import { registerIntroHold } from "@/lib/speedrun/introHold";
 import { motion, prefersReducedMotion, SR_EASE } from "@/lib/speedrun/motion";
-import { mountSpotlight, type Spotlight } from "./spotlightLayer";
+import { mountSpotlight, typeOf, type Spotlight } from "./spotlightLayer";
 
 // The root carries the intro state for CSS and for the e2e pins.
 function setIntro(el: HTMLElement, state: "running" | "done") {
   el.dataset.intro = state;
 }
 
-const SKIP_EVENTS = ["pointerdown", "keydown", "wheel", "touchmove"] as const;
+// "scroll" covers a scrollbar drag and a script that moves the page; the dim should not hold a reader who is already leaving it.
+const SKIP_EVENTS = ["pointerdown", "keydown", "wheel", "touchmove", "scroll"] as const;
 
 // checkVisibility is missing before Safari 17.4; a rendered element has client rects.
 const isShown = (el: Element) => (el as Element & { checkVisibility?: () => boolean }).checkVisibility?.() ?? el.getClientRects().length > 0;
 const visibleOne = (root: HTMLElement, selector: string) => Array.from(root.querySelectorAll<SVGElement>(selector)).find(isShown) ?? null;
 const byIndex = (a: HTMLElement, b: HTMLElement) => Number(a.dataset.introIndex) - Number(b.dataset.introIndex);
 
+const fullyInView = (rect: DOMRect) => rect.top >= 0 && rect.left >= 0 && rect.bottom <= document.documentElement.clientHeight && rect.right <= document.documentElement.clientWidth;
+
 // Builds the flying copy of the subtitle's number, positioned over the original inside the hero.
 function makeClone(root: HTMLElement, source: HTMLElement, rootRect: DOMRect, from: DOMRect) {
   const clone = source.cloneNode(true) as HTMLElement;
-  const style = getComputedStyle(source);
   clone.removeAttribute("data-hero-count");
   clone.setAttribute("data-intro-flight", "");
   clone.setAttribute("aria-hidden", "true");
@@ -38,9 +40,9 @@ function makeClone(root: HTMLElement, source: HTMLElement, rootRect: DOMRect, fr
     whiteSpace: "nowrap",
     zIndex: "44", // above the spotlight layer (42), which sits at the page's root stacking context
     transformOrigin: "center",
-    font: style.font,
+    ...typeOf(source),
     fontWeight: "700",
-    color: style.color,
+    color: getComputedStyle(source).color,
   });
   root.appendChild(clone);
   return clone;
@@ -88,9 +90,11 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const rootRect = el.getBoundingClientRect();
     const from = count?.getBoundingClientRect();
     const to = value?.getBoundingClientRect();
-    // The beat is skipped only when the number or its words are missing; with the chart's value hidden it plays without the flight.
+    // The beat is skipped when the number or its words are missing, or when the words are not fully on screen (a short window or a
+    // page already scrolled), since the veil would light something the reader cannot see. With the chart's value hidden it plays without the flight.
     const spotlightWords = el.querySelector<HTMLElement>("[data-hero-spotlight]");
-    const spotlight: Spotlight | null = spotlightWords && count ? mountSpotlight(spotlightWords, count, speedrunCopy.act1.spotlightCaption) : null;
+    const wordsInView = !!spotlightWords && fullyInView(spotlightWords.getBoundingClientRect());
+    const spotlight: Spotlight | null = spotlightWords && count && wordsInView ? mountSpotlight(spotlightWords, count, speedrunCopy.act1.spotlightCaption) : null;
     let flightMove: string | null = null;
 
     const animations: Animation[] = [];

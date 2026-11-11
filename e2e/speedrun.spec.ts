@@ -1072,6 +1072,106 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
   });
 }
 
+// Width of the text itself, so a copy in the wrong face or size shows up even when its box was forced to the original's size.
+const RANGE_WIDTH = `(el) => { const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect().width; }`;
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: the lit copy and the flying 84 taking the computed `font` shorthand, which some engines serialize as "", so they fall back to the body face and size.
+  test(`the lit copy and the flying 84 keep the original type when the font shorthand reads empty at ${width}`, async ({ page }) => {
+    // Engines differ in what a computed `font` shorthand reads as; here it reads "" (the properties are interceptors on the object, so the getter cannot be patched on a prototype).
+    await page.addInitScript(() => {
+      const original = window.getComputedStyle.bind(window);
+      window.getComputedStyle = (element: Element, pseudo?: string | null) =>
+        new Proxy(original(element, pseudo), {
+          get(target, key) {
+            if (key === "font") return "";
+            const value = Reflect.get(target, key, target);
+            return typeof value === "function" ? value.bind(target) : value;
+          },
+        });
+    });
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const veilCue = cueAt(await introSchedule(page), "veil");
+    await seekIntro(page, veilCue.atMs + veilCue.durationMs + MOTION.introSpotlightHoldMs / 2);
+    const read = await page.evaluate(`(() => {
+      const width = ${RANGE_WIDTH};
+      const q = (selector) => document.querySelector(selector);
+      return { shorthandBlank: getComputedStyle(document.body).font === "", words: width(q("[data-hero-spotlight]")), lit: width(q("[data-spotlight-lit]")), count: width(q("[data-hero-count]")), clone: width(q("[data-intro-flight]")), twin: width(q("[data-spotlight-lit-count]")) };
+    })()`) as { shorthandBlank: boolean; words: number; lit: number; count: number; clone: number; twin: number };
+    // The precondition: without it the pin would pass on an engine that never had the problem.
+    expect(read.shorthandBlank).toBe(true);
+    expect(Math.abs(read.lit - read.words)).toBeLessThanOrEqual(1);
+    expect(Math.abs(read.clone - read.count)).toBeLessThanOrEqual(1);
+    expect(Math.abs(read.twin - read.count)).toBeLessThanOrEqual(1);
+  });
+}
+
+// Catches: the spotlight lighting words the reader cannot see: a window too short for the subtitle (or a page already scrolled) still got a full veil.
+test("a window too short for the words plays no spotlight, and the flight still plays", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __layers: number };
+    w.__layers = 0;
+    new MutationObserver((records) => {
+      for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-spotlight]")) w.__layers += 1;
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.setViewportSize({ width: 390, height: 250 });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const placement = await page.evaluate(() => {
+    const rect = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+    return rect.bottom > innerHeight || rect.top < 0;
+  });
+  expect(placement).toBe(true);
+  const flight = cueAt(await introSchedule(page), "flight");
+  await seekIntro(page, flight.atMs + flight.durationMs / 2);
+  const state = await page.evaluate(() => ({ layersEver: (window as unknown as { __layers: number }).__layers, layers: document.querySelectorAll("[data-spotlight]").length, flight: document.querySelectorAll("[data-intro-flight]").length, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") }));
+  expect(state).toEqual({ layersEver: 0, layers: 0, flight: 1, intro: "running" });
+});
+
+// Catches: a scrollbar drag or a script moving the page leaving the dim on a reader who is already leaving it (the skip events had no scroll).
+test("a scroll during the hold ends the intro in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  const after = await page.evaluate(() => {
+    document.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return { layers: document.querySelectorAll("[data-spotlight]").length, intro: document.querySelector("[data-hero]")!.getAttribute("data-intro") };
+  });
+  expect(after).toEqual({ layers: 0, intro: "done" });
+});
+
+// Catches: the same, through a real scroll of the page rather than a dispatched event.
+test("a real scroll of the page during the hold ends the intro", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 });
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.evaluate(() => ({ scrollable: document.documentElement.scrollHeight > innerHeight, layers: document.querySelectorAll("[data-spotlight]").length }))).toEqual({ scrollable: true, layers: 1 });
+  await page.evaluate(() => window.scrollTo(0, 40));
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done");
+  expect(await page.locator(SPOTLIGHT).count()).toBe(0);
+});
+
+// Catches: the subtitle's word spans read one by one by a screen reader, or the full sentence missing from (or doubled in) the accessible text.
+test("the subtitle reads as one sentence to a screen reader", async ({ page }) => {
+  await page.goto("/speedrun");
+  await settleHero(page);
+  const { before, count, after } = speedrunCopy.act1.subtitle;
+  const sentence = [before, count(AARON_ENTRIES.length), after].join(" ").split(" ").filter(Boolean).join(" ");
+  // Elements a screen reader can reach (nothing aria-hidden on the way up) whose text is the whole sentence: the visual copy, which has the same text, is hidden.
+  const readable = await page.evaluate((text) => [...document.querySelectorAll("[data-hero] *")].filter((el) => !el.closest('[aria-hidden="true"]') && (el.textContent ?? "").replace(/\s+/g, " ").trim() === text).length, sentence);
+  expect(readable).toBe(1);
+  const spans = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => !!el.closest('[aria-hidden="true"]')));
+  expect(spans.length).toBeGreaterThan(8);
+  expect(spans.every(Boolean)).toBe(true);
+});
+
 // Catches: the flying clone's z-index falling under the veil's, so the 84 vanishes into the dark on its way to Applied.
 test("the flying 84 sits above the veil", async ({ page }) => {
   await page.goto("/speedrun");
@@ -1168,6 +1268,8 @@ test("a keydown during the hold removes the layer in the same tick", async ({ pa
     };
   });
   expect(after).toEqual({ layers: 0, intro: "done", animations: 0 });
+  // Catches: the lit copy, its twin or the flying clone outliving a hold skip (they are separate nodes, so the layer's removal does not prove them gone).
+  expect(await page.evaluate(() => ({ lit: document.querySelectorAll("[data-spotlight-lit]").length, twin: document.querySelectorAll("[data-spotlight-lit-count]").length, flight: document.querySelectorAll("[data-intro-flight]").length }))).toEqual({ lit: 0, twin: 0, flight: 0 });
 });
 
 // Catches: the layer outliving the intro, or the beat's animations lingering at rest.
@@ -1176,7 +1278,7 @@ test("at done the layer is gone", async ({ page }) => {
   await page.waitForSelector(RUNNING);
   expect(await page.locator(SPOTLIGHT).count()).toBe(1);
   await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 10_000 });
-  expect(await page.evaluate(() => ({ layers: document.querySelectorAll("[data-spotlight]").length, veils: document.querySelectorAll("[data-spotlight-veil], [data-spotlight-caption]").length }))).toEqual({ layers: 0, veils: 0 });
+  expect(await page.evaluate(() => ({ layers: document.querySelectorAll("[data-spotlight]").length, veils: document.querySelectorAll("[data-spotlight-veil], [data-spotlight-caption]").length, lit: document.querySelectorAll("[data-spotlight-lit], [data-spotlight-lit-count]").length }))).toEqual({ layers: 0, veils: 0, lit: 0 });
   const words = await page.evaluate(() => getComputedStyle(document.querySelector("[data-hero-spotlight]")!).transform);
   expect(words).toBe("none");
 });

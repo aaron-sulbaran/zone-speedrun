@@ -28,27 +28,32 @@ function Subtitle() {
     </span>
   );
   const afterWords = split(after);
+  // The words are cut into inline-block spans for the intro, so a screen reader would stop at each one; it reads this one sentence instead.
+  const sentence = [...beforeWords, ...countWords, ...afterWords].join(" ");
   return (
     <p className="mt-5 max-w-xl text-lg leading-snug text-foreground lg:text-xl">
-      {beforeWords.map((text, index) => (
-        <span key={index}>
-          {word(text, index)}{" "}
-        </span>
-      ))}
-      <strong data-hero-spotlight="" className="inline-block whitespace-nowrap font-bold">
-        {countWords.map((text, index) => (
+      <span className="sr-only">{sentence}</span>
+      <span aria-hidden="true">
+        {beforeWords.map((text, index) => (
           <span key={index}>
-            {index > 0 && " "}
-            {word(text, beforeWords.length + index)}
+            {word(text, index)}{" "}
           </span>
         ))}
-      </strong>
-      {afterWords.map((text, index) => (
-        <span key={index}>
-          {" "}
-          {word(text, beforeWords.length + countWords.length + index)}
-        </span>
-      ))}
+        <strong data-hero-spotlight="" className="inline-block whitespace-nowrap font-bold">
+          {countWords.map((text, index) => (
+            <span key={index}>
+              {index > 0 && " "}
+              {word(text, beforeWords.length + index)}
+            </span>
+          ))}
+        </strong>
+        {afterWords.map((text, index) => (
+          <span key={index}>
+            {" "}
+            {word(text, beforeWords.length + countWords.length + index)}
+          </span>
+        ))}
+      </span>
     </p>
   );
 }

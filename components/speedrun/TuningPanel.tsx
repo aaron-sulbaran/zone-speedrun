@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { introSpanMs } from "@/lib/speedrun/heroIntro";
 import { MOTION, motion, type Motion } from "@/lib/speedrun/motion";
 import { holdIntro } from "@/lib/speedrun/introHold";
 import { getMotionOverrides, resetMotionOverrides, setMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
@@ -37,6 +38,9 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
 function HoldRow() {
   const [at, setAt] = useState<number | null>(null);
   const [idle, setIdle] = useState(false);
+  // The slider ends where the intro does, so a longer tuned hold stays reachable. The words are counted off the page.
+  const count = (kind: string) => document.querySelectorAll(`[data-intro-el="${kind}"]`).length;
+  const spanMs = introSpanMs(motion(), { words: count("word"), subtitleWords: count("subtitle"), paragraphs: count("paragraph") });
   const move = (next: number | null) => {
     const held = holdIntro(next);
     setIdle(!held);
@@ -47,7 +51,7 @@ function HoldRow() {
       <label className="grid grid-cols-[1fr_auto] items-center gap-x-3 text-xs text-foreground">
         <span>hold the intro at (ms)</span>
         <span className="tabular-nums">{at ?? "playing"}</span>
-        <input type="range" min={0} max={6000} step={10} value={at ?? 0} onChange={(event) => move(Number(event.target.value))} className="col-span-2 w-full accent-accent" />
+        <input type="range" min={0} max={spanMs} step={10} value={at ?? 0} onChange={(event) => move(Number(event.target.value))} className="col-span-2 w-full accent-accent" />
       </label>
       {idle && <p className="text-xs text-muted">No intro is running. Replay the intro first.</p>}
       {at !== null && (

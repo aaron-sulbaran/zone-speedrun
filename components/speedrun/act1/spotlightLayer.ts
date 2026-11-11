@@ -1,5 +1,6 @@
 import { beatOffsets, type IntroCue } from "@/lib/speedrun/heroIntro";
-import { SR_EASE, type Motion } from "@/lib/speedrun/motion";
+import { CAPTION_OUT_EASE, SPOTLIGHT_IN_EASE, SR_EASE, type Motion } from "@/lib/speedrun/motion";
+import { flashKeyframes } from "@/lib/speedrun/spotlightFrames";
 
 // The 84 spotlight: a body-level layer (so no stacking context inside the hero can trap it) holding a
 // full-viewport veil, a lit copy of "84 applications" over it at the words' exact rect, and a caption.
@@ -25,6 +26,15 @@ function restBox(el: Element, owner: Element): Box {
   const cx = o.left + o.width / 2;
   const cy = o.top + o.height / 2;
   return { left: cx + (rect.left - cx) / scale, top: cy + (rect.top - cy) / scale, width: rect.width / scale, height: rect.height / scale };
+}
+
+/**
+ * The longhands that set a line of type, read off the original. The `font` shorthand is not copied: some engines
+ * serialize a computed shorthand as "", which would leave the copy in the body face and a different width.
+ */
+export function typeOf(source: Element) {
+  const style = getComputedStyle(source);
+  return { fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight, fontStyle: style.fontStyle, letterSpacing: style.letterSpacing };
 }
 
 // A copy for the layer: no data hooks (the page's pins and the intro read those), the light "lit" colour from CSS.
@@ -64,8 +74,7 @@ export function mountSpotlight(words: HTMLElement, count: HTMLElement, captionTe
   const inside = { x: countBox.left - wordsBox.left, y: countBox.top - wordsBox.top, width: countBox.width, height: countBox.height };
 
   const fit = (el: HTMLElement, box: Box, source: HTMLElement) => {
-    const style = getComputedStyle(source);
-    Object.assign(el.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, font: style.font, letterSpacing: style.letterSpacing });
+    Object.assign(el.style, { left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, ...typeOf(source) });
   };
   const place = () => {
     const box = restBox(words, words);
@@ -79,26 +88,23 @@ export function mountSpotlight(words: HTMLElement, count: HTMLElement, captionTe
   place();
 
   const play: Spotlight["play"] = ({ flash, veil: dim, unveil: out }, m, move) => {
-    // Two pulses of the words, opacity and scale only, each easing in and out on its own; nothing is left at the end.
-    const ease = "ease-in-out";
-    const rest = { transform: "scale(1)", opacity: 1 };
-    const pulse = { transform: `scale(${m.introSpotlightFlashScale})`, opacity: m.introSpotlightFlashOpacity };
-    const animations = [words.animate([{ ...rest, easing: ease }, { ...pulse, easing: ease }, { ...rest, easing: ease }, { ...pulse, easing: ease }, rest], { delay: flash.atMs, duration: flash.durationMs })];
+    // Two pulses of the words, opacity and scale only; nothing is left at the end.
+    const animations = [words.animate(flashKeyframes(m), { delay: flash.atMs, duration: flash.durationMs })];
     const offsets = beatOffsets(dim, out, m.introSpotlightCaptionOutMs);
     if (!offsets) return animations;
     // One animation per element, so no later one can override an earlier one's fill: in, hold, out.
     const timing: KeyframeAnimationOptions = { delay: dim.atMs, duration: offsets.totalMs, fill: "both" };
     const frames = (peak: number): Keyframe[] => [
-      { opacity: 0, offset: 0, easing: "ease-out" },
+      { opacity: 0, offset: 0, easing: SPOTLIGHT_IN_EASE },
       { opacity: peak, offset: offsets.settled },
       { opacity: peak, offset: offsets.held, easing: SR_EASE },
       { opacity: 0, offset: 1 },
     ];
     // The caption is gone when the flight starts, so the flying 84 never crosses it.
     const captionFrames: Keyframe[] = [
-      { opacity: 0, offset: 0, easing: "ease-out" },
+      { opacity: 0, offset: 0, easing: SPOTLIGHT_IN_EASE },
       { opacity: 1, offset: offsets.settled },
-      { opacity: 1, offset: offsets.captionFrom, easing: "ease-in" },
+      { opacity: 1, offset: offsets.captionFrom, easing: CAPTION_OUT_EASE },
       { opacity: 0, offset: offsets.held },
       { opacity: 0, offset: 1 },
     ];
