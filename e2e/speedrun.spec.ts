@@ -1146,7 +1146,6 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
         // Catches: the clamp landing anywhere but the paragraph's left edge.
         expect(Math.abs(held.captionLeft - held.paragraphLeft)).toBeLessThanOrEqual(1);
       }
-      console.log(`CAPTION ${width}x${height} ${scheme}: caption.left=${held.captionLeft.toFixed(1)} paragraph.left=${held.paragraphLeft.toFixed(1)} centred=${centredLeft.toFixed(1)}`);
     }
     expect(held.layerAria).toBe("true");
     expect(held.layerEvents).toBe("none");
