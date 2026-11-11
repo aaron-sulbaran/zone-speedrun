@@ -64,7 +64,7 @@ export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatc
   };
 
   return (
-    <section data-board="" data-connected={connected} aria-labelledby="sr-board-heading" className="mx-auto w-full max-w-5xl">
+    <section data-board="" data-connected={connected} aria-labelledby="sr-board-heading" className="mx-auto w-full max-w-5xl lg:mx-0 lg:max-w-none">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 ref={headingRef} id="sr-board-heading" tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink2 focus:outline-none">

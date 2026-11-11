@@ -11,7 +11,7 @@ const LINKS = copy.links
 // The way back to Aaron's site: a dark card at the end of the Why tab, with white text and links.
 export function Close() {
   return (
-    <footer data-close="" aria-labelledby="sr-close-heading" className="mx-auto mt-12 w-full max-w-3xl rounded-2xl bg-sr-ink px-6 py-10 text-sr-surface">
+    <footer data-close="" aria-labelledby="sr-close-heading" className="mx-auto mt-12 w-full max-w-3xl lg:mx-0 lg:max-w-none rounded-2xl bg-sr-ink px-6 py-10 text-sr-surface">
       <div>
         <h2 id="sr-close-heading" className="font-srcond text-sm font-normal uppercase tracking-widest">
           {copy.eyebrow}

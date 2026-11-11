@@ -6,7 +6,7 @@ const copy = speedrunCopy.decisions;
 // sits under a 2px black rule, like the trait columns on their application page.
 export function Decisions() {
   return (
-    <section data-decisions="" aria-labelledby="sr-decisions-heading" className="mx-auto w-full max-w-3xl">
+    <section data-decisions="" aria-labelledby="sr-decisions-heading" className="mx-auto w-full max-w-3xl lg:mx-0 lg:max-w-none">
       <p className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">{copy.eyebrow}</p>
       <h2 id="sr-decisions-heading" className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">
         {copy.heading}

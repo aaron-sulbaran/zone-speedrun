@@ -115,7 +115,7 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
   };
 
   return (
-    <section data-matches="" aria-labelledby="sr-matches-heading" className="relative mx-auto h-full w-full max-w-5xl max-lg:overflow-x-clip lg:flex lg:gap-6">
+    <section data-matches="" aria-labelledby="sr-matches-heading" className="relative mx-auto h-full w-full max-w-5xl lg:mx-0 lg:max-w-none max-lg:overflow-x-clip lg:flex lg:gap-4">
       <MatchList
         ref={listRef}
         items={items}

@@ -759,6 +759,101 @@ test("tabs sit at the bottom on a phone and in the top bar on desktop", async ({
   await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
 });
 
+// Rulings 36 to 41: from lg the shell reads as one product row, not the phone layout stretched.
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`desktop shell ${size.width}: one top row, text tabs, avatar top right, one width, Next as a link`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const list = page.getByRole("tablist", { name: network.tabsLabel });
+    const rect = (selector: string) => page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    // The phase entrance slides the frame for a moment, so measure once the row has settled.
+    // Catches: the 80 px logo band left above the bar, so the tabs and avatar sit two rows down from the site logo.
+    await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(40);
+    expect((await accountButton(page).evaluate((el) => el.getBoundingClientRect().top))).toBeLessThan(40);
+
+    // Catches: the avatar sitting between the badge and the tabs instead of at the bar's right edge.
+    const shell = await rect("[data-shell]");
+    const avatar = await accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; });
+    expect(shell.right - avatar.right).toBeLessThanOrEqual(32);
+    expect(avatar.left).toBeGreaterThan((await list.evaluate((el) => el.getBoundingClientRect().right)));
+
+    // Catches: the PR 7 team switch has no mount point, or it lands away from the avatar, or it renders something now.
+    const slot = page.locator("[data-shell-switch-slot]");
+    await expect(slot).toHaveCount(1);
+    const slotBox = await rect("[data-shell-switch-slot]");
+    expect(slotBox.right).toBeLessThanOrEqual(avatar.left);
+    expect(avatar.left - slotBox.right).toBeLessThanOrEqual(16);
+    expect(slotBox.right - slotBox.left).toBeGreaterThan(80);
+    expect(await slot.evaluate((el) => el.childElementCount + (el.textContent ?? "").length)).toBe(0);
+
+    // Catches: pill tabs, a filled selected tab (the old black pill) or a selected state with no underline.
+    const selectedTab = list.getByRole("tab", { selected: true });
+    const tabStyle = await selectedTab.evaluate((el) => { const s = getComputedStyle(el); return { background: s.backgroundColor, underline: s.borderBottomWidth }; });
+    expect(tabStyle.background).toBe("rgba(0, 0, 0, 0)");
+    expect(tabStyle.underline).toBe("2px");
+    // Catches: unselected tabs keeping the HUD fill, which makes the row a set of pills again.
+    const otherBackground = await list.getByRole("tab", { selected: false }).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(otherBackground).toBe("rgba(0, 0, 0, 0)");
+
+    // Catches: Next dressed like the selected tab (a filled ink control).
+    const ink = await page.locator("[data-speedrun]").first().evaluate((root) => { const probe = document.createElement("div"); probe.className = "bg-sr-ink"; root.appendChild(probe); const color = getComputedStyle(probe).backgroundColor; probe.remove(); return color; });
+    expect(ink).not.toBe("rgba(0, 0, 0, 0)");
+    const nextBackground = await page.getByRole("button", { name: network.nextTo.matches }).evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(nextBackground).not.toBe(ink);
+    expect(nextBackground).toBe("rgba(0, 0, 0, 0)");
+
+    // Catches: three content widths, with each panel centering its own max width so the left edges wander between tabs.
+    const lefts: number[] = [];
+    for (const id of ["matches", "board", "brief", "decisions"] as const) {
+      await openTab(page, network.tabs[id]);
+      lefts.push(await page.locator("[role=tabpanel]:not([hidden])").evaluate((panel) => (panel.firstElementChild as HTMLElement).getBoundingClientRect().left));
+    }
+    expect(Math.max(...lefts) - Math.min(...lefts)).toBeLessThanOrEqual(1);
+    // Catches: panels inset differently from the bar, so the brand and the content do not share one left edge.
+    const brandLeft = await page.locator("[data-shell] header img").first().evaluate((el) => el.getBoundingClientRect().left);
+    expect(Math.abs(lefts[0] - brandLeft)).toBeLessThanOrEqual(1);
+  });
+}
+
+// Catches: the detail pane stopping at the card's height (a short card beside a tall list) or taking the page tone, so the two panes do not share an edge.
+test("desktop shell: the Matches detail pane runs the list's full height, selected row and pane share one surface", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const list = page.locator("[data-match-list]");
+  await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
+  const bottoms = await page.evaluate(() => ({ list: document.querySelector("[data-match-list]")!.getBoundingClientRect().bottom, detail: document.querySelector("[data-match-detail]")!.getBoundingClientRect().bottom }));
+  expect(Math.abs(bottoms.list - bottoms.detail)).toBeLessThanOrEqual(2);
+  const tones = await page.evaluate(() => {
+    const background = (el: Element) => getComputedStyle(el).backgroundColor;
+    const rows = [...document.querySelectorAll("[data-match-row]")];
+    return { detail: background(document.querySelector("[data-match-detail]")!), selected: background(rows.find((row) => row.getAttribute("aria-current") === "true")!), other: background(rows.find((row) => row.getAttribute("aria-current") !== "true")!), edge: getComputedStyle(rows.find((row) => row.getAttribute("aria-current") === "true")!).borderTopColor };
+  });
+  // Catches: the detail on the page tone while the selected row is the solid surface, so the pair reads as two unrelated boxes.
+  expect(tones.detail).toBe(tones.selected);
+  // Catches: every row the same tone, so the selected one is told apart by its border alone.
+  expect(tones.other).not.toBe(tones.selected);
+});
+
+// Catches: the lg changes leaking below it: the icon dock must stay at the bottom, the switch slot must not take space on a phone.
+test("desktop shell: the 390 phone keeps the bottom dock with icons and no switch slot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const list = page.getByRole("tablist", { name: network.tabsLabel });
+  await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
+  await expect(list.locator("svg")).toHaveCount(4);
+  await expect(page.locator("[data-shell-switch-slot]")).toBeHidden();
+  expect(await list.getByRole("tab", { selected: true }).evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+});
+
 // Catches: the disclaimer truncated, clipped or pushed off screen (text-overflow ellipsis keeps toHaveText green), or the pinned pill still floating over the shell.
 test("the badge shows in full at every width, and the pinned pill is gone in the network phase", async ({ page }) => {
   await page.goto("/speedrun");

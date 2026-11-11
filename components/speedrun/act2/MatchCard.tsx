@@ -61,7 +61,7 @@ export function MatchCard({ match }: { match: Match }) {
   };
 
   return (
-    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5">
+    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
       <div className="flex items-center gap-3">
         <CompanyLogo name={company.name} logo={company.logo} />
         <div className="min-w-0">

@@ -10,7 +10,7 @@ import { BriefPreview } from "../act2/BriefPreview";
 import { Close } from "../act2/Close";
 import { Decisions } from "../act2/Decisions";
 import { Matches } from "../act2/Matches";
-import { NEXT_BUTTON, panelId, tabId } from "../act2/NetworkTabs";
+import { NEXT_LINK, panelId, tabId } from "../act2/NetworkTabs";
 import { AppShell } from "../shell/AppShell";
 import { visitorFirstName, visitorName } from "../visitorName";
 import { usePhaseEntrance } from "./usePhaseEntrance";
@@ -63,7 +63,7 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
         {NETWORK_TABS.map((id) => {
           const following = nextTab(id);
           return (
-            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible">
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-0">
               {visited.has(id) && id === "matches" && <Matches result={state.result!} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} name={name} />}
@@ -74,8 +74,8 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
                 </>
               )}
               {following && id !== "matches" && (
-                <div className="mx-auto mt-12 flex w-full max-w-3xl">
-                  <button type="button" onClick={() => goTo(following)} className={NEXT_BUTTON}>
+                <div className="mx-auto mt-12 flex w-full max-w-3xl lg:mx-0 lg:max-w-none">
+                  <button type="button" onClick={() => goTo(following)} className={NEXT_LINK}>
                     {speedrunCopy.network.nextTo[id as Exclude<NetworkTab, "matches" | "decisions">]}
                   </button>
                 </div>

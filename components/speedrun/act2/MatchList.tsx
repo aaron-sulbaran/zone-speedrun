@@ -5,7 +5,7 @@ import { forwardRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { reasonLine, type ListItem } from "@/lib/speedrun/matchList";
 import { CompanyLogo } from "./MatchCard";
-import { NEXT_BUTTON } from "./NetworkTabs";
+import { NEXT_LINK } from "./NetworkTabs";
 
 const copy = speedrunCopy.matches;
 const CHIP = "rounded-full bg-sr-hud px-2 py-0.5 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2";
@@ -91,7 +91,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
               data-match-row={item.key}
               aria-current={item.key === selectedKey ? "true" : undefined}
               onClick={() => onSelect(item.key)}
-              className="flex w-full items-start gap-3 rounded-xl border border-sr-soft bg-sr-surface p-3 text-left transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-[current=true]:border-sr-ink motion-reduce:transition-none"
+              className="flex w-full items-start gap-3 rounded-xl border border-sr-soft bg-sr-surface p-3 text-left transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple lg:bg-sr-hud lg:hover:bg-sr-strong aria-[current=true]:border-sr-ink lg:aria-[current=true]:bg-sr-surface motion-reduce:transition-none"
             >
               <RowBody item={item} mentionedFounding={mentionedFounding} />
               <ChevronRight aria-hidden="true" size={18} className="ml-auto h-[18px] w-[18px] shrink-0 self-center text-sr-ink2" />
@@ -105,7 +105,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
         </p>
       )}
       <div className="mt-8 pb-4">
-        <button type="button" onClick={onNext} className={NEXT_BUTTON}>
+        <button type="button" onClick={onNext} className={NEXT_LINK}>
           {nextLabel}
         </button>
       </div>

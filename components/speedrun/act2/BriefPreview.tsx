@@ -31,7 +31,7 @@ export function BriefPreview({ state, name }: { state: DemoState; name: string }
   const quiet = brief.items.length === 0;
 
   return (
-    <section data-brief="" aria-labelledby="sr-brief-heading" className="mx-auto w-full max-w-3xl">
+    <section data-brief="" aria-labelledby="sr-brief-heading" className="mx-auto w-full max-w-3xl lg:mx-0 lg:max-w-none">
       <h3 id="sr-brief-heading" className="font-srcond text-sm uppercase tracking-widest text-sr-ink2">
         {copy.heading}
       </h3>
