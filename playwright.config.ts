@@ -41,7 +41,7 @@ export default defineConfig({
     },
     // Desktop Safari's engine, only with E2E_ALL=1 so the default run stays Chromium. WebKit does not focus a button
     // on click and, on macOS, Tab moves only between form fields (e2e/speedrun-flow.ts tabKey).
-    ...(process.env.E2E_ALL
+    ...(process.env.E2E_ALL === "1"
       ? [
           {
             name: "webkit",

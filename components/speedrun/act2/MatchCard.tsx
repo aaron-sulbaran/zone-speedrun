@@ -49,7 +49,7 @@ export function MatchCard({ match }: { match: Match }) {
     (sheet === "intro" ? introRef : followRef).current?.focus();
     setSheet(null);
   };
-  // Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
+  // The sheet is not a live region: focus lands on it, so it is announced once. Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
   // and a click that closes it puts focus back on the button.
   useEffect(() => {
     if (sheet) sheetRef.current?.focus({ preventScroll: true });
@@ -111,7 +111,7 @@ export function MatchCard({ match }: { match: Match }) {
           </button>
         )}
       </div>
-      <div id={sheetId} role="status">
+      <div id={sheetId}>
         {sheet && (
           <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">
             {copy.connectSheet[sheet]}

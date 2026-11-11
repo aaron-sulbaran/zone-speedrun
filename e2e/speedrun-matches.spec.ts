@@ -4,7 +4,7 @@ import type { MatchResult } from "../lib/speedrun/match";
 import { PEOPLE } from "../lib/speedrun/people";
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, networkHeading, openTab, skipBuildLog } from "./speedrun-flow";
+import { answerOnboarding, networkHeading, openTab, skipBuildLog, tabKey } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
 const copy = speedrunCopy.matches;
@@ -206,7 +206,7 @@ test("phone: Back then widening leaves no held slide on the detail", async ({ pa
   expect(fits).toEqual({ inside: true, noSideways: true });
 });
 
-test("phone: the list is inert behind an open detail, and not inert once widened", async ({ page }) => {
+test("phone: the list is inert behind an open detail, and not inert once widened", async ({ page, browserName }) => {
   await page.setViewportSize(PHONE);
   await joinAs(page, "sam");
   await toMatches(page);
@@ -217,7 +217,7 @@ test("phone: the list is inert behind an open detail, and not inert once widened
   await expect(list).toHaveAttribute("inert", "");
   await page.locator("[data-detail-back]").focus();
   for (let i = 0; i < 3; i++) {
-    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press(`Shift+${tabKey(browserName)}`);
     expect(await page.evaluate(() => document.activeElement?.closest("[data-match-row]") !== null)).toBe(false);
   }
   await page.setViewportSize(DESKTOP);
@@ -425,6 +425,7 @@ test("Escape closes the connect sheet and keeps focus on its button", async ({ p
   const follow = detail(page).getByRole("button", { name: copy.connect.follow });
   await follow.click();
   await expect(page.locator("[data-connect-sheet=follow]")).toBeVisible();
+  // Catches: the sheet opening without taking focus (Safari leaves focus on the page behind), so Escape goes nowhere.
   await expect(page.locator("[data-connect-sheet=follow]")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("[data-connect-sheet]")).toHaveCount(0);

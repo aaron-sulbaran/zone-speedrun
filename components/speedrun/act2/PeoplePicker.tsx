@@ -87,9 +87,7 @@ export function PeoplePicker({
               data-person={key}
               data-phase-focus={on || (!selected && index === 0) ? "" : undefined}
               tabIndex={on || (!selected && index === 0) ? 0 : -1}
-              onClick={(event) => {
-                // Safari does not focus a button on click; the arrows only reach the group from a focused person.
-                event.currentTarget.focus();
+              onClick={() => {
                 onSelect(key);
                 onPick?.();
               }}

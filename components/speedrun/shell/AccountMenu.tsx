@@ -12,6 +12,9 @@ type AccountMenuProps = { name: string | null; onStartOver: () => void; onReplay
 /** The first code point, upper-cased, so an emoji or an accented letter is never cut in half. */
 export const initialOf = (name: string) => (Array.from(name.trim())[0] ?? "").toUpperCase();
 
+// Focus landing outside the menu. An ancestor of the menu does not count: WebKit sends a clicked button's focus to its nearest focusable ancestor.
+const leftMenu = (root: HTMLElement | null, next: EventTarget | null) => next instanceof Node && !root?.contains(next) && !next.contains(root);
+
 // A round button with the visitor's initial. The panel holds the full name and the two resets; it closes on
 // Escape (focus returns to the button), on a press outside, and before any action runs.
 export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps) {
@@ -34,7 +37,8 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
     };
     // Safari does not focus the button on click, so the root never held focus for a blur to leave; watch where focus lands.
     const onFocusIn = (event: FocusEvent) => {
-      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+      // WebKit sends a clicked button's focus to its nearest focusable ancestor; that is not leaving the menu.
+      if (leftMenu(rootRef.current, event.target)) setOpen(false);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("pointerdown", onPointerDown);
@@ -57,7 +61,7 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
       className="relative"
       onBlur={(event) => {
         const next = event.relatedTarget;
-        if (open && next instanceof Node && !rootRef.current?.contains(next)) setOpen(false);
+        if (open && leftMenu(rootRef.current, next)) setOpen(false);
       }}
     >
       <button

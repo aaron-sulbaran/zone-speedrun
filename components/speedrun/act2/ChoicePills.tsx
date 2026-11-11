@@ -42,11 +42,7 @@ export function ChoicePills({ value, onChoose, label }: { value: boolean | null;
               aria-checked={on}
               tabIndex={index === stopIndex ? 0 : -1}
               data-phase-focus={index === stopIndex ? "" : undefined}
-              onClick={(event) => {
-                // Safari does not focus a button on click; the arrows only reach the group from a focused pill.
-                event.currentTarget.focus();
-                onChoose(option.value);
-              }}
+              onClick={() => onChoose(option.value)}
               className={`${PILL} ${on ? "bg-sr-ink text-sr-surface" : "text-sr-ink hover:bg-sr-ink hover:text-sr-surface"}`}
             >
               {option.text}

@@ -1459,3 +1459,66 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
     expect(probe.clipped).toEqual([]);
   });
 }
+
+// Catches: a menu that closes on the press itself when WebKit moves focus from the account button to its focusable ancestor, so the click on Start over is lost.
+test("keyboard then mouse: Start over and Replay from the top still work from the account menu", async ({ page }) => {
+  await reachNetwork(page, "Alex");
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(accountPanel(page)).toBeVisible();
+  await accountPanel(page).getByRole("button", { name: network.account.startOver }).click();
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
+  await reachNetwork(page, "Alex");
+  await accountButton(page).focus();
+  await page.keyboard.press("Enter");
+  await accountPanel(page).getByRole("button", { name: network.account.replayTop }).click();
+  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+});
+
+// Catches: the group's arrow handler not getting the key after a click. WebKit does focus a button that carries a tabindex, so this holds without a focus call; the pin keeps it that way.
+test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", async ({ page }) => {
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const form = page.locator("#join");
+  await form.getByLabel(join.steps.name.inputLabel).fill("Alex");
+  await form.getByRole("button", { name: join.next }).click();
+  await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
+  await form.getByRole("button", { name: join.next }).click();
+  const yes = form.getByRole("radio", { name: join.yes, exact: true });
+  const no = form.getByRole("radio", { name: join.no, exact: true });
+  await yes.click();
+  await page.keyboard.press("ArrowRight");
+  await expect(no).toHaveAttribute("aria-checked", "true");
+  await expect(no).toBeFocused();
+});
+
+// Catches: the same dead arrow after a click on a person card (also a tabindex button).
+test("a person card: click, then ArrowDown selects and focuses the next person", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Alex", stopAtResume: true });
+  const form = page.locator("#join");
+  await form.locator('[data-person="sam"]').click();
+  await page.keyboard.press("ArrowDown");
+  await expect(form.locator('[data-person="lena"]')).toHaveAttribute("aria-checked", "true");
+  await expect(form.locator('[data-person="lena"]')).toBeFocused();
+});
+
+// Catches: the same dead arrow after a click on a network tab (also a tabindex button).
+test("a network tab: click, then ArrowRight selects the next tab", async ({ page }) => {
+  await reachNetwork(page);
+  await openTab(page, network.tabs.matches);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByRole("tab", { name: network.tabs.board, exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+// Catches: Enter after a click on a chip going nowhere because the chip is not focused (Safari); focus lands on the card, whose Enter advances.
+test("a target chip: click, then Enter advances the step", async ({ page }) => {
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const form = page.locator("#join");
+  await form.getByLabel(join.steps.name.inputLabel).fill("Alex");
+  await form.getByRole("button", { name: join.next }).click();
+  await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
+  await page.keyboard.press("Enter");
+  await expect(form.getByRole("heading", { name: join.steps.student.question })).toBeVisible();
+});
