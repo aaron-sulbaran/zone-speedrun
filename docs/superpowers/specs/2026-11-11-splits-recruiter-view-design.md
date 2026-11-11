@@ -8,7 +8,7 @@ On 2026-11-11 Aaron and I brainstormed the other half of Splits: what it does fo
 
 **Who owns what.**
 - **PR 6, the Builder's product round,** owns the candidate side and the shell: picks and ranking on Matches, the one intro request, the Board with the candidate's shortlist, Today, Intros, the Brief, Why, and the desktop top bar.
-- **This spec is PR 7.** It's built on PR 6 and owns the talent team's desk, the earned moment after a candidate spends their request, and what the Candidate / Talent team switch does.
+- **This spec is PR 7.** It's built on PR 6 and owns the talent team's desk, the earned moment after a candidate spends their request, what the Candidate / Talent team switch does, and one Why card that ships with the survey (section 7).
 - **The interface between them** is the intro request (Ruling 70).
 - **Nothing here is built until PR 6 merges.**
 
@@ -69,7 +69,7 @@ Also in the complete version, and said on the page rather than built (my calls):
 
 **Ruling 70. The intro request contract.**
 
-**PR 6 creates it.** When a candidate spends their one request on their #1, PR 6 creates the request. The type lives in one pure module under `lib/speedrun/`; PR 6 creates the module, and PR 7 adds the desk's transitions to it. It holds:
+**PR 6 creates it.** When a candidate spends their one request on their #1, PR 6 creates the request. The type lives in `lib/speedrun/introRequest.ts`. PR 6 creates that module with the type, creation, the swap and the shared `pass`, and PR 7 adds the desk's transitions to it. PR 6's spec (`docs/superpowers/specs/2026-11-11-splits-product-round-design.md` on `feat/splits-product`) points here as the contract. It holds:
 
 | Field | What it is |
 |---|---|
@@ -89,7 +89,7 @@ Also in the complete version, and said on the page rather than built (my calls):
   - `withFounder` → `connected` (the founder says yes);
   - `introSent` (the team sends the intro);
   - any of those → `passed`.
-- **When a request passes:** one shared pure function marks it `passed`, and makes the next eligible match in `ranked` the new live request, at `requested`. With none, the candidate has no live request. PR 6's shortlist shows the result, and the desk shows the new card.
+- **When a request passes:** the shared `pass` (PR 6) marks it `passed`, and makes the next eligible match in `ranked` the new live request, at `requested`. With none, the candidate has no live request. PR 6's shortlist shows the result, and the desk shows the new card.
 
 **What the candidate sees.** The candidate's shortlist (PR 6) shows the live request's status, in the desk's own words: Requested, With founder, Connected.
 
@@ -190,9 +190,11 @@ Aaron's pick: "B with the C drawer folded in". B is the loop as columns, and C i
 - The desk's stage machine is pure, in `lib/speedrun/`, with tests, as `phase.ts` and `matchList.ts` are.
 - No route, env or server change.
 
-**For PR 6 to weigh, not owned here.** The Why tab could carry the loop's two product decisions:
-- "One request, top pick only", because a spent pick is the signal;
-- "Every intro teaches the matching", through the match-or-people survey.
+**The Why tab card.** PR 6 adds "One intro, your top pick." PR 7 adds one decision card when it ships the survey (draft, Aaron edits):
+- **"Every intro teaches the matching."**
+- "A short survey asks both sides whether a miss was the match or the people. Only the match misses change who gets matched."
+
+It goes in the Why tab's decisions list as PR 6 leaves it, with its copy in `lib/content/speedrun.ts`.
 
 ## 8. Quality bars
 
@@ -225,7 +227,7 @@ PR 6 first, then this. The interface in Ruling 70 is agreed with PR 6's spec bef
 
 ## 11. Open for Aaron
 
-- **Every draft line in Rulings 72, 75 and 80.** He edits them, and I only fix mechanics.
+- **Every draft line in Rulings 72, 75 and 80, and the Why card in section 7.** He edits them, and I only fix mechanics.
 - **My calls,** listed here so he can veto any one:
   - the phone stage strip (73);
   - the fictional-company rule for sample cards, with drawer rivals as the only exception (73, 74);
