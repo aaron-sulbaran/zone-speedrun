@@ -76,5 +76,4 @@ export type Person = {
   volume: number;
   cadence: "on-change" | "daily" | "digest";
   profile: Profile;
-  boardOrder: BoardCard[];
 };

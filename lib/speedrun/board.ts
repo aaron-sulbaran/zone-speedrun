@@ -1,23 +1,14 @@
 import { classifyEmail } from "./classify";
 import { INBOX_TODAY } from "./inbox";
 import { STAGES } from "./pipeline";
-import type { AppRow, BoardCard, InboxEmail, InboxEvent } from "./types";
+import type { AppRow, InboxEmail, InboxEvent } from "./types";
 
-// The board's pure helpers: card movement, which rows to show, which events
+// The board's pure helpers: which rows to show, which events
 // belong on the Today and Intros cards, and turning pasted text into an email.
 
 const MAX_PASTE_CHARS = 20_000;
 const MAX_HEADER_CHARS = 200;
 const SENDER_SEARCH_LINES = 6;
-
-/** The index `moveCard` takes to shift `card` one step, or null at an end. */
-export function moveTarget(order: BoardCard[], card: BoardCard, direction: -1 | 1): number | null {
-  const at = order.indexOf(card);
-  const neighbor = order[at + direction];
-  if (at < 0 || neighbor === undefined) return null;
-  const rest = order.filter((other) => other !== card);
-  return rest.indexOf(neighbor) + (direction === 1 ? 1 : 0);
-}
 
 /** Live rows first, then the furthest stage, then the most recent; capped unless `showAll`. */
 export function tableRows(rows: AppRow[], showAll: boolean, limit: number): { shown: AppRow[]; total: number } {

@@ -1,15 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { demoReducer, initialDemoState, type DemoState } from "./demoState";
+import { demoReducer, initialDemoState } from "./demoState";
 import { stepsFor } from "./onboarding";
 import { PEOPLE } from "./people";
-import type { BoardCard } from "./types";
+import { createRequest } from "./introRequest";
+import type { Match } from "./match";
+import { matchKey } from "./matchList";
 
 const LIVE = { reading: false, email: false };
-const ALL_CARDS: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
 
-function everyCardOnce(state: DemoState) {
-  expect([...state.boardOrder, ...state.hidden].sort()).toEqual([...ALL_CARDS].sort());
+function match(name: string, connect: Match["connect"]): Match {
+  return {
+    company: { name, slug: name.toLowerCase(), logo: null, cohort: null, stage: null, blurb: `${name} blurb` },
+    role: null,
+    score: 1,
+    reasons: [],
+    connect,
+  };
 }
+const A = match("A", ["intro"]);
+const B = match("B", ["intro"]);
+const C = match("C", ["intro"]);
+const CANDIDATE = { firstName: "Alex", headline: "PM", shipped: [], kind: "visitor" as const };
+const request = (shortlist: Match[]) => createRequest({ candidate: CANDIDATE, shortlist, intake: initialDemoState(LIVE).intake })!;
 
 describe("demoReducer join steps", () => {
   it("walks joinStep to the last step and stops there", () => {
@@ -52,8 +64,6 @@ describe("demoReducer pickPerson", () => {
     expect(state.intake).toEqual(PEOPLE.dev.intake);
     expect(state.personKey).toBe("dev");
     expect(state.step).toBe("building");
-    expect(state.boardOrder).toEqual(PEOPLE.dev.boardOrder);
-    everyCardOnce(state);
   });
 
   it("keeps the visitor's answers when they gave any", () => {
@@ -221,37 +231,9 @@ describe("demoReducer pasted events", () => {
     expect(demoReducer(withEvent, { type: "pickPerson", key: "dev" }).events).toEqual([]);
     expect(demoReducer(withEvent, { type: "uploaded", buildId: 1 }).events).toEqual([]);
   });
+})
 
-  it("never lists the matches section as a board card", () => {
-    for (const person of Object.values(PEOPLE)) expect(person.boardOrder).toHaveLength(5);
-  });
-});
-
-describe("demoReducer board cards", () => {
-  it("moves a card and keeps every card exactly once", () => {
-    let state = initialDemoState(LIVE);
-    state = demoReducer(state, { type: "moveCard", card: "tools", to: 0 });
-    expect(state.boardOrder[0]).toBe("tools");
-    everyCardOnce(state);
-    state = demoReducer(state, { type: "moveCard", card: "tools", to: 99 });
-    expect(state.boardOrder.at(-1)).toBe("tools");
-    everyCardOnce(state);
-  });
-
-  it("toggles a card out and back in", () => {
-    let state = initialDemoState(LIVE);
-    state = demoReducer(state, { type: "toggleCard", card: "flow" });
-    expect(state.hidden).toEqual(["flow"]);
-    expect(state.boardOrder).not.toContain("flow");
-    everyCardOnce(state);
-    state = demoReducer(state, { type: "moveCard", card: "flow", to: 0 });
-    everyCardOnce(state);
-    state = demoReducer(state, { type: "toggleCard", card: "flow" });
-    expect(state.hidden).toEqual([]);
-    expect(state.boardOrder).toContain("flow");
-    everyCardOnce(state);
-  });
-
+describe("demoReducer events", () => {
   it("appends events", () => {
     const event = { emailId: "e1", company: "Acme", role: null, kind: "applied", date: "2026-11-01", lane: "jobs" } as const;
     const state = demoReducer(initialDemoState(LIVE), { type: "addEvents", events: [event] });
@@ -271,5 +253,75 @@ describe("uploadRejected", () => {
   it("is ignored once a build is under way", () => {
     const building = demoReducer(initialDemoState(LIVE), { type: "uploaded", buildId: 1 });
     expect(demoReducer(building, { type: "uploadRejected", error: "bad_input" })).toBe(building);
+  });
+});
+
+describe("demoReducer shortlist, intro request and done set", () => {
+  const withKeys = (keys: string[]) => keys.reduce((state, key) => demoReducer(state, { type: "bringForward", key, on: true }), initialDemoState(LIVE));
+
+  it("bringForward adds a key once and removes it when off", () => {
+    let state = withKeys(["a"]);
+    state = demoReducer(state, { type: "bringForward", key: "a", on: true });
+    expect(state.shortlist).toEqual(["a"]);
+    state = demoReducer(state, { type: "bringForward", key: "a", on: false });
+    expect(state.shortlist).toEqual([]);
+  });
+
+  it("moveShortlist reorders and leaves the request's key alone", () => {
+    const keys = [matchKey(A), matchKey(B), matchKey(C)];
+    let state = withKeys(keys);
+    state = demoReducer(state, { type: "requestIntro", request: request([A, B, C]) });
+    state = demoReducer(state, { type: "moveShortlist", key: matchKey(B), direction: -1 });
+    expect(state.shortlist).toEqual([matchKey(B), matchKey(A), matchKey(C)]);
+    expect(state.introRequest?.matchKey).toBe(matchKey(A));
+    expect(demoReducer(state, { type: "moveShortlist", key: matchKey(B), direction: -1 }).shortlist).toEqual(state.shortlist);
+  });
+
+  it("removing the requested key clears the request", () => {
+    let state = withKeys([matchKey(A), matchKey(B)]);
+    state = demoReducer(state, { type: "requestIntro", request: request([A, B]) });
+    expect(demoReducer(state, { type: "bringForward", key: matchKey(B), on: false }).introRequest).not.toBeNull();
+    expect(demoReducer(state, { type: "bringForward", key: matchKey(A), on: false }).introRequest).toBeNull();
+  });
+
+  it("swapIntro moves the new pick to the front of the shortlist", () => {
+    let state = withKeys([matchKey(A), matchKey(B), matchKey(C)]);
+    state = demoReducer(state, { type: "requestIntro", request: request([A, B, C]) });
+    const swapped = { ...request([C, A, B]) };
+    state = demoReducer(state, { type: "swapIntro", request: swapped });
+    expect(state.introRequest?.matchKey).toBe(matchKey(C));
+    expect(state.shortlist).toEqual([matchKey(C), matchKey(A), matchKey(B)]);
+  });
+
+  it("markDone is idempotent", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "markDone", id: "x" });
+    state = demoReducer(state, { type: "markDone", id: "x" });
+    expect(state.done).toEqual(["x"]);
+  });
+
+  it("pickPerson, built and reset clear all three", () => {
+    const dirty = () => {
+      let state = withKeys([matchKey(A)]);
+      state = demoReducer(state, { type: "requestIntro", request: request([A]) });
+      return demoReducer(state, { type: "markDone", id: "x" });
+    };
+    const cleared = { shortlist: [], introRequest: null, done: [] };
+    expect(demoReducer(dirty(), { type: "pickPerson", key: "dev" })).toMatchObject(cleared);
+    expect(demoReducer(dirty(), { type: "reset" })).toMatchObject(cleared);
+    const building = { ...dirty(), step: "building" as const, buildId: 3 };
+    const built = demoReducer(building, { type: "built", buildId: 3, profile: PEOPLE.dev.profile, result: { matches: [], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } } });
+    expect(built).toMatchObject(cleared);
+  });
+
+  it("no longer carries the board-order state or actions", () => {
+    const state = initialDemoState(LIVE);
+    // @ts-expect-error boardOrder left the state
+    void state.boardOrder;
+    // @ts-expect-error hidden left the state
+    void state.hidden;
+    // @ts-expect-error moveCard left the actions
+    demoReducer(state, { type: "moveCard", card: "tools", to: 0 });
+    // @ts-expect-error toggleCard left the actions
+    demoReducer(state, { type: "toggleCard", card: "flow" });
   });
 });

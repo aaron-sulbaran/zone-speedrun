@@ -127,34 +127,6 @@ test("the table caps at eight rows until show all", async ({ page }) => {
   expect(await rows.count()).toBeGreaterThan(8);
 });
 
-test("Arrange moves a card down and hides one, keeping focus", async ({ page }) => {
-  await joinAs(page, "sam", true);
-  const order = () => page.locator("[data-board-card]").evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-board-card")));
-  const first = await order();
-  const name = (card: string | null) => COPY.cardNames[card as keyof typeof COPY.cardNames];
-  await page.getByRole("button", { name: COPY.arrange.button }).click();
-  const down = page.getByRole("button", { name: `${COPY.arrange.down}: ${name(first[0])}` });
-  await down.click();
-  expect(await order()).toEqual([first[1], first[0], ...first.slice(2)]);
-  await expect(down).toBeFocused();
-  await expect(page.getByRole("status").filter({ hasText: name(first[0]) })).toBeAttached();
-  // The first card's Move up is inert but still focusable, so focus never falls out of the list.
-  const topUp = page.getByRole("button", { name: `${COPY.arrange.up}: ${name(first[1])}` });
-  await expect(topUp).toHaveAttribute("aria-disabled", "true");
-  await topUp.focus();
-  await page.keyboard.press("Enter");
-  expect(await order()).toEqual([first[1], first[0], ...first.slice(2)]);
-  await expect(topUp).toBeFocused();
-  await page.getByRole("button", { name: `${COPY.arrange.hide}: ${COPY.cardNames.tools}` }).click();
-  await expect(page.locator("[data-board-card=tools]")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: `${COPY.arrange.show}: ${COPY.cardNames.tools}` })).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("[data-board-card=tools]")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: `${COPY.arrange.hide}: ${COPY.cardNames.tools}` })).toBeFocused();
-  await page.getByRole("button", { name: COPY.arrange.done }).click();
-  await expect(page.getByRole("button", { name: COPY.arrange.up })).toHaveCount(0);
-});
-
 test("the tools card links the six real pages and says each opens a new tab", async ({ page }) => {
   await joinAs(page, "dev", true);
   const links = page.locator("[data-tools-list] a");

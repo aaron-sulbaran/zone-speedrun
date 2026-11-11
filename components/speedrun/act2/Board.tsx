@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
+import { useEffect, useMemo, useRef, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { introEvents, moveTarget, todayEvents } from "@/lib/speedrun/board";
+import { introEvents, todayEvents } from "@/lib/speedrun/board";
 import { classifyEmail } from "@/lib/speedrun/classify";
-import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import { DEFAULT_BOARD_ORDER, type DemoAction, type DemoState } from "@/lib/speedrun/demoState";
 import { toFlow } from "@/lib/speedrun/funnel";
 import { generateInbox, INBOX_TODAY } from "@/lib/speedrun/inbox";
 import { PEOPLE } from "@/lib/speedrun/people";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
 import type { BoardCard } from "@/lib/speedrun/types";
 import { FlowChart } from "../FlowChart";
-import { ArrangeToggle, CardFrame, HiddenCard, type ControlKind, type ControlRef } from "./BoardControls";
+import { CardFrame } from "./BoardControls";
 import { BoardStats } from "./BoardStats";
 import { BoardTable } from "./BoardTable";
 import { ConnectPrompt } from "./ConnectPrompt";
@@ -19,7 +19,6 @@ import { IntrosCard, TodayCard } from "./EventCards";
 import { PasteEmail } from "./PasteEmail";
 import { Rise } from "./Rise";
 import { ToolsCard } from "./ToolsCard";
-import { useAnnounce } from "./useAnnounce";
 
 const copy = speedrunCopy.board;
 function EmptyBody() {
@@ -29,25 +28,14 @@ function EmptyBody() {
 const INBOX_CARDS: BoardCard[] = ["today", "intros", "pipeline", "flow"];
 
 export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatch<DemoAction> }) {
-  const { personKey, inboxConnected: connected, boardOrder, hidden } = state;
-  const [arranging, setArranging] = useState(false);
-  const [announcement, announce] = useAnnounce();
-  // Focus goes back to a control after its card moves or its button swaps, and to the heading after Connect.
-  const controls = useRef(new Map<string, HTMLButtonElement>());
-  const pendingFocus = useRef<string | null>(null);
+  const { personKey, inboxConnected: connected } = state;
+  // Focus returns to the heading after Connect swaps the prompt out.
+  const pendingFocus = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
-  const controlRef: ControlRef = (card, kind) => (element) => {
-    if (element) controls.current.set(`${card}:${kind}`, element);
-    else controls.current.delete(`${card}:${kind}`);
-  };
-  const focusAfterUpdate = (card: BoardCard, kind: ControlKind | "heading") => {
-    pendingFocus.current = kind === "heading" ? "heading" : `${card}:${kind}`;
-  };
   useEffect(() => {
-    const target = pendingFocus.current;
-    if (!target) return;
-    pendingFocus.current = null;
-    (target === "heading" ? headingRef.current : controls.current.get(target))?.focus();
+    if (!pendingFocus.current) return;
+    pendingFocus.current = false;
+    headingRef.current?.focus();
   });
 
   const sampleEvents = useMemo(() => (connected && personKey ? generateInbox(PEOPLE[personKey]).map(classifyEmail) : []), [connected, personKey]);
@@ -55,25 +43,7 @@ export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatc
   const pipeline = useMemo(() => buildPipeline(events, INBOX_TODAY), [events]);
   const flow = useMemo(() => toFlow(pipeline), [pipeline]);
 
-  const owned = (card: BoardCard): boolean => connected || !INBOX_CARDS.includes(card);
-  const shown = boardOrder.filter(owned);
-  const hiddenShown = arranging ? hidden.filter(owned) : [];
-
-  const move = (card: BoardCard, direction: -1 | 1) => {
-    const to = moveTarget(boardOrder, card, direction);
-    if (to === null) return;
-    focusAfterUpdate(card, direction === -1 ? "up" : "down");
-    dispatch({ type: "moveCard", card, to });
-    const rest = boardOrder.filter((other) => other !== card);
-    const next = [...rest.slice(0, to), card, ...rest.slice(to)].filter(owned);
-    announce(copy.arrange.moved(copy.cardNames[card], next.indexOf(card) + 1, next.length));
-  };
-  const toggle = (card: BoardCard) => {
-    const showing = hidden.includes(card);
-    focusAfterUpdate(card, showing ? "hide" : "show");
-    dispatch({ type: "toggleCard", card });
-    announce((showing ? copy.arrange.shown : copy.arrange.hidden)(copy.cardNames[card]));
-  };
+  const shown = DEFAULT_BOARD_ORDER.filter((card) => connected || !INBOX_CARDS.includes(card));
 
   const firstName = state.profile?.firstName.trim();
   const flowTitle = firstName ? copy.flowTitle(firstName) : copy.flowTitleFallback;
@@ -102,15 +72,11 @@ export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatc
           </h3>
           <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
         </div>
-        {connected && <ArrangeToggle arranging={arranging} onToggle={() => setArranging((now) => !now)} />}
       </div>
-      <p className="sr-only" role="status">
-        {announcement}
-      </p>
       <div className="mt-6 space-y-4">
         {!connected && <ConnectPrompt
             onConnect={() => {
-              focusAfterUpdate("today", "heading");
+              pendingFocus.current = true;
               dispatch({ type: "connectInbox", on: true });
             }}
           />}
@@ -120,22 +86,10 @@ export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatc
             <PasteEmail existing={state.events} onAdd={(event) => dispatch({ type: "addEvents", events: [event] })} />
           </Rise>
         )}
-        {shown.map((card, index) => (
-          <CardFrame
-            key={card}
-            card={card}
-            arranging={arranging}
-            canUp={index > 0}
-            canDown={index < shown.length - 1}
-            onMove={(direction) => move(card, direction)}
-            onHide={() => toggle(card)}
-            controlRef={controlRef}
-          >
+        {shown.map((card) => (
+          <CardFrame key={card} card={card}>
             {body(card)}
           </CardFrame>
-        ))}
-        {hiddenShown.map((card) => (
-          <HiddenCard key={card} card={card} onShow={() => toggle(card)} controlRef={controlRef} />
         ))}
       </div>
     </section>

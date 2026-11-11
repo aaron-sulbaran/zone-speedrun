@@ -1,28 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { classifyEmail } from "./classify";
 import { INBOX_TODAY } from "./inbox";
-import { introEvents, moveTarget, parsePasted, readPaste, tableRows, todayEvents } from "./board";
-import type { AppRow, BoardCard, InboxEvent } from "./types";
-
-const ORDER: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
-
-describe("moveTarget", () => {
-  it("steps one card at a time", () => {
-    expect(moveTarget(ORDER, "pipeline", -1)).toBe(0);
-    expect(moveTarget(ORDER, "today", 1)).toBe(1);
-  });
-
-  it("returns null at the ends", () => {
-    expect(moveTarget(ORDER, "today", -1)).toBeNull();
-    expect(moveTarget(ORDER, "tools", 1)).toBeNull();
-  });
-
-  it("produces an index the reducer accepts", () => {
-    const to = moveTarget(ORDER, "flow", 1) as number;
-    const rest = ORDER.filter((card) => card !== "flow");
-    expect([...rest.slice(0, to), "flow", ...rest.slice(to)]).toEqual(["today", "pipeline", "intros", "flow", "tools"]);
-  });
-});
+import { introEvents, parsePasted, readPaste, tableRows, todayEvents } from "./board";
+import type { AppRow, InboxEvent } from "./types";
 
 function row(company: string, exit: AppRow["exit"], lastEventAt: string, furthest: AppRow["furthest"] = "applied"): AppRow {
   return { company, role: null, lane: "jobs", furthest, exit, lastEventAt, next: null };
