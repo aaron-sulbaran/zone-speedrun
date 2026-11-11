@@ -90,7 +90,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Roles.** Opus 5.5 orchestrates and reviews, implementers run on Sonnet 5.5, and Fable 5.1 does the end-of-build review. This writes down Aaron's standing ask: "Make sure Opus review agents actually go through and review what the Sonnet agents wrote." Codex is the second model on anything touching a visitor's résumé, email address or the limits.
 - **Merges and deploys.** Merges to `main` only on Aaron's word. Agents never deploy, link the Vercel project, or trigger a production build.
 - **Accounts and env.** Never enter credentials or create accounts: Aaron installs the store and sets env.
-- **Playwright.** At most two runs at once on this Mac, through the shared slot script.
+- **Playwright.** At most two runs at once on this Mac, through the shared slot script. e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit; Safari does not focus a button on click (focus it from code) and macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` from `e2e/speedrun-flow.ts`.
 - **Docs.** Context7 for Next.js, React, Tailwind and the AI SDK.
 - **Reporting.** Report milestones to the site's lead orchestrator, which gates this repo's PRs at 390 and 1440.
 
