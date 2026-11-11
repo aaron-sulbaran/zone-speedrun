@@ -18,7 +18,8 @@ export const TONES = {
     node: "var(--sr-ink)",
     text: "var(--sr-ink)",
     subtext: "var(--sr-ink-2)",
-    halo: "var(--sr-bg)",
+    // The Board draws it on a white card, so the label backing is the card surface, not the page paper.
+    halo: "var(--sr-surface)",
   },
 } as const;
 

@@ -2,6 +2,7 @@ import { useId } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { FlowData } from "@/lib/speedrun/funnel";
 import { layoutFlow, type FlowSize, type PlacedNode } from "@/lib/speedrun/flowLayout";
+import { HERO_NARROW, HERO_WIDE, LABEL_DROP, LABEL_RISE, TALL, WIDE } from "@/lib/speedrun/flowSizes";
 import { FlowReveal } from "./FlowReveal";
 import { TONES, type Tone } from "./flowTones";
 
@@ -10,19 +11,14 @@ import { TONES, type Tone } from "./flowTones";
 // Both orientations are rendered and CSS shows one: columns across from lg up,
 // rows stacked top to bottom below it, so there is no sideways scroll on phones.
 
-const WIDE = { width: 864, height: 340, nodeWidth: 6, gap: 20, maxPerUnit: 14 } satisfies FlowSize;
 const WIDE_LEFT = 100;
 const WIDE_LEFT_NO_LANE = 8;
 const WIDE_TOP = 26;
-const TALL = { width: 340, height: 600, nodeWidth: 36, gap: 52, maxPerUnit: 12, orientation: "vertical" } satisfies FlowSize;
 const TALL_RIGHT = 64;
 const BAR = 6;
 
 type Props = { data: FlowData; tone: Tone; title: string; animate?: boolean; size?: "full" | "hero" };
 
-// The hero draws one horizontal chart per breakpoint: wide from lg, narrow below it.
-const HERO_WIDE = { width: 560, height: 300, nodeWidth: 6, gap: 14, maxPerUnit: 14 };
-const HERO_NARROW = { width: 360, height: 200, nodeWidth: 6, gap: 9, maxPerUnit: 14 };
 const HERO_LEFT = 8;
 const HERO_RIGHT = 8;
 
@@ -58,6 +54,7 @@ function layoutFor(kind: "wide" | "tall" | "heroWide" | "heroNarrow", lanes: boo
 
 function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: string; kind: "wide" | "tall" | "heroWide" | "heroNarrow" }) {
   const titleId = useId();
+  const backingId = `${titleId.replace(/:/g, "")}-backing`;
   const colors = TONES[tone];
   const vertical = kind === "tall";
   const hasLanes = data.nodes.some((n) => n.kind === "lane");
@@ -65,14 +62,15 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
   const { nodes, links } = layoutFlow(data, layout.size);
   const lastColumn = Math.max(...nodes.map((n) => n.column), 0);
   const nodeWidth = layout.size.nodeWidth;
-  const halo = { stroke: colors.halo, strokeWidth: 4, paintOrder: "stroke" } as const;
+  // Stroke plus an SVG filter flood (server-safe, no measuring): the flood is the opaque backing under the text.
+  const halo = { stroke: colors.halo, strokeWidth: 4, paintOrder: "stroke", filter: `url(#${backingId})` } as const;
 
   const label = (node: PlacedNode) => {
     // The hero's applied count is the number the intro flies in from the subtitle.
     const sourceValue = layout.hero && node.id === "stage:applied" ? { "data-flow-source-value": "" } : {};
     if (vertical) {
       return (
-        <text x={node.x} y={node.y + BAR + 13} fontSize={12} fill={colors.text} aria-hidden="true">
+        <text x={node.x} y={node.y + BAR + LABEL_DROP} fontSize={12} fill={colors.text} aria-hidden="true" {...halo}>
           {node.label}
           <tspan x={node.x} dy={14} fill={colors.subtext}>
             {node.value}
@@ -87,12 +85,12 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
     return (
       <text
         x={lane ? node.x - 8 : atEnd ? node.x + nodeWidth : node.x}
-        y={lane ? node.y + node.h / 2 + 4 : below ? node.y + node.h + 13 : node.y - 7}
+        y={lane ? node.y + node.h / 2 + 4 : below ? node.y + node.h + LABEL_DROP : node.y - LABEL_RISE}
         textAnchor={lane || atEnd ? "end" : "start"}
         fontSize={12}
         fill={colors.text}
         aria-hidden="true"
-        {...(lane ? {} : halo)}
+        {...halo}
       >
         {node.label}
         <tspan dx={5} fill={colors.subtext} {...sourceValue}>
@@ -105,6 +103,15 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
   return (
     <svg viewBox={layout.view} role="img" aria-labelledby={titleId} className={layout.className}>
       <title id={titleId}>{title}</title>
+      <defs>
+        <filter id={backingId} x="-0.05" y="-0.1" width="1.1" height="1.2">
+          <feFlood style={{ floodColor: colors.halo }} result="backing" />
+          <feMerge>
+            <feMergeNode in="backing" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
       <g transform={layout.offset ? `translate(${layout.offset.x} ${layout.offset.y})` : undefined} {...(layout.hero ? { "data-flow-content": "" } : {})}>
         <g>
           {links.map((link) => (
@@ -119,12 +126,13 @@ function Svg({ data, tone, title, kind }: { data: FlowData; tone: Tone; title: s
             />
           ))}
         </g>
-        {nodes.map((node) => (
-          <g key={node.id}>
-            <rect x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
-            {label(node)}
-          </g>
-        ))}
+        <g>
+          {nodes.map((node) => (
+            <rect key={node.id} x={node.x} y={node.y} width={node.w} height={vertical ? BAR : node.h} rx={1.5} fill={colors.node} />
+          ))}
+        </g>
+        {/* Labels paint last, so no bar or link draws over one; each carries an opaque halo-colour backing. */}
+        <g>{nodes.map((node) => label(node))}</g>
       </g>
     </svg>
   );

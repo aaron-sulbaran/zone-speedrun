@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
 import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
-import { accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
+import { accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
@@ -1166,3 +1166,17 @@ test("the button plays the switch from its own cue, before the intro has ended",
   expect(pressedWhile).toBe("running");
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
+
+// Catches: labels sitting on node bars, on each other, or under a link (Ruling 19), in the hero chart at a laptop and a phone width.
+for (const [width, height] of [[1440, 900], [375, 812]] as const) {
+  test(`the hero chart's labels clear the nodes and each other at ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await settleHero(page);
+    const probe = await probeFlowLabels(page, "[data-hero]");
+    expect(probe.labels).toBeGreaterThan(8);
+    expect(probe.onNodes).toEqual([]);
+    expect(probe.overlapping).toEqual([]);
+    expect(probe.unbacked).toEqual([]);
+  });
+}
