@@ -34,7 +34,23 @@ describe("desktop caption", () => {
   });
   it("clamps to the left and right gutters", () => {
     for (const [wl, ww, cw, vw] of [[0, 40, 300, 1440], [1400, 40, 300, 1440], [10, 100, 400, 500]]) {
-      expect(captionLeft({ words: { left: wl, width: ww }, paragraph: { left: 24, width: 300 }, captionWidth: cw, viewportWidth: vw, phone: false })).toBe(oldLeft(wl, ww, cw, vw));
+      expect(captionLeft({ words: { left: wl, width: ww }, paragraph: { left: 16, width: 300 }, captionWidth: cw, viewportWidth: vw, phone: false })).toBe(oldLeft(wl, ww, cw, vw));
     }
+  });
+  // Catches: Ruling 35 regressing, the caption hanging left of the paragraph when the lit words start a wrapped line.
+  it("never starts left of the paragraph when the words sit at its left edge", () => {
+    const left = captionLeft({ words: { left: 144, width: 146 }, paragraph: { left: 144, width: 560 }, captionWidth: 300, viewportWidth: 1440, phone: false });
+    expect(left).toBe(144);
+  });
+  it("keeps the old centred value when the words sit mid-line", () => {
+    const left = captionLeft({ words: { left: 400, width: 146 }, paragraph: { left: 144, width: 560 }, captionWidth: 300, viewportWidth: 1440, phone: false });
+    expect(left).toBe(oldLeft(400, 146, 300, 1440));
+  });
+  it("with no paragraph, keeps the old formula", () => {
+    expect(captionLeft({ words: { left: 144, width: 146 }, paragraph: null, captionWidth: 300, viewportWidth: 1440, phone: false })).toBe(oldLeft(144, 146, 300, 1440));
+  });
+  it("still holds the right gutter after the paragraph clamp", () => {
+    const left = captionLeft({ words: { left: 1300, width: 100 }, paragraph: { left: 144, width: 1200 }, captionWidth: 300, viewportWidth: 1440, phone: false });
+    expect(left + 300).toBeLessThanOrEqual(1440 - 16);
   });
 });

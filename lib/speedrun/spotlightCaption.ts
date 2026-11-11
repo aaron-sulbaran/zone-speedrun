@@ -12,11 +12,13 @@ export function phoneCaptionMaxWidth(paragraph: Span, viewportWidth: number): nu
 
 /**
  * Phones (Ruling 31): the caption starts at the paragraph's left edge, so a wrapped line lines up with the text above.
- * Everything else: centred under the lit words, then held 16 px off both edges (the original formula).
+ * Everything else: centred under the lit words, never starting left of the paragraph (Ruling 35: a wrapped subtitle can start a line at the paragraph's edge),
+ * then held 16 px off both edges (the original formula).
  */
 export function captionLeft(input: { words: Span; paragraph: Span | null; captionWidth: number; viewportWidth: number; phone: boolean }): number {
   const { words, paragraph, captionWidth, viewportWidth, phone } = input;
   const farthest = Math.max(CAPTION_EDGE_PX, viewportWidth - CAPTION_EDGE_PX - captionWidth);
-  const wanted = phone && paragraph ? paragraph.left : words.left + words.width / 2 - captionWidth / 2;
+  const centred = words.left + words.width / 2 - captionWidth / 2;
+  const wanted = paragraph ? (phone ? paragraph.left : Math.max(centred, paragraph.left)) : centred;
   return Math.min(Math.max(wanted, CAPTION_EDGE_PX), farthest);
 }

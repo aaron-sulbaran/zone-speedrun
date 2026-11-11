@@ -1041,7 +1041,7 @@ test("84 applications pulses before the screen goes dark", async ({ page }) => {
   expect(after.transform).toBe("none");
 });
 
-for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844], [375, 812], [320, 700]] as const) {
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [1280, 800], [1024, 768], [390, 844], [375, 812], [320, 700]] as const) {
   // Catches: a veil that is too weak, pure black, has a hole again, a lit copy off the words (or the same colour as them in light), a missing caption, or a layer not above the chrome.
   test(`the veil holds on 84 applications with the caption at ${width} in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
@@ -1136,8 +1136,17 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
       // Catches: an unbalanced wrap at 320 that leaves "400." alone on the caption's second line.
       if (held.captionLines.length > 1) expect(held.captionLines.at(-1)! / held.captionLines[0]).toBeGreaterThan(0.5);
     } else {
-      // Catches: the phone alignment leaking onto desktop, or the centring under the lit words changing.
-      expect(Math.abs(held.captionCentre - held.wordsCentre)).toBeLessThanOrEqual(1);
+      // Catches: the caption hanging left of the paragraph when the words start a wrapped line (Ruling 35), at 1440 with the longer subtitle.
+      expect(held.captionLeft).toBeGreaterThanOrEqual(held.paragraphLeft - 1);
+      const centredLeft = held.wordsCentre - (held.captionRight - held.captionLeft) / 2;
+      if (centredLeft >= held.paragraphLeft) {
+        // Catches: the phone alignment leaking onto desktop, or the centring under the lit words changing, where the paragraph clamp does not apply.
+        expect(Math.abs(held.captionCentre - held.wordsCentre)).toBeLessThanOrEqual(1);
+      } else {
+        // Catches: the clamp landing anywhere but the paragraph's left edge.
+        expect(Math.abs(held.captionLeft - held.paragraphLeft)).toBeLessThanOrEqual(1);
+      }
+      console.log(`CAPTION ${width}x${height} ${scheme}: caption.left=${held.captionLeft.toFixed(1)} paragraph.left=${held.paragraphLeft.toFixed(1)} centred=${centredLeft.toFixed(1)}`);
     }
     expect(held.layerAria).toBe("true");
     expect(held.layerEvents).toBe("none");
