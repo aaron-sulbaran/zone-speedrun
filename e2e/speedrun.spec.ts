@@ -142,6 +142,50 @@ test("with motion the same click starts the sweep on the strip", async ({ page }
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
 });
 
+// Catches: the "okay. y'all's style." line cut short again, or the reveal starting before the line has been readable for its full beat.
+test("the switch holds the line: fully visible at 1,000 ms and the reveal not started at 800 ms", async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __pressAt: number; __revealAt: number; __strip: number };
+    w.__pressAt = 0;
+    w.__revealAt = 0;
+    w.__strip = 0;
+    document.addEventListener("click", () => (w.__pressAt ||= performance.now()), true);
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (this: Element, ...args: Parameters<Element["animate"]>) {
+      if (this.matches("[data-shift-strip]") && ++w.__strip === 2) w.__revealAt = performance.now();
+      return original.apply(this, args);
+    };
+  });
+  await page.goto("/speedrun");
+  await settleHero(page);
+  await switchButton(page).click();
+  // The line's own animation, read for its timing: pause it and seek, so the check does not depend on this machine's frame clock.
+  const opacityAt = await page.evaluate(async () => {
+    const strip = document.querySelector<HTMLElement>("[data-shift-strip]")!;
+    while (strip.querySelector("p")!.getAnimations().length === 0) await new Promise((r) => requestAnimationFrame(r));
+    const animation = strip.querySelector("p")!.getAnimations()[0];
+    animation.pause();
+    const read = (ms: number) => {
+      animation.currentTime = ms;
+      return Number(getComputedStyle(strip.querySelector("p")!).opacity);
+    };
+    return { at560: read(560), at1000: read(1000), at1050: read(1050), at1300: read(1300) };
+  });
+  expect(opacityAt.at560).toBe(1);
+  expect(opacityAt.at1000).toBe(1);
+  expect(opacityAt.at1050).toBe(1);
+  expect(opacityAt.at1300).toBeLessThan(0.1);
+  await page.evaluate(() => document.querySelector<HTMLElement>("[data-shift-strip] p")!.getAnimations().forEach((a) => a.play()));
+  await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
+  await expect(page.locator("[data-shift-strip]")).toBeHidden({ timeout: 8000 });
+  const gap = await page.evaluate(() => {
+    const w = window as unknown as { __pressAt: number; __revealAt: number };
+    return w.__revealAt - w.__pressAt;
+  });
+  // Cover 480 plus hold 370 is 850 ms; a timer never fires early, so the lower bound is exact and a long wait cannot fail it.
+  expect(gap).toBeGreaterThanOrEqual(800);
+});
+
 test("the switch lands on the join card at the top of the page with the name input focused", async ({ page }) => {
   // A short window, so the hero scrolls and "back at the top" is a real claim.
   await page.setViewportSize({ width: 1280, height: 500 });
@@ -1228,6 +1272,8 @@ test("the subtitle reads as one sentence to a screen reader", async ({ page }) =
     return text.replace(/\s+/g, " ").trim();
   });
   expect(readable).toBe(sentence);
+  // Catches: the subtitle drifting from Aaron's line (his wording, the three plain dots, the final period).
+  expect(readable).toBe(`As an ECE student at UT Austin, I've sent ${AARON_ENTRIES.length} applications this fall... and counting.`);
   const spans = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => !!el.closest('[aria-hidden="true"]')));
   expect(spans.length).toBeGreaterThan(8);
   expect(spans.every(Boolean)).toBe(true);
