@@ -1,6 +1,6 @@
 // Where the spotlight caption sits horizontally. Plain numbers in, plain numbers out, so it is testable without a DOM.
 
-export const CAPTION_EDGE_PX = 16;
+const CAPTION_EDGE_PX = 16;
 const CAPTION_CAP_PX = 352; // 22rem, the CSS cap in globals.css
 
 type Span = { left: number; width: number };
