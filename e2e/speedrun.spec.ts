@@ -1168,8 +1168,9 @@ test("the button plays the switch from its own cue, before the intro has ended",
 });
 
 // Catches: labels sitting on node bars, on each other, or under a link (Ruling 19), in the hero chart at a laptop and a phone width.
-for (const [width, height] of [[1440, 900], [375, 812]] as const) {
-  test(`the hero chart's labels clear the nodes and each other at ${width}`, async ({ page }) => {
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [375, 812]] as const) {
+  test(`the hero chart's labels clear the nodes and each other at ${width} in ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width, height });
     await page.goto("/speedrun");
     await settleHero(page);
@@ -1178,5 +1179,6 @@ for (const [width, height] of [[1440, 900], [375, 812]] as const) {
     expect(probe.onNodes).toEqual([]);
     expect(probe.overlapping).toEqual([]);
     expect(probe.unbacked).toEqual([]);
+    expect(probe.clipped).toEqual([]);
   });
 }

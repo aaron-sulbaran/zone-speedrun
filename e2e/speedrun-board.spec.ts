@@ -171,14 +171,16 @@ test("the tools card links the six real pages and says each opens a new tab", as
 });
 
 // Catches: labels sitting on node bars, on each other, or under a link (Ruling 19), in the Board's full chart (wide from lg, tall below).
-for (const [width, height] of [[1440, 900], [390, 844]] as const) {
-  test(`the board chart's labels clear the nodes and each other at ${width}`, async ({ page }) => {
+// Dev is the only persona with lanes (six columns); sam has none.
+for (const person of ["sam", "dev"] as const) for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  test(`the board chart's labels clear the nodes and each other for ${person} at ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
-    await joinAs(page, "sam", true);
+    await joinAs(page, person, true);
     const probe = await probeFlowLabels(page, "[data-board]");
     expect(probe.labels).toBeGreaterThan(8);
     expect(probe.onNodes).toEqual([]);
     expect(probe.overlapping).toEqual([]);
     expect(probe.unbacked).toEqual([]);
+    expect(probe.clipped).toEqual([]);
   });
 }

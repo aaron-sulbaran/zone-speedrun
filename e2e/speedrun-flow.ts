@@ -164,49 +164,93 @@ export async function expectVisitorName(page: Page, name: string) {
 
 export type LabelProbe = {
   labels: number;
-  /** Labels whose box, grown by 2 px, touches a node bar. */
+  /** Labels whose backing (the glyphs grown by the dilate radius) touches a node bar. */
   onNodes: string[];
-  /** Pairs of labels whose boxes touch. */
+  /** Pairs of labels whose backings touch. */
   overlapping: string[];
-  /** Labels with no opaque backing, a backing in another colour than the halo, or a node or link painted after them. */
+  /** Labels whose backing is missing or wrong: no filter, not sRGB, not the backdrop colour, not under the text, a region too small, or a node or link painted after the label. */
   unbacked: string[];
+  /** Labels whose backing is cut by the edge of their SVG. */
+  clipped: string[];
 };
+
+// The dilate radius of the label backing (BACKING in lib/speedrun/flowLabels.ts), restated so a wrong constant there goes red.
+const BACKING_PX = 3;
 
 /**
  * Geometry probe for the visible flow chart(s) under `root`. A chart's content group is the one holding its
  * `<text>` labels; the hero marks it `[data-flow-content]`. Run it once fonts are ready.
  */
 export async function probeFlowLabels(page: Page, root: string): Promise<LabelProbe> {
-  return page.evaluate((rootSelector) => {
-    type Box = { x: number; y: number; width: number; height: number };
-    const hit = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-    const grow = (b: Box, by: number): Box => ({ x: b.x - by, y: b.y - by, width: b.width + 2 * by, height: b.height + 2 * by });
-    const out: LabelProbe = { labels: 0, onNodes: [], overlapping: [], unbacked: [] };
-    const svgs = [...document.querySelectorAll<SVGSVGElement>(`${rootSelector} svg[role="img"]`)].filter((s) => s.getBoundingClientRect().width > 0);
-    for (const svg of svgs) {
-      const g = svg.querySelector("text")?.closest("g")?.parentElement as SVGGElement | null;
-      if (!g) continue;
-      const texts = [...g.querySelectorAll("text")];
-      const rects = [...g.querySelectorAll("rect")];
-      const paths = [...g.querySelectorAll("path")];
-      const boxes = texts.map((t) => ({ t, b: t.getBBox(), s: (t.textContent ?? "").replace(/\s+/g, " ").trim() }));
-      out.labels += boxes.length;
-      boxes.forEach((a, i) => {
-        const at = (b: Box) => `${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.width)}x${Math.round(b.height)}`;
-        const under = rects.find((r) => hit(grow(a.b, 2), r.getBBox()));
-        if (under) out.onNodes.push(`${a.s} [${at(a.b)}] on [${at(under.getBBox())}]`);
-        boxes.slice(i + 1).forEach((b) => {
-          if (hit(a.b, b.b)) out.overlapping.push(`${a.s} / ${b.s}`);
+  return page.evaluate(
+    ({ rootSelector, backing }) => {
+      type Box = { x: number; y: number; width: number; height: number };
+      const hit = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+      const grow = (b: Box, by: number): Box => ({ x: b.x - by, y: b.y - by, width: b.width + 2 * by, height: b.height + 2 * by });
+      const at = (b: Box) => `${Math.round(b.x)},${Math.round(b.y)} ${Math.round(b.width)}x${Math.round(b.height)}`;
+      const out: LabelProbe = { labels: 0, onNodes: [], overlapping: [], unbacked: [], clipped: [] };
+      const backdropOf = (el: Element) => {
+        for (let node: Element | null = el; node; node = node.parentElement) {
+          const color = getComputedStyle(node).backgroundColor;
+          if (color !== "rgba(0, 0, 0, 0)" && color !== "transparent") return color;
+        }
+        return "rgba(0, 0, 0, 0)";
+      };
+      const svgs = [...document.querySelectorAll<SVGSVGElement>(`${rootSelector} svg[role="img"]`)].filter((s) => s.getBoundingClientRect().width > 0);
+      for (const svg of svgs) {
+        const g = svg.querySelector("text")?.closest("g")?.parentElement as SVGGElement | null;
+        if (!g) continue;
+        const texts = [...g.querySelectorAll("text")];
+        const rects = [...g.querySelectorAll("rect")];
+        const paths = [...g.querySelectorAll("path")];
+        const svgRect = svg.getBoundingClientRect();
+        const scale = svgRect.width / svg.viewBox.baseVal.width;
+        const boxes = texts.map((t) => ({ t, b: t.getBBox(), s: (t.textContent ?? "").replace(/\s+/g, " ").trim() }));
+        out.labels += boxes.length;
+        boxes.forEach((a, i) => {
+          const mine = grow(a.b, backing);
+          const under = rects.find((r) => hit(mine, r.getBBox()));
+          if (under) out.onNodes.push(`${a.s} [${at(a.b)}] on [${at(under.getBBox())}]`);
+          boxes.slice(i + 1).forEach((b) => {
+            if (hit(mine, grow(b.b, backing))) out.overlapping.push(`${a.s} / ${b.s}`);
+          });
+
+          const client = a.t.getBoundingClientRect();
+          const reach = backing * scale;
+          if (client.left - reach < svgRect.left - 0.5 || client.right + reach > svgRect.right + 0.5 || client.top - reach < svgRect.top - 0.5 || client.bottom + reach > svgRect.bottom + 0.5) {
+            out.clipped.push(`${a.s} [${at(a.b)}]`);
+          }
+
+          const id = /url\("?#([^")]+)"?\)/.exec(getComputedStyle(a.t).filter)?.[1];
+          const filter = id ? document.getElementById(id) : null;
+          const flood = filter?.querySelector("feFlood");
+          const nodes = [...(filter?.querySelectorAll("feMergeNode") ?? [])];
+          const region = filter
+            ? {
+                x: a.b.x + a.b.width * parseFloat(filter.getAttribute("x") ?? "-0.1"),
+                y: a.b.y + a.b.height * parseFloat(filter.getAttribute("y") ?? "-0.1"),
+                width: a.b.width * parseFloat(filter.getAttribute("width") ?? "1.4"),
+                height: a.b.height * parseFloat(filter.getAttribute("height") ?? "1.2"),
+              }
+            : null;
+          const covers = !!region && region.x <= mine.x && region.y <= mine.y && region.x + region.width >= mine.x + mine.width && region.y + region.height >= mine.y + mine.height;
+          const painted = (other: Element) => !!(a.t.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+          const reasons: string[] = [];
+          if (!flood) reasons.push("no filter");
+          else {
+            if (getComputedStyle(flood).floodColor !== backdropOf(svg)) reasons.push(`flood ${getComputedStyle(flood).floodColor} is not the backdrop ${backdropOf(svg)}`);
+            if (getComputedStyle(flood).floodOpacity !== "1") reasons.push("flood not opaque");
+            if (getComputedStyle(flood).colorInterpolationFilters.toLowerCase() !== "srgb") reasons.push("not sRGB");
+            if (nodes.at(-1)?.getAttribute("in") !== "SourceGraphic") reasons.push("text not merged last");
+            if (!covers) reasons.push("filter region too small");
+            if (!filter?.querySelector('feMorphology[operator="dilate"]')) reasons.push("no dilate");
+          }
+          if (rects.some(painted) || paths.some(painted)) reasons.push("a node or link paints after it");
+          if (reasons.length) out.unbacked.push(`${a.s}: ${reasons.join(", ")}`);
         });
-        const filterUrl = getComputedStyle(a.t).filter;
-        const id = /url\("?#([^")]+)"?\)/.exec(filterUrl)?.[1];
-        const flood = id ? document.getElementById(id)?.querySelector("feFlood") : null;
-        const halo = getComputedStyle(a.t).stroke;
-        const painted = (other: Element) => !!(a.t.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
-        const backed = !!flood && getComputedStyle(flood).floodColor === halo && getComputedStyle(flood).floodOpacity === "1";
-        if (!backed || rects.some(painted) || paths.some(painted)) out.unbacked.push(a.s);
-      });
-    }
-    return out;
-  }, root);
+      }
+      return out;
+    },
+    { rootSelector: root, backing: BACKING_PX },
+  );
 }
