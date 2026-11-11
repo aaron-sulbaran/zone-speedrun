@@ -96,7 +96,11 @@
   | { type: "passIntro"; by: "team" | "founder" }
   ```
   - **Each action applies its transition** to `state.introRequest`. A null result (illegal) leaves the state unchanged.
-  - **`passIntro`** calls PR 6's `pass` with `resolveShortlist(state.result, state.shortlist)` and `state.intake`, and stores `live` as the new `introRequest`. The passed request isn't kept: the desk shows only the live one. `passedBy` stays on `pass`'s return for tests.
+  - **These three are reducer cases of their own.** They never route through PR 6's `requestIntro` or `swapIntro`, which only apply while the request is `requested`, and only for shortlist keys (PR 6, Task 4).
+  - **`passIntro`** calls PR 6's `pass` with `resolveShortlist(state.result, state.shortlist)` and `state.intake`, and stores `live` as the new `introRequest`. PR 6's `pass` already skips keys that are ineligible or no longer in the shortlist.
+    - With a live request, it moves the live key to `shortlist[0]`, keeping PR 6's invariant that the request sits on #1, as `swapIntro` does. The passed match stays in the shortlist, after it.
+    - The passed request isn't kept: the desk shows only the live one. `passedBy` stays on `pass`'s return for tests.
+  - **`resolveShortlist`** is new here: PR 6 has no equivalent (confirmed by the Builder at PR 6's `61552bb`).
 
 - [ ] **Step 1: Write the failing tests.** In `introRequest.test.ts`:
   - `sendToFounder` moves `requested` to `withFounder`, and returns null from `withFounder`, `connected` and `passed`;
@@ -107,8 +111,9 @@
   In `demoState.test.ts`:
   - `advanceIntro` to `connected` from `requested` leaves the state unchanged;
   - after `advanceIntro` to `withFounder`, PR 6's `swapIntro` is refused;
-  - `passIntro` with a shortlist of three eligible matches makes #2 live at `requested`;
-  - `passIntro` with no other eligible match sets `introRequest` to null.
+  - `passIntro` with a shortlist of three eligible matches makes #2 live at `requested`, with `shortlist[0]` and `introRequest.ranked[0]` both equal to the new live key (`// Catches:` the request leaving #1, which PR 6's Matches can't show);
+  - `passIntro` with no other eligible match sets `introRequest` to null;
+  - `passIntro` works on a `withFounder` request, where PR 6's guarded `swapIntro` would refuse it (`// Catches:` a pass routed through the swap's guard).
 - [ ] **Step 2: Run them.** Run `pnpm test lib/speedrun/introRequest.test.ts lib/speedrun/demoState.test.ts`. Expected: FAIL on the new cases.
 - [ ] **Step 3: Implement** the transitions and the three reducer cases.
 - [ ] **Step 4: Run the checks.** Run `pnpm test`, then `pnpm tsc --noEmit`. Expected: pass.
