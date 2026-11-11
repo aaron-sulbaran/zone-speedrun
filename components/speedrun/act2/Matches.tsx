@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MatchResult } from "@/lib/speedrun/match";
 import { listItems, moveSelection } from "@/lib/speedrun/matchList";
+import { SHORT_LANDSCAPE } from "@/lib/speedrun/viewport";
 import { motion, prefersReducedMotion, SR_EASE, STEP_EASE } from "@/lib/speedrun/motion";
 import { MatchDetail } from "./MatchDetail";
 import { MatchList } from "./MatchList";
@@ -12,8 +13,6 @@ const STAGGER_MS = 70;
 const MAX_STAGGERED = 8;
 // Clears the fixed site logo (top-4 plus 40 px), matching the shell's pt-20.
 const LOGO_CLEARANCE = 80;
-// Keep in step with the [@media(max-height:559px)_and_(orientation:landscape)] variants in shell/, phases/ and act2/.
-const SHORT_LANDSCAPE = "(max-height: 559px) and (orientation: landscape)";
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
 type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };

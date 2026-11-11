@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { SHORT_LANDSCAPE } from "./lib/speedrun/viewport";
 
 const config: Config = {
   content: [
@@ -9,6 +10,7 @@ const config: Config = {
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
+      screens: { "short-landscape": { raw: SHORT_LANDSCAPE } },
       colors: {
         background: "var(--color-background)",
         foreground: "var(--color-foreground)",

@@ -329,7 +329,7 @@ test("at 375 with reduced motion the pick scrolls to the footer without animatin
   expect(inView).toBe(true);
 });
 
-// Regression: an arrow-key pick moves focus to the next card; the footer scroll used to run a
+// Regression: an arrow key selects the neighbouring card and focuses it; the footer scroll used to run a
 // frame later and carry that focused card off screen. Only pointer picks scroll.
 test("at 375 an arrow-key pick keeps the focused card in view", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
@@ -342,6 +342,40 @@ test("at 375 an arrow-key pick keeps the focused card in view", async ({ page })
   expect(await page.evaluate(() => document.activeElement?.getAttribute("data-person"))).not.toBeNull();
   expect(rect.top).toBeGreaterThanOrEqual(0);
   expect(rect.bottom).toBeLessThanOrEqual(667);
+});
+
+// Catches: Enter or Space on a card (a click with detail 0) running the footer scroll, which carries the focused card off screen like the arrow bug did.
+test("at 375 a Space pick on a focused card leaves the scroll where it is", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  const card = page.locator("#join [data-person]").first();
+  await card.focus();
+  const before = await page.evaluate(() => window.scrollY);
+  await page.keyboard.press("Space");
+  await expect(card).toHaveAttribute("aria-checked", "true");
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.scrollY)).toBe(before);
+  expect(await page.evaluate(primaryInView)).toBe(false);
+});
+
+// Ruling 28. Catches: the footer sticky on a phone held sideways (it covers a third of the 390 px screen), or a pick that leaves the in-flow button below the fold there.
+test("at 844 by 390 the join footer sits in flow and a pick scrolls it into view", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { name: "Casey", stopAtResume: true });
+  const footer = await page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>("[data-join-footer]")!;
+    const style = getComputedStyle(el);
+    return { position: style.position, backdrop: style.backdropFilter, background: style.backgroundColor };
+  });
+  expect(footer.position).not.toBe("sticky");
+  expect(footer.backdrop).toBe("none");
+  expect(footer.background).toBe("rgba(0, 0, 0, 0)");
+  expect(await page.evaluate(primaryInView)).toBe(false);
+  await page.locator("#join [data-person]").first().click();
+  await expect.poll(() => page.evaluate(primaryInView), { timeout: 3000 }).toBe(true);
 });
 
 // Regression: the in-flow footer must not leak to desktop, where the sticky bar stays.
