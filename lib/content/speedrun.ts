@@ -17,9 +17,9 @@ export const speedrunCopy = {
     headline1: "job hunting sux.",
     headline2: "I would know.",
     subtitle: {
-      before: "As an ECE student at UT Austin, I sent ",
+      before: "As an ECE student at UT Austin, I've sent ",
       count: (n: number) => `${n} applications`,
-      after: " this fall.",
+      after: " this fall... and counting.",
     },
     spotlightCaption: "Some of my friends have sent 400.",
     p1: "I've been grinding for internships for a long time. Every recruiting season I know I'm not the only one suffering, because my friends are too.",
