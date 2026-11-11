@@ -110,6 +110,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
 - **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog, Rise, and the switch line's fade), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
+- **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45.
 
 ## Gotchas
 
@@ -120,7 +121,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **No analytics yet.** The insights script's root path would route to the site's project.
 - **Browser checks.** A hidden built-in browser pane pauses rAF and Web Animations, so check end states there and time motion in Playwright.
 - **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
-- **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor (often `#act-2`), so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` (and `Shift+${tabKey}`) from `e2e/speedrun-flow.ts`; `Alt+Tab` assumes Keyboard navigation is off in macOS settings.
+- **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor (often `#act-2`), so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` (and `Shift+${tabKey}`) from `e2e/speedrun-flow.ts`.
 - **e2e pins** name the regression they catch, and must go red without their guard.
 
 ## Run and deploy
@@ -135,8 +136,8 @@ A PR per change with CI green before merge. Second-model review on anything touc
 
 - `app/`: the page and `api/{read,brief,match}`
 - `components/speedrun/`: `act1/`, `act2/`, `phases/`, `shell/`, the switch and the experience
-- `lib/speedrun/`: pure logic, `snapshot.json`, tests
+- `lib/speedrun/`: pure logic, `snapshot.json`, tests (plus the dev-only `introHold.ts`)
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-10 at 950151f
+Last verified: 2026-11-10 at 186b8d7
