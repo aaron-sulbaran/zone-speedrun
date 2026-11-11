@@ -168,7 +168,7 @@ export function JoinCard({ state, dispatch, onUpload }: JoinCardProps) {
           <JoinStep key={stepKey} stepKey={stepKey} index={joinStep} state={state} dispatch={dispatch} selected={selected} onSelect={setSelected} onPick={revealFooter} onChoose={choose} onUpload={onUpload && ((file) => beginSubmit("upload", () => onUpload(file)))} />
         )}
       </div>
-      <div ref={footerRef} data-join-footer="" className="rounded-b-3xl border-t border-sr-soft px-6 py-4 md:sticky md:bottom-0 md:z-10 md:bg-sr-foot md:backdrop-blur md:px-8 short-landscape:static short-landscape:bg-transparent short-landscape:[backdrop-filter:none]">
+      <div ref={footerRef} data-join-footer="" className="rounded-b-3xl border-t border-sr-soft px-6 py-4 md:sticky md:bottom-0 md:z-10 md:bg-sr-foot md:backdrop-blur md:px-8 md:short-landscape:static md:short-landscape:bg-transparent md:short-landscape:[backdrop-filter:none]">
         <div className="flex items-center gap-3">
           <button type="button" onClick={goBack} disabled={joinStep === 0 || submitting !== null} className={GHOST}>
             {copy.back}

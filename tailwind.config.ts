@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 import { SHORT_LANDSCAPE } from "./lib/speedrun/viewport";
 
 const config: Config = {
@@ -10,7 +11,6 @@ const config: Config = {
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
-      screens: { "short-landscape": { raw: SHORT_LANDSCAPE } },
       colors: {
         background: "var(--color-background)",
         foreground: "var(--color-foreground)",
@@ -57,6 +57,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // A variant, not a screen: a raw screen reorders the max-* variants and breaks max-lg rules. Plugin variants sort before the md: rules,
+  // so use it stacked (md:short-landscape:...) to land after them.
+  plugins: [plugin(({ addVariant }) => addVariant("short-landscape", `@media ${SHORT_LANDSCAPE}`))],
 };
 export default config;
