@@ -96,29 +96,27 @@ From lg up:
 - **42. Bring forward.** Each match (the list row and the detail) gets a "Bring forward" toggle. Brought-forward matches form the candidate's shortlist, which shows on the Board (section 3). This works without connecting an inbox: the board builds from picks alone.
 - **43. Ranked.** The shortlist is ordered: on the board, each pick has move up and move down controls, buttons and not drag. The first pick is #1.
 - **44. One intro request, on #1 only** (the stable-marriage cap).
-  - "Request a warm intro" is enabled only on the #1 pick, and only when no request is active.
-  - Once spent, every other match shows "Your intro request is on {company}". It's a line, not a button.
-  - The request can be withdrawn, which frees it for whatever is #1 then.
+  - "Request a warm intro" is enabled only on the #1 pick, only when that match is eligible (its `connect` includes `"intro"`), and only when there is no live request.
+  - Once it's spent, every other match shows "Your intro request is on {company}". That's a line, not a button.
+  - While the request is still `requested`, the candidate can swap it to a different eligible pick: the swap moves the pick to #1 and the request with it. Once PR 7's desk moves it on, it's locked.
+  - The request is bound to its match by `matchKey`, never by position, so reordering the shortlist doesn't move it.
   - This replaces today's "Ask for a warm intro" sheet text. The detail keeps Apply (the real URL) and Follow.
-- **45. The intro request is the contract with PR 7.** It's a pure type in `lib/speedrun/introRequest.ts`:
+- **45. The intro request is the contract with PR 7,** as written in the recruiter-view spec's Ruling 70. PR 6 creates the module `lib/speedrun/introRequest.ts`, with the type, request creation, the swap, and the shared pure `pass` function. PR 7 adds its transitions to the same module.
 
-  ```ts
-  type IntroRequest = {
-    id: string;
-    candidate: PersonKey | "you";
-    roleId: string;
-    company: string;
-    title: string;
-    rank: number;
-    fitBrief: string; // from the match's reasons
-    status: "requested" | "with_founder" | "connected" | "tracking" | "outcome";
-    at: string; // ISO
-  };
-  ```
+  The type, per Ruling 70:
+  - `candidate`: first name, headline, `profile.shipped`, and whether it's the visitor or a sample person;
+  - `match`: the Match;
+  - `ranked`: brought-forward match keys in rank order, the request's match first;
+  - `fit`: `whyThem` from `match.reasons`, and `whyRole` from the intake;
+  - `status`: `requested | withFounder | connected | passed`;
+  - `introSent`;
+  - `passedBy`: `team | founder`.
 
-  - It lives in `DemoState`, with at most one active.
-  - In this PR its status never moves past "requested". PR 7's desk moves it.
-  - On the candidate side the board's warm intros show it as "Requested: the talent team reviews it next".
+  Behaviour:
+  - `pass(request)` marks the request passed and makes the next eligible match in `ranked` the live request, at `requested`. With none, there's no live request.
+  - It lives in `DemoState`, with at most one live request.
+  - In this PR its status never moves past `requested`; PR 7's desk moves it.
+  - The shortlist (Ruling 53) and the board's warm intros show the live request's status as Requested ("the talent team reviews it next"), With founder or Connected.
 
 ### 3. The Board (Rulings 46 to 55)
 
@@ -200,6 +198,7 @@ Top to bottom on desktop, in one column of the shared content width. The order i
     - "No pasting." (hunting for an email to paste is friction; the board builds from your inbox or from the matches you bring forward);
     - "One intro, your top pick." (the cap that keeps intros meaningful for founders and the talent team).
   - Aaron edits all of them.
+  - PR 7 adds one more card when it ships the match-or-people survey: "Every intro teaches the matching." This PR doesn't add it, because it would describe something not built yet.
 - **64. The close stays,** with Ruling 33's 80/20 copy.
 
 ### 6. Mock data (Rulings 65 to 67)
