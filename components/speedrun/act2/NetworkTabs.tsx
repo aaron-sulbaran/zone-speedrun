@@ -30,7 +30,7 @@ export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
     requestAnimationFrame(() => document.getElementById(tabId(NETWORK_TABS[target]))?.focus({ preventScroll: true }));
   };
   return (
-    <div role="tablist" aria-label={copy.tabsLabel} onKeyDown={onKeyDown} className="relative z-10 grid grid-cols-4 gap-1 border-t border-sr-soft bg-sr-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 [grid-area:tabs] max-lg:[@media(max-height:559px)_and_(orientation:landscape)]:sticky max-lg:[@media(max-height:559px)_and_(orientation:landscape)]:bottom-0 lg:flex lg:gap-2 lg:border-0 lg:bg-transparent lg:px-6 lg:py-2">
+    <div role="tablist" aria-label={copy.tabsLabel} onKeyDown={onKeyDown} className="relative z-10 grid grid-cols-4 gap-1 border-t border-sr-soft bg-sr-surface px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 [grid-area:tabs] max-lg:short-landscape:sticky max-lg:short-landscape:bottom-0 lg:flex lg:gap-2 lg:border-0 lg:bg-transparent lg:px-6 lg:py-2">
       {NETWORK_TABS.map((id) => {
         const selected = id === tab;
         const Icon = ICONS[id];

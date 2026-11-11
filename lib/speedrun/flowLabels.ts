@@ -14,6 +14,9 @@ export const BACKING_REGION = { x: -0.2, y: -0.5, width: 1.4, height: 2 };
 export const BACKING = 3;
 /** The drawn thickness of a node bar in the tall chart. */
 export const BAR = 6;
+/** A lane label sits this far left of its bar, and its baseline this far under the bar's middle. */
+const LANE_GAP = 8;
+const LANE_BASELINE = 4;
 /** A label above its bar has its baseline this far over it. */
 export const LABEL_RISE = 7;
 /** A label below its bar has its baseline this far under it. */
@@ -23,8 +26,8 @@ export const LABEL_ROOM = LABEL_RISE + ASCENT + BACKING + 2;
 /** Room the tall chart needs under a bar for its two-line label and the backing, before the ribbon starts. */
 export const TALL_ROOM = BAR + LABEL_DROP + VALUE_LINE + DESCENT + BACKING;
 
-export type LabelContext = { vertical: boolean; compact: boolean; lastColumn: number; nodeWidth: number };
-export type LabelSpot = { x: number; y: number; anchor: "start" | "end"; stacked: boolean };
+type LabelContext = { vertical: boolean; compact: boolean; lastColumn: number; nodeWidth: number };
+type LabelSpot = { x: number; y: number; anchor: "start" | "end"; stacked: boolean };
 
 /** The narrow hero has no room for the last two columns' exit labels and drops the last stage's label below its bar. Null means no label. */
 export function placeLabel(node: PlacedNode, ctx: LabelContext): LabelSpot | null {
@@ -32,7 +35,7 @@ export function placeLabel(node: PlacedNode, ctx: LabelContext): LabelSpot | nul
   const lane = node.kind === "lane";
   const atEnd = node.column === ctx.lastColumn && !lane;
   if (ctx.compact && node.kind === "exit" && node.column >= ctx.lastColumn - 1) return null;
-  if (lane) return { x: node.x - 8, y: node.y + node.h / 2 + 4, anchor: "end", stacked: false };
+  if (lane) return { x: node.x - LANE_GAP, y: node.y + node.h / 2 + LANE_BASELINE, anchor: "end", stacked: false };
   const y = ctx.compact && atEnd ? node.y + node.h + LABEL_DROP : node.y - LABEL_RISE;
   return { x: atEnd ? node.x + ctx.nodeWidth : node.x, y, anchor: atEnd ? "end" : "start", stacked: false };
 }

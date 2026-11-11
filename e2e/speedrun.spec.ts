@@ -70,6 +70,13 @@ test("every word of the hero is in the server HTML", async ({ request }) => {
   for (const text of [copy.flowTitle, copy.privacyNote, copy.headline1, copy.headline2, copy.subtitle.count(AARON_ENTRIES.length), copy.p1, copy.p2, copy.closing.line, copy.closing.sub, copy.closing.button]) {
     expect(html).toContain(text);
   }
+  // Catches: the visual words (the aria-hidden spans the intro animates) missing from the server HTML while the screen-reader sentence alone satisfies the check above.
+  const raw = await (await request.get("/speedrun")).text();
+  const spans = [...raw.matchAll(/<span[^>]*data-intro-el="subtitle"[^>]*>([\s\S]*?)<\/span>/g)].map((match) => textOf(match[1]));
+  const { before, count, after } = copy.subtitle;
+  const words = [...before.split(" "), ...count(AARON_ENTRIES.length).split(" "), ...after.split(" ")].filter(Boolean);
+  expect(spans).toEqual(words);
+  expect(raw.slice(Math.max(0, raw.indexOf('data-intro-el="subtitle"') - 200), raw.indexOf('data-intro-el="subtitle"'))).toContain('aria-hidden="true"');
 });
 
 // Catches: a hero taller than the screen, which would push the closing button below the fold (1440 by 790 and 1366 by 768 are real laptop windows).
@@ -329,7 +336,7 @@ test("at 375 with reduced motion the pick scrolls to the footer without animatin
   expect(inView).toBe(true);
 });
 
-// Regression: an arrow key selects the neighbouring card and focuses it; the footer scroll used to run a
+// Regression: with nothing picked, ArrowDown selects the first card and focus stays on it; the footer scroll used to run a
 // frame later and carry that focused card off screen. Only pointer picks scroll.
 test("at 375 an arrow-key pick keeps the focused card in view", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
@@ -1158,15 +1165,43 @@ test("a real scroll of the page during the hold ends the intro", async ({ page }
   expect(await page.locator(SPOTLIGHT).count()).toBe(0);
 });
 
+// Catches: Replay from the top from a scrolled page ending its own intro at once, because the remounted hero's scroll skip hears the move back to the top (or measures the words at the old scroll position).
+test("Replay from the top on a scrolled network page still plays the intro", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await reachNetwork(page);
+  await openAccountMenu(page);
+  const scrolled = await page.evaluate(() => {
+    window.scrollTo({ top: 60, behavior: "instant" });
+    return window.scrollY;
+  });
+  expect(scrolled).toBeGreaterThan(0);
+  await page.evaluate((name) => {
+    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!.click();
+  }, network.account.replayTop);
+  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "running");
+  await page.waitForTimeout(500);
+  expect(await page.locator("[data-hero]").getAttribute("data-intro")).toBe("running");
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 // Catches: the subtitle's word spans read one by one by a screen reader, or the full sentence missing from (or doubled in) the accessible text.
 test("the subtitle reads as one sentence to a screen reader", async ({ page }) => {
   await page.goto("/speedrun");
   await settleHero(page);
   const { before, count, after } = speedrunCopy.act1.subtitle;
   const sentence = [before, count(AARON_ENTRIES.length), after].join(" ").split(" ").filter(Boolean).join(" ");
-  // Elements a screen reader can reach (nothing aria-hidden on the way up) whose text is the whole sentence: the visual copy, which has the same text, is hidden.
-  const readable = await page.evaluate((text) => [...document.querySelectorAll("[data-hero] *")].filter((el) => !el.closest('[aria-hidden="true"]') && (el.textContent ?? "").replace(/\s+/g, " ").trim() === text).length, sentence);
-  expect(readable).toBe(1);
+  // What a screen reader reads from the paragraph: its text nodes outside any aria-hidden subtree (the paragraph's own textContent also holds the hidden visual words).
+  const readable = await page.evaluate(() => {
+    let text = "";
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+      else if (node instanceof Element && node.getAttribute("aria-hidden") !== "true") node.childNodes.forEach(walk);
+    };
+    walk(document.querySelector("[data-hero-spotlight]")!.closest("p")!);
+    return text.replace(/\s+/g, " ").trim();
+  });
+  expect(readable).toBe(sentence);
   const spans = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => !!el.closest('[aria-hidden="true"]')));
   expect(spans.length).toBeGreaterThan(8);
   expect(spans.every(Boolean)).toBe(true);
@@ -1265,11 +1300,13 @@ test("a keydown during the hold removes the layer in the same tick", async ({ pa
       layers: document.querySelectorAll("[data-spotlight]").length,
       intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
       animations: document.getAnimations().filter((a) => ((a.effect as KeyframeEffect | null)?.target as Element | null | undefined)?.closest("[data-spotlight], [data-hero-spotlight]")).length,
+      // Catches: the lit copy, its twin or the flying clone outliving a hold skip. Read in this same synchronous turn, so a clone that is only removed later (when its animation settles) still fails.
+      lit: document.querySelectorAll("[data-spotlight-lit]").length,
+      twin: document.querySelectorAll("[data-spotlight-lit-count]").length,
+      flight: document.querySelectorAll("[data-intro-flight]").length,
     };
   });
-  expect(after).toEqual({ layers: 0, intro: "done", animations: 0 });
-  // Catches: the lit copy, its twin or the flying clone outliving a hold skip (they are separate nodes, so the layer's removal does not prove them gone).
-  expect(await page.evaluate(() => ({ lit: document.querySelectorAll("[data-spotlight-lit]").length, twin: document.querySelectorAll("[data-spotlight-lit-count]").length, flight: document.querySelectorAll("[data-intro-flight]").length }))).toEqual({ lit: 0, twin: 0, flight: 0 });
+  expect(after).toEqual({ layers: 0, intro: "done", animations: 0, lit: 0, twin: 0, flight: 0 });
 });
 
 // Catches: the layer outliving the intro, or the beat's animations lingering at rest.
@@ -1621,8 +1658,7 @@ test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", 
   await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
   await form.getByRole("button", { name: join.next }).click();
   const yes = form.getByRole("radio", { name: join.yes, exact: true });
-  await yes.click();
-  // A pill advances the card 260 ms (choiceAdvanceMs) after the answer, which removes the radios; read the state one tick after the key instead of racing that.
+  // A pill advances the card 260 ms (choiceAdvanceMs) after the answer, which removes the radios; the hook is armed before the click and reads the state one tick after the key, so nothing races that.
   await page.evaluate(() => {
     const w = window as unknown as { __afterArrow?: { checked: string | null; focused: string | null } };
     document.addEventListener(
@@ -1635,6 +1671,7 @@ test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", 
       { once: true, capture: true },
     );
   });
+  await yes.click();
   await page.keyboard.press("ArrowRight");
   const after = await page.waitForFunction(() => (window as unknown as { __afterArrow?: unknown }).__afterArrow).then((handle) => handle.jsonValue());
   expect(after).toEqual({ checked: join.no, focused: join.no });

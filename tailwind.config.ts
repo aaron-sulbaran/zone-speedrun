@@ -57,7 +57,7 @@ const config: Config = {
       },
     },
   },
-  // A variant, not a screen: a raw screen reorders the max-* variants and breaks max-lg rules. Plugin variants sort before the md: rules,
+  // A variant, not a screen: an object screen (such as { raw }) stops the max-* variants, max-lg: included, from generating at all in Tailwind 3.4. Plugin variants sort before the md: rules,
   // so use it stacked (md:short-landscape:...) to land after them.
   plugins: [plugin(({ addVariant }) => addVariant("short-landscape", `@media ${SHORT_LANDSCAPE}`))],
 };

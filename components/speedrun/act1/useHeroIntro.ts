@@ -12,8 +12,7 @@ function setIntro(el: HTMLElement, state: "running" | "done") {
   el.dataset.intro = state;
 }
 
-// "scroll" covers a scrollbar drag and a script that moves the page; the dim should not hold a reader who is already leaving it.
-const SKIP_EVENTS = ["pointerdown", "keydown", "wheel", "touchmove", "scroll"] as const;
+const SKIP_EVENTS = ["pointerdown", "keydown", "wheel", "touchmove"] as const;
 
 // checkVisibility is missing before Safari 17.4; a rendered element has client rects.
 const isShown = (el: Element) => (el as Element & { checkVisibility?: () => boolean }).checkVisibility?.() ?? el.getClientRects().length > 0;
@@ -72,6 +71,9 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     }
     setIntro(el, "running");
     const startedAt = performance.now();
+    // The intro plays from the top (a replay from a scrolled phase remounts this hero before the page returns to the top), and the scroll
+    // this causes must not count as the reader's: measure from the top, and listen for scroll only from the next frame.
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "instant" });
 
     const m = motion();
     const items = Array.from(el.querySelectorAll<HTMLElement>("[data-intro-el]"));
@@ -158,7 +160,12 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const replace = () => spotlight?.place();
     let releaseHold: (() => void) | undefined;
 
-    const stopListening = () => SKIP_EVENTS.forEach((type) => document.removeEventListener(type, skip));
+    let scrollArm = 0;
+    const stopListening = () => {
+      cancelAnimationFrame(scrollArm);
+      SKIP_EVENTS.forEach((type) => document.removeEventListener(type, skip));
+      document.removeEventListener("scroll", skip);
+    };
     const complete = () => {
       if (el.dataset.intro === "done") return;
       clone?.remove();
@@ -178,6 +185,9 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
       complete();
     }
     SKIP_EVENTS.forEach((type) => document.addEventListener(type, skip, { passive: true }));
+    // "scroll" covers a scrollbar drag and a script that moves the page; the dim should not hold a reader who is already leaving it.
+    // Armed a frame late: the scroll events of the move above are delivered before this callback runs.
+    scrollArm = requestAnimationFrame(() => document.addEventListener("scroll", skip, { passive: true }));
     Promise.all(animations.map((animation) => animation.finished)).then(complete, () => {});
 
     document.fonts?.ready.then(() => el.dataset.intro === "running" && replace());
