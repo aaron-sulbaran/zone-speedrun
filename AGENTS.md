@@ -109,7 +109,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - Read and brief run only with their switch on and a reachable store, and email also needs the allowlist. A missing, slow or erroring store denies (`lib/speedrun/sharedLimit.ts`, `liveFlags` in `lib/speedrun/guard.ts`).
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
-- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog, Rise, and the switch line's fade), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
+- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch (including its line's fade), the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog and Rise), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
 - **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45. The intro ends on pointerdown, keydown, wheel, touchmove or scroll, and the spotlight beat is skipped when its words are not fully in view.
 - **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant. A bare rule sorts after base utilities and before every screen variant, so stack it on the screen whose rule it has to beat (the join footer uses `md:short-landscape:`; the shell and tabs use it bare or as `max-lg:short-landscape:`). Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
 
@@ -141,4 +141,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-11 at b01c0b2
+Last verified: 2026-11-11 at f7ef696
