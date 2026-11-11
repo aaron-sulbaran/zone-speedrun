@@ -5,6 +5,8 @@ export type Contact = { name: "Aaron Sulbaran"; title: string };
 
 export type CompanyDetail = {
   contact: Contact;
+  /** The one role this detail is about; unset means the company or the intro as a whole. */
+  role?: string;
   /** ISO date the next step is due. */
   due?: string;
   /** A made-up call. The link is text for the sheet, never an href. */
@@ -23,13 +25,19 @@ const aaron = (title: string): Contact => ({ name: "Aaron Sulbaran", title });
  */
 export const DETAILS: Partial<Record<PersonKey, Record<string, CompanyDetail>>> = {
   sam: {
-    Wrenfield: { contact: aaron("Head of Engineering, Wrenfield"), due: "2026-11-09" },
+    Wrenfield: { role: "Founding Engineer", contact: aaron("Head of Engineering, Wrenfield"), due: "2026-11-09" },
     // The founders said "this week"; the id of this action is the brief's "a founder replied" line, so both agree.
     "Lumora Health": { contact: aaron("Co-founder, Lumora Health"), due: "2026-11-10", introStatus: "replied" },
-    "Cindermoor Cloud": { contact: aaron("Recruiting Lead, Cindermoor Cloud"), due: "2026-11-11" },
-    Quillbright: { contact: aaron("Engineering Manager, Quillbright"), due: "2026-11-12" },
-    "Tarnmoor Robotics": { contact: aaron("Founder, Tarnmoor Robotics") },
-    Vantablue: { contact: aaron("Technical Recruiter, Vantablue") },
+    "Cindermoor Cloud": {
+      role: "Software Engineer, New Grad",
+      contact: aaron("Recruiting Lead, Cindermoor Cloud"),
+      due: "2026-11-11",
+      // The time they proposed, still to confirm; beyond this week, so the action stays a confirmation.
+      meeting: { at: "2026-11-16T15:00:00.000Z", link: "https://meet.example/cindermoor-interview" },
+    },
+    Quillbright: { role: "Software Engineer, Product", contact: aaron("Engineering Manager, Quillbright"), due: "2026-11-12" },
+    "Tarnmoor Robotics": { role: "Founding Engineer", contact: aaron("Founder, Tarnmoor Robotics") },
+    Vantablue: { role: "Full Stack Engineer", contact: aaron("Technical Recruiter, Vantablue") },
     "min/Max": {
       contact: aaron("Founder, min/Max"),
       introStatus: "scheduled",

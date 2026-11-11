@@ -22,6 +22,8 @@ export type SheetContent = {
   draft?: string;
   slots?: string[];
   prep?: string[];
+  /** Shown as plain text; never an href. */
+  meeting?: { at: string; link: string };
   links?: { label: string; href: string }[];
   confirm: string;
   note: string;
@@ -93,13 +95,16 @@ function sheetFor(kind: ActionKind, company: string, role: string | null, who: C
   const sheet: SheetContent = { title: text.title(company, role), confirm: text.confirm, note: text.note };
   if (text.draft) sheet.draft = text.draft(company, role);
   if (kind === "pickTime" || kind === "replyTimes") sheet.slots = slotsFor(today);
-  if (kind === "prepare" || kind === "joinMeeting") sheet.prep = detail?.prep ?? copy.defaultPrep;
+  // Prep notes belong to someone with a pinned detail; a generic row gets none.
+  if ((kind === "prepare" || kind === "joinMeeting") && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
+  if (detail?.meeting) sheet.meeting = detail.meeting;
   if (who && LINKEDIN) sheet.links = [{ label: copy.linkedin(who.name), href: LINKEDIN }];
   return sheet;
 }
 
 function build(kind: ActionKind, company: string, role: string | null, detail: CompanyDetail | undefined, quietDays: number, today: string, who = detail?.contact ?? null): Action {
-  const due = detail?.due ?? null;
+  const meetingDue = kind === "prepare" || kind === "joinMeeting" ? detail?.meeting?.at : undefined;
+  const due = detail?.due ?? meetingDue ?? null;
   return {
     id: idOf(kind, company, role),
     kind,
@@ -114,6 +119,12 @@ function build(kind: ActionKind, company: string, role: string | null, detail: C
 }
 
 /** A booked call is joined on the day and prepared for in the days before it. */
+/** A detail about one role applies to that role only; one with no role covers the company or the intro. */
+function detailFor(details: Details, company: string, role: string | null): CompanyDetail | undefined {
+  const detail = details?.[company];
+  return detail && (!detail.role || detail.role === role) ? detail : undefined;
+}
+
 function meetingKind(detail: CompanyDetail | undefined, today: string): "joinMeeting" | "prepare" | null {
   if (!detail?.meeting) return null;
   const away = daysUntil(detail.meeting.at, today);
@@ -126,23 +137,24 @@ function kindForStage(stage: Stage, detail: CompanyDetail | undefined, today: st
     case "offer":
       return "decideOffer";
     case "interview":
-      return meetingKind(detail, today) ?? "confirmInterview";
+      // With nobody pinned to confirm with, the interview is already on: get ready for it.
+      return meetingKind(detail, today) ?? (detail ? "confirmInterview" : "prepare");
     case "assessment":
       return "finishAssessment";
     case "screen":
       return meetingKind(detail, today) ?? "replyTimes";
     default:
-      return detail?.due ? "finishApplication" : null;
+      return null;
   }
 }
 
 export function rowAction(row: AppRow, details: Details, today: string): Action | null {
   if (row.exit !== "open") return null;
-  const detail = details?.[row.company];
+  const detail = detailFor(details, row.company, row.role);
   const quietDays = daysFrom(row.lastEventAt, today);
   const reachedScreen = STAGES.indexOf(row.furthest) >= STAGES.indexOf("screen");
-  // Someone to nudge is what makes it a follow-up; without one the stage decides.
-  const nudge = detail && reachedScreen && !detail.due && !detail.meeting && quietDays >= QUIET_APPLICATION_DAYS;
+  // An offer is decided, not nudged; anything else that has gone quiet is a follow-up.
+  const nudge = reachedScreen && row.furthest !== "offer" && !detail?.due && !detail?.meeting && quietDays >= QUIET_APPLICATION_DAYS;
   const kind = nudge ? "followUp" : kindForStage(row.furthest, detail, today);
   return kind ? build(kind, row.company, row.role, detail, quietDays, today) : null;
 }
@@ -165,7 +177,7 @@ export function needsYou(pipeline: Pipeline, details: Details, today: string): A
   }
   // A founder who wrote back on an intro has no row of its own: its detail carries the state.
   for (const [company, detail] of Object.entries(details ?? {})) {
-    if (detail.introStatus !== "replied" || companies.has(company)) continue;
+    if (detail.introStatus !== "replied" || detail.role || companies.has(company)) continue;
     ranked.push({ action: build("pickTime", company, null, detail, 0, today), rank: STAGE_RANK.interview, last: `${today}T00:00:00.000Z` });
   }
   const seen = new Set<string>();
@@ -183,12 +195,16 @@ export function todayActions(events: InboxEvent[], details: Details, today: stri
   const out: Action[] = [];
   const newestFirst = events.filter((event) => event.date.startsWith(today)).sort((a, b) => b.date.localeCompare(a.date));
   for (const event of newestFirst) {
-    const detail = details?.[event.company];
-    const stage = todayKind[event.kind];
-    const kind = event.kind === "intro" ? "pickTime" : stage ? kindForStage(stage, detail, today) : null;
-    if (!kind) continue;
-    const action = build(kind, event.company, event.kind === "intro" ? null : event.role, detail, 0, today);
-    if (seen.has(action.id)) continue;
+    let action: Action | null = null;
+    if (event.kind === "intro") {
+      action = introActionFor(event, details, today);
+    } else {
+      const stage = todayKind[event.kind];
+      const detail = detailFor(details, event.company, event.role);
+      const kind = stage ? kindForStage(stage, detail, today) : null;
+      if (kind) action = build(kind, event.company, event.role, detail, 0, today);
+    }
+    if (!action || seen.has(action.id)) continue;
     seen.add(action.id);
     out.push(action);
   }
@@ -205,11 +221,22 @@ function introAction(company: string, detail: CompanyDetail | undefined, status:
   return null;
 }
 
+/** Today and the intro cards read an intro the same way, so one company never has two different actions. */
+function introActionFor(event: InboxEvent, details: Details, today: string): Action | null {
+  const detail = detailFor(details, event.company, null);
+  const who = detail?.contact ?? defaultContact(event.company);
+  return introAction(event.company, detail, introStatusOf(detail), daysFrom(event.date, today), today, who);
+}
+
+function introStatusOf(detail: CompanyDetail | undefined): "replied" | "scheduled" | "waiting" {
+  return detail?.introStatus === "replied" || detail?.introStatus === "scheduled" ? detail.introStatus : "waiting";
+}
+
 export function introCards(events: InboxEvent[], request: IntroRequest | null, details: Details, today: string): IntroCard[] {
   const cards: IntroCard[] = [];
   if (request && request.status !== "passed") {
     const company = request.match.company.name;
-    cards.push({ company, who: details?.[company]?.contact ?? defaultContact(company), status: request.status, action: null });
+    cards.push({ company, who: detailFor(details, company, null)?.contact ?? defaultContact(company), status: request.status, action: null });
   }
   const latest = new Map<string, InboxEvent>();
   for (const event of events) {
@@ -220,8 +247,8 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
   const taken = new Set(cards.map((card) => card.company));
   for (const event of [...latest.values()].sort((a, b) => b.date.localeCompare(a.date))) {
     if (taken.has(event.company)) continue;
-    const detail = details?.[event.company];
-    const status = detail?.introStatus === "replied" || detail?.introStatus === "scheduled" ? detail.introStatus : "waiting";
+    const detail = detailFor(details, event.company, null);
+    const status = introStatusOf(detail);
     const who = detail?.contact ?? defaultContact(event.company);
     cards.push({ company: event.company, who, status, action: introAction(event.company, detail, status, daysFrom(event.date, today), today, who) });
   }

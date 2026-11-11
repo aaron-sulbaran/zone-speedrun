@@ -100,7 +100,33 @@ describe("rowAction", () => {
     expect(quiet?.kind).toBe("followUp");
     expect(quiet?.quietDays).toBe(9);
     expect(rowAction(row({ lastEventAt: "2026-11-01T10:00:00.000Z" }), details, INBOX_TODAY)?.kind).toBe("replyTimes");
-    expect(rowAction(row({}), undefined, INBOX_TODAY)?.kind).toBe("replyTimes");
+  });
+
+  // Catches: Ruling 66 applying only to people with a pinned detail, so a generic screen quiet for weeks never gets a follow-up.
+  it("follows up on a generic screen quiet for 9 days, and has no contact or prep for it", () => {
+    const action = rowAction(row({}), undefined, INBOX_TODAY);
+    expect(action).toMatchObject({ kind: "followUp", who: null, quietDays: 9 });
+    expect(action?.sheet.prep).toBeUndefined();
+  });
+
+  // Catches: a generic interview reading "Confirm your interview" weeks after the invite, or carrying invented prep notes.
+  it("prepares for a recent generic interview and quiet ones are followed up, never offers", () => {
+    const fresh = rowAction(row({ furthest: "interview", lastEventAt: "2026-11-05T10:00:00.000Z" }), undefined, INBOX_TODAY);
+    expect(fresh?.kind).toBe("prepare");
+    expect(fresh?.sheet.prep).toBeUndefined();
+    expect(rowAction(row({ furthest: "interview" }), undefined, INBOX_TODAY)?.kind).toBe("followUp");
+    expect(rowAction(row({ furthest: "offer" }), undefined, INBOX_TODAY)?.kind).toBe("decideOffer");
+  });
+
+  // Catches: a company-keyed detail leaking onto Sam's other roles at the same company.
+  it("applies a detail only to its own role", () => {
+    const co = rowAction(row({ company: "Quillbright", role: "Software Engineer, Co-op", furthest: "applied" }), DETAILS.sam, INBOX_TODAY);
+    expect(co).toBeNull();
+    const coScreen = rowAction(row({ company: "Quillbright", role: "Software Engineer, Co-op", lastEventAt: "2026-11-06T10:00:00.000Z" }), DETAILS.sam, INBOX_TODAY);
+    expect(coScreen?.due).toBeNull();
+    expect(coScreen?.who).toBeNull();
+    const offer = rowAction(row({ company: "Quillbright", role: "Software Engineer, Product", furthest: "offer" }), DETAILS.sam, INBOX_TODAY);
+    expect(offer).toMatchObject({ kind: "decideOffer", due: "2026-11-12" });
   });
 
   it("skips rows that are closed", () => {
@@ -157,6 +183,38 @@ describe("introCards", () => {
     expect(card?.action?.kind).toBe("joinMeeting");
     expect(card?.action?.sheet.note).toContain("the real version opens Meet or Zoom");
     for (const link of card?.action?.sheet.links ?? []) expect(link.href).not.toContain("meet.example");
+  });
+
+  // Catches: the meeting time and mock link never reaching the sheet, or prepare ignoring the call's own date.
+  it("carries the meeting on the sheet and dates a prepare by it", () => {
+    const { pipeline, events, details } = inboxOf("sam");
+    const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "min/Max");
+    expect(card?.action?.sheet.meeting).toEqual(DETAILS.sam?.["min/Max"].meeting);
+    expect(card?.action?.due).toBe("2026-11-10T15:00:00.000Z");
+    const cinder = needsYou(pipeline, details, INBOX_TODAY).find((action) => action.company === "Cindermoor Cloud");
+    expect(cinder?.sheet.meeting?.at).toBe("2026-11-16T15:00:00.000Z");
+    expect(cinder?.due).toBe("2026-11-11");
+  });
+
+  // Catches: an intro follow-up that talks about "my application".
+  it("words an intro follow-up about the introduction", () => {
+    const { events, details } = inboxOf("sam");
+    const velmora = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "Velmora Loft");
+    expect(velmora?.action?.sheet.draft).toContain("introduction");
+    expect(velmora?.action?.sheet.draft).not.toContain("application");
+  });
+
+  // Catches: Today reading a scheduled intro as "Pick a time" while its card says scheduled.
+  it("gives an intro the same action in Today and on its card", () => {
+    const { events, details } = inboxOf("sam");
+    const moved = events.map((event) => (event.company === "min/Max" ? { ...event, date: "2026-11-10T09:00:00.000Z" } : event));
+    const day = "2026-11-10";
+    const card = introCards(moved, null, details, day).find((entry) => entry.company === "min/Max");
+    const today = todayActions(moved, details, day).find((action) => action.company === "min/Max");
+    expect(card?.action?.id).toBe("joinMeeting:min/Max:-");
+    expect(today?.id).toBe(card?.action?.id);
+    const lumora = todayActions(events, details, INBOX_TODAY).find((action) => action.company === "Lumora Health");
+    expect(lumora?.id).toBe(introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "Lumora Health")?.action?.id);
   });
 
   it("only links real addresses", () => {

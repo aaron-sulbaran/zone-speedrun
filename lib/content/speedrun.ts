@@ -436,7 +436,9 @@ export const speedrunCopy = {
       followUp: {
         title: (company: string) => `Follow up with ${company}`,
         draft: (_company: string, role: string | null) =>
-          `I wanted to check in on ${role ? `the ${role} role` : "my application"}. I'm still very interested and happy to share anything that helps. Thanks for your time.`,
+          role
+            ? `I wanted to check in on the ${role} role. I'm still very interested and happy to share anything that helps. Thanks for your time.`
+            : "I wanted to check in on the introduction. I'm still keen to talk and happy to work around your schedule. Thanks for making time.",
         confirm: "Send the follow-up",
         note: "This demo sends nothing. The real version would open this draft in Gmail.",
       },

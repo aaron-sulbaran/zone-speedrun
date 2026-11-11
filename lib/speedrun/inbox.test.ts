@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { classifyEmail } from "./classify";
 import { FICTIONAL_COMPANIES, FOUNDER_FUNDS, FOUNDER_ORGS } from "./fictional";
 import { INBOX_TODAY, OVERNIGHT, PINNED, generateInbox } from "./inbox";
@@ -79,9 +80,17 @@ describe("generateInbox", () => {
     const quiet = buildPipeline(events, INBOX_TODAY).rows.find((row) => row.company === "Vantablue" && row.role === "Full Stack Engineer");
     expect(quiet).toMatchObject({ furthest: "screen", exit: "open", lastEventAt: "2026-10-29T10:00:00.000Z" });
     expect(events.find((event) => event.company === "min/Max")).toMatchObject({ kind: "intro", date: "2026-11-05T16:20:00.000Z" });
-    for (const key of KEYS.filter((other) => other !== "sam")) {
-      expect(generateInbox(PEOPLE[key]).every((email) => email.id.startsWith(`${key}-`))).toBe(true);
-      expect(PINNED[key]).toBeUndefined();
+    // sha256 of each inbox as generateInbox(PEOPLE[key]) built it at 61552bb, before PINNED existed.
+    const before: Record<string, string> = {
+      maya: "618acad58593744cfa9a7b71289e6fb9103776e67151223a400d34436ee68bb4",
+      ravi: "997f60816a01e77f284fdd4f327465d4cf16005c0000c8d37d2dbb0df710beb0",
+      lena: "3d342a8ab52396a3a2483fd56b21b09b117d217e8dd11c28dfe3b7a51c808ff8",
+      dev: "b3e76052be07622c8a7f25b463c00298da5c18223034e24ae7dc55ed00a05eac",
+    };
+    for (const [key, digest] of Object.entries(before)) {
+      const now = createHash("sha256").update(JSON.stringify(generateInbox(PEOPLE[key as PersonKey]))).digest("hex");
+      expect(now, key).toBe(digest);
+      expect(PINNED[key as PersonKey]).toBeUndefined();
     }
   });
 
