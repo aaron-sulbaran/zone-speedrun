@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DESK_SAMPLES, FINISHED_SAMPLE, LEARNED, LEARNED_FROM_SAMPLE, RIVALS, rivalsFor, type DeskStage } from "./deskSamples";
+import { DESK_SAMPLES, FINISHED_SAMPLE, LEARNED, LEARNED_FROM_SAMPLE, RIVALS, rivalPool, rivalsFor, type DeskStage, type RivalPool } from "./deskSamples";
 import { FICTIONAL_COMPANIES } from "./fictional";
 import type { Match } from "./match";
 import snapshot from "./snapshot.json";
-import { FNS } from "./types";
 
 function match(name: string, fn: string | null): Match {
   return {
@@ -48,9 +47,21 @@ describe("sample data", () => {
   });
 });
 
+describe("rivalPool", () => {
+  it("maps the four shared functions to themselves and research to ai", () => {
+    for (const fn of ["engineering", "product", "design", "operations"] as const) expect(rivalPool(fn)).toBe(fn);
+    expect(rivalPool("research")).toBe("ai");
+  });
+
+  it("sends other, sales, marketing, null and unknown strings to default", () => {
+    // Catches: a prototype key picking a non-array pool
+    for (const fn of ["other", "sales", "marketing", null, "constructor", "toString", "__proto__"]) expect(rivalPool(fn)).toBe("default");
+  });
+});
+
 describe("rivalsFor", () => {
   it("has at least 2 rivals for every function and the default", () => {
-    for (const key of [...FNS, "default"] as const) expect(RIVALS[key].length).toBeGreaterThanOrEqual(2);
+    for (const key of Object.keys(RIVALS) as RivalPool[]) expect(RIVALS[key].length).toBeGreaterThanOrEqual(2);
   });
 
   it("returns 2, the same 2 each time, from the role's function pool", () => {
@@ -59,6 +70,14 @@ describe("rivalsFor", () => {
     expect(first).toHaveLength(2);
     expect(rivalsFor(m)).toEqual(first);
     for (const rival of first) expect(RIVALS.design).toContainEqual(rival);
+  });
+
+  it("reaches the ai pool from a real research role", () => {
+    // Catches: the ai pool being unreachable
+    const role = snapshot.roles.find((r) => r.fn === "research");
+    expect(role).toBeDefined();
+    const m = { ...match("Quillbright", null), role: role as unknown as Match["role"] };
+    for (const rival of rivalsFor(m)) expect(RIVALS.ai).toContainEqual(rival);
   });
 
   it("falls back to the default pool for no role or an unknown function", () => {

@@ -1,6 +1,5 @@
 import type { Match } from "./match";
 import { matchKey } from "./matchList";
-import type { Fn } from "./types";
 
 // Every name, company and line here is invented. Companies come only from
 // FICTIONAL_COMPANIES; the sample test checks that none is a real speedrun company.
@@ -46,7 +45,9 @@ export const FINISHED_SAMPLE: FinishedSample = {
 
 export type Rival = { id: string; firstName: string; headline: string; whyThem: string; whyRole: string; project: string };
 
-export const RIVALS: Record<Fn | "default", Rival[]> = {
+export type RivalPool = "engineering" | "ai" | "product" | "design" | "operations" | "default";
+
+export const RIVALS: Record<RivalPool, Rival[]> = {
   engineering: [
     { id: "r-eng-1", firstName: "Jonah", headline: "Backend engineer, two seed-stage launches", whyThem: "Shipped a billing service that handled a launch-day spike without a page.", whyRole: "Wants a small team where one person owns a system end to end.", project: "A queue-backed billing service" },
     { id: "r-eng-2", firstName: "Anika", headline: "Full-stack engineer, strong on product sense", whyThem: "Rebuilt a checkout flow and cut abandoned carts by a third.", whyRole: "Wants to work next to the founders on what to build next.", project: "A rebuilt checkout flow" },
@@ -63,17 +64,9 @@ export const RIVALS: Record<Fn | "default", Rival[]> = {
     { id: "r-des-1", firstName: "Elio", headline: "Product designer, systems and motion", whyThem: "Shipped a design system that three engineers adopted in a week.", whyRole: "Wants to design in code with a team that ships daily.", project: "A small design system" },
     { id: "r-des-2", firstName: "Sunita", headline: "Brand and product designer", whyThem: "Redesigned an onboarding that lifted week-one retention.", whyRole: "Wants one person to carry both brand and product.", project: "A redesigned onboarding" },
   ],
-  data: [
-    { id: "r-data-1", firstName: "Bastian", headline: "Data engineer, pipelines that stay up", whyThem: "Replaced a nightly batch job with a streaming pipeline and halved its cost.", whyRole: "Wants to build the data foundation before it hurts.", project: "A streaming pipeline" },
-    { id: "r-data-2", firstName: "Yara", headline: "Analytics engineer with product instincts", whyThem: "Built the metrics layer a growth team used to run its weekly review.", whyRole: "Wants to work where the numbers change a decision.", project: "A metrics layer" },
-  ],
   operations: [
     { id: "r-ops-1", firstName: "Callum", headline: "Operations lead, first hire energy", whyThem: "Stood up hiring, payroll and vendor basics for a ten-person team.", whyRole: "Wants to be the person who makes the company run.", project: "A first-year ops playbook" },
     { id: "r-ops-2", firstName: "Mei", headline: "Chief of staff, early stage", whyThem: "Ran the founder's weekly rhythm and closed two enterprise pilots.", whyRole: "Wants to multiply a founder's time.", project: "A pilot-to-contract program" },
-  ],
-  founder: [
-    { id: "r-fnd-1", firstName: "Teodor", headline: "Technical founder between ideas", whyThem: "Sold a small tool to its first fifty users and learned why it stalled.", whyRole: "Wants to join a founding team and bring the scar tissue.", project: "A small paid tool" },
-    { id: "r-fnd-2", firstName: "Laila", headline: "Founder-minded generalist", whyThem: "Ran growth, support and product for a two-person startup.", whyRole: "Wants a seat close to the first decisions.", project: "A two-person startup's growth loop" },
   ],
   default: [
     { id: "r-def-1", firstName: "Gabe", headline: "Generalist who ships", whyThem: "Picked up three different roles in a year and shipped in each.", whyRole: "Wants a small team where the job is whatever matters next.", project: "A cross-functional launch" },
@@ -88,9 +81,23 @@ function hash(text: string): number {
   return h;
 }
 
+/** The snapshot's role functions are not the Fn list; research reads as ai, the rest without a pool as default. */
+export function rivalPool(fn: string | null): RivalPool {
+  switch (fn) {
+    case "engineering":
+    case "product":
+    case "design":
+    case "operations":
+      return fn;
+    case "research":
+      return "ai";
+    default:
+      return "default";
+  }
+}
+
 export function rivalsFor(match: Match): Rival[] {
-  const fn = match.role?.fn;
-  const pool = RIVALS[fn && fn in RIVALS ? (fn as Fn) : "default"];
+  const pool = RIVALS[rivalPool(match.role?.fn ?? null)];
   const start = hash(matchKey(match)) % pool.length;
   return [pool[start], pool[(start + 1) % pool.length]];
 }
