@@ -1050,6 +1050,13 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
         wordsCentre: words.left + words.width / 2,
         paragraphLeft: original.closest("p")!.getBoundingClientRect().left,
         captionAlign: getComputedStyle(caption).textAlign,
+        captionLines: (() => {
+          const range = document.createRange();
+          range.selectNodeContents(caption);
+          const rows = new Map<number, number>();
+          for (const rect of range.getClientRects()) rows.set(Math.round(rect.top), (rows.get(Math.round(rect.top)) ?? 0) + rect.width);
+          return [...rows.values()];
+        })(),
         captionInside: caption.getBoundingClientRect().left >= 0 && caption.getBoundingClientRect().right <= innerWidth,
         layerAria: layer.getAttribute("aria-hidden"),
         layerEvents: getComputedStyle(layer).pointerEvents,
@@ -1082,6 +1089,8 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
       expect(["left", "start"]).toContain(held.captionAlign);
       // Catches: a caption allowed to outgrow the paragraph and run into the right gutter.
       expect(held.captionRight).toBeLessThanOrEqual(width - 16);
+      // Catches: an unbalanced wrap at 320 that leaves "400." alone on the caption's second line.
+      if (held.captionLines.length > 1) expect(held.captionLines.at(-1)! / held.captionLines[0]).toBeGreaterThan(0.5);
     } else {
       // Catches: the phone alignment leaking onto desktop, or the centring under the lit words changing.
       expect(Math.abs(held.captionCentre - held.wordsCentre)).toBeLessThanOrEqual(1);

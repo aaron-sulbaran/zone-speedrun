@@ -173,6 +173,8 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   margin: 0;
   max-width: min(22rem, calc(100vw - 2rem));
   text-align: center;
+  /* At 320 the caption takes two lines; balanced, "400." never sits alone on the second. */
+  text-wrap: balance;
   opacity: 0;
   color: var(--spotlight-lit);
 }
