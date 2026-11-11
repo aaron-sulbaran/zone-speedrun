@@ -90,6 +90,7 @@ Also in the complete version, and said on the page rather than built (my calls):
   - `introSent` (the team sends the intro);
   - any of those → `passed`.
 - **When a request passes:** the shared `pass` (PR 6) marks it `passed`, and makes the next eligible match in `ranked` the new live request, at `requested`. With none, the candidate has no live request. PR 6's shortlist shows the result, and the desk shows the new card.
+- **A passed match never carries the request again** for that candidate. PR 7 keeps the passed keys in `DemoState`, filters them out before `pass`, and refuses a request or a swap onto one. The live request is always found by `matchKey`, never by its place in the shortlist.
 
 **What the candidate sees.** The candidate's shortlist (PR 6) shows the live request's status, in the desk's own words: Requested, With founder, Connected.
 
