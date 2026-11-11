@@ -13,7 +13,7 @@ It is a Next.js multi-zone. This repo serves everything under the basePath `/spe
 
 ## Where things live
 
-- **Live state, decisions waiting on Aaron, what's next:** the site's build board, https://claude.ai/artifact/Vq3NnRhYnfdqVSMqpFe5ae. The orchestrator writes it in the same turn each event happens.
+- **Live state, decisions waiting on Aaron, what's next:** this zone's own build board, https://claude.ai/artifact/7JmVMWmD6rLGMwPdKsK4ni (private; protocol in `~/.claude/snippets/command-hub.md`). Its orchestrator, the Speedrun Builder, writes it in the same turn each event happens; the site's board no longer carries speedrun state.
 - **Current increment:** the plans in `docs/superpowers/plans/` and the specs in `docs/superpowers/specs/`.
 - **Decisions:** the board. Rulings before the move live in the site's PR, aaron-sulbaran/aaron-personal-website#112.
 - **Production:** https://aaronsulbaran.com/speedrun, through the site, from Vercel project `zone-speedrun` in team `aaron-sulbaran-projects`.
