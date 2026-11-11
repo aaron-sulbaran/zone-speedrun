@@ -5,7 +5,7 @@ import { forwardRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { reasonLine, type ListItem } from "@/lib/speedrun/matchList";
 import { CompanyLogo } from "./MatchCard";
-import { NEXT_LINK } from "./NetworkTabs";
+import { NEXT_LINK, NextArrow } from "./NetworkTabs";
 
 const copy = speedrunCopy.matches;
 const CHIP = "rounded-full bg-sr-hud px-2 py-0.5 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2";
@@ -107,6 +107,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
       <div className="mt-8 pb-4">
         <button type="button" onClick={onNext} className={NEXT_LINK}>
           {nextLabel}
+          <NextArrow />
         </button>
       </div>
     </div>

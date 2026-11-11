@@ -806,6 +806,8 @@ for (const size of [
     const nextBackground = await page.getByRole("button", { name: network.nextTo.matches }).evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(nextBackground).not.toBe(ink);
     expect(nextBackground).toBe("rgba(0, 0, 0, 0)");
+    // Catches: Next losing its arrow at lg (Ruling 40: a secondary text link with an arrow).
+    await expect(page.getByRole("button", { name: network.nextTo.matches }).locator("svg")).toBeVisible();
 
     // Catches: three content widths, with each panel centering its own max width so the left edges wander between tabs.
     const lefts: number[] = [];
@@ -820,7 +822,7 @@ for (const size of [
   });
 }
 
-// Catches: the detail pane stopping at the card's height (a short card beside a tall list) or taking the page tone, so the two panes do not share an edge.
+// Catches: the framed detail pane shrinking to its content, or taking the page tone, so the two panes do not share an edge.
 test("desktop shell: the Matches detail pane runs the list's full height, selected row and pane share one surface", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/speedrun");

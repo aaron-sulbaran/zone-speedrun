@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, LayoutDashboard, Mail, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, CircleHelp, LayoutDashboard, Mail, Users, type LucideIcon } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { NETWORK_TABS, type NetworkTab } from "@/lib/speedrun/phase";
@@ -9,7 +9,12 @@ const copy = speedrunCopy.network;
 const ICONS: Record<NetworkTab, LucideIcon> = { matches: Users, board: LayoutDashboard, brief: Mail, decisions: CircleHelp };
 
 // A filled button below lg; from lg a quiet text link, so it never reads as the selected tab.
-export const NEXT_LINK = "rounded-full bg-sr-ink px-6 py-3 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0 lg:rounded-md lg:bg-transparent lg:px-0 lg:py-2 lg:text-sr-ink2 lg:underline lg:decoration-sr-soft lg:underline-offset-4 lg:transition-colors lg:hover:translate-y-0 lg:hover:text-sr-ink lg:hover:decoration-sr-ink";
+export const NEXT_LINK = "rounded-full bg-sr-ink px-6 py-3 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0 lg:inline-flex lg:items-center lg:gap-1.5 lg:rounded-md lg:bg-transparent lg:px-0 lg:py-2 lg:text-sr-ink2 lg:underline lg:decoration-sr-soft lg:underline-offset-4 lg:transition-colors lg:hover:translate-y-0 lg:hover:text-sr-ink lg:hover:decoration-sr-ink";
+
+// The arrow shows only where Next is a text link.
+export function NextArrow() {
+  return <ArrowRight aria-hidden="true" size={14} className="hidden lg:block" />;
+}
 
 export const tabId = (tab: NetworkTab) => `sr-tab-${tab}`;
 export const panelId = (tab: NetworkTab) => `sr-panel-${tab}`;
