@@ -200,7 +200,7 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
 // old. A move whose application is not there is dropped, as happens for a seed other than 1; inbox.test pins that
 // every one lands. An intro move is a founder writing back on an intro.
 type ReplyMove = Target & { kind: "assessment" | "screen" | "interview" | "rejection"; at: string };
-type IntroMove = { kind: "intro"; company: string; at: string };
+type IntroMove = { kind: "intro"; company: string; at: string; /** The founders have booked a time, not just written back. */ booked?: boolean };
 export type OvernightMove = ReplyMove | IntroMove;
 
 const jobTarget = (company: string, role: string) => ({ company, role, founder: false });
@@ -224,6 +224,19 @@ export const OVERNIGHT: Partial<Record<PersonKey, OvernightMove[]>> = {
   ],
 };
 
+/**
+ * Fixed events for one person, added after the overnight moves the same way and under the same rules, but dated any
+ * day before the brief. They give the actions model something to point at, so Sam's list of what needs him never
+ * depends on the seed. min/Max is Aaron's own company, the one made-up name here that is a real one.
+ */
+export type PinnedEvent = OvernightMove;
+export const PINNED: Partial<Record<PersonKey, PinnedEvent[]>> = {
+  sam: [
+    { ...jobTarget("Vantablue", "Full Stack Engineer"), kind: "screen", at: "2026-10-29T10:00:00.000Z" },
+    { kind: "intro", company: "min/Max", at: "2026-11-05T16:20:00.000Z", booked: true },
+  ],
+};
+
 const MIN_REPLY_AGE_MS = 3 * DAY_MS;
 const sameDraft = (a: Draft, b: Draft) => a.from === b.from && a.subject === b.subject && a.body === b.body;
 
@@ -236,20 +249,23 @@ function openApplication(base: Draft[], t: Target, first: string, at: number): b
   return confirmation !== undefined && confirmation.when <= at - MIN_REPLY_AGE_MS && !base.some((draft) => closing.some((closed) => sameDraft(draft, closed)));
 }
 
-function introReplyDraft(company: string, first: string, when: number): Draft {
+function introReplyDraft(company: string, first: string, when: number, booked = false): Draft {
+  const ask = booked
+    ? "We have put a time on the calendar for next week and sent you the invite."
+    : "Pick a time this week that suits you and we will be there.";
   return {
     when,
     from: `Founders at ${company} <hello@${slug(company)}.example>`,
     subject: `Re: Introduction: ${first} and the ${company} founders`,
-    body: `Hi ${first},\n\nThanks for the introduction. We are a small team and your work is close to what we are building. Pick a time this week that suits you and we will be there.`,
+    body: `Hi ${first},\n\nThanks for the introduction. We are a small team and your work is close to what we are building. ${ask}`,
   };
 }
 
-function overnightDrafts(person: Person, base: Draft[]): Draft[] {
+function movesDrafts(moves: OvernightMove[], person: Person, base: Draft[]): Draft[] {
   const first = person.profile.firstName;
-  return (OVERNIGHT[person.key] ?? []).flatMap((move) => {
+  return moves.flatMap((move) => {
     const at = Date.parse(move.at);
-    if (move.kind === "intro") return [introReplyDraft(move.company, first, at)];
+    if (move.kind === "intro") return [introReplyDraft(move.company, first, at, move.booked)];
     if (!openApplication(base, move, first, at)) return [];
     return [(move.founder ? founderDraft : jobsDraft)(move.kind, move, first, at)];
   });
@@ -259,8 +275,9 @@ export function generateInbox(person: Person, seed = 1): InboxEmail[] {
   const rng = mulberry32(seed * 7919 + hashString(person.key));
   const base = buildSchedule(person, rng);
   const sorted = [...base].sort((a, b) => a.when - b.when);
-  // The overnight moves come last, so every other id stays where it was.
-  const drafts = [...sorted, ...(seed === 1 ? overnightDrafts(person, base) : [])];
+  // The overnight moves and the pinned events come last, so every other id stays where it was.
+  const moves = seed === 1 ? [...(OVERNIGHT[person.key] ?? []), ...(PINNED[person.key] ?? [])] : [];
+  const drafts = [...sorted, ...movesDrafts(moves, person, base)];
   return drafts.map((draft, index) => ({
     id: `${person.key}-${String(index + 1).padStart(4, "0")}`,
     from: draft.from,

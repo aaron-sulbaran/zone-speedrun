@@ -369,6 +369,96 @@ export const speedrunCopy = {
       shown: (card: string) => `${card} shown.`,
     },
   },
+  // Every line is a draft in Aaron's voice. Each note says plainly that the demo sends nothing.
+  actions: {
+    founderTitle: (company: string) => `Founder, ${company}`,
+    linkedin: (name: string) => `${name} on LinkedIn`,
+    defaultPrep: [
+      "Read their site and their latest post",
+      "Write down two questions to ask them",
+      "Pick one project to talk through",
+    ],
+    labels: {
+      decideOffer: (company: string) => `Decide on the offer from ${company}`,
+      pickTime: (company: string) => `Pick a time with the founder at ${company}`,
+      replyTimes: (company: string) => `Send ${company} times for a call`,
+      confirmInterview: (company: string) => `Confirm your interview with ${company}`,
+      prepare: (company: string) => `Prepare for ${company}`,
+      finishAssessment: (company: string) => `Finish the ${company} assessment`,
+      finishApplication: (company: string) => `Finish your application to ${company}`,
+      followUp: (company: string) => `Follow up with ${company}`,
+      joinMeeting: (company: string) => `Join the call with ${company}`,
+      bringForward: (company: string) => `Ask ${company} to move faster`,
+      apply: (company: string) => `Apply to ${company}`,
+    },
+    sheets: {
+      decideOffer: {
+        title: (company: string, role: string | null) => (role ? `Your ${role} offer from ${company}` : `Your offer from ${company}`),
+        draft: (_company: string, role: string | null) =>
+          `Thank you for the offer${role ? ` for the ${role} role` : ""}. I'm excited about it. I have one or two questions before I answer, and I'll reply before the deadline. Do you have 15 minutes this week?`,
+        confirm: "Mark the offer as decided",
+        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+      },
+      pickTime: {
+        title: (company: string) => `Reply to the founder at ${company}`,
+        draft: () => "Thanks for writing back. I'd love to talk. Any of the times below works for me, so pick whichever suits you.",
+        confirm: "Send these times",
+        note: "This demo sends nothing. The real version would open this reply in Gmail and add the call to your calendar.",
+      },
+      replyTimes: {
+        title: (company: string, role: string | null) => (role ? `Reply to ${company} about ${role}` : `Reply to ${company}`),
+        draft: () => "Thanks for reaching out. I'm happy to do a quick call. These times work for me, and I can move things around if none suit you.",
+        confirm: "Send these times",
+        note: "This demo sends nothing. The real version would open this reply in Gmail.",
+      },
+      confirmInterview: {
+        title: (company: string, role: string | null) => (role ? `Confirm the ${company} interview for ${role}` : `Confirm the ${company} interview`),
+        draft: (_company: string, role: string | null) =>
+          `Thanks for the invitation. I can make the interview${role ? ` for ${role}` : ""}. Please send the calendar invite and tell me who I'll be speaking with.`,
+        confirm: "Send the confirmation",
+        note: "This demo sends nothing. The real version would open this reply in Gmail and add the interview to your calendar.",
+      },
+      prepare: {
+        title: (company: string) => `Get ready for ${company}`,
+        confirm: "Mark as prepared",
+        note: "These notes stay in this tab. This demo sends nothing; the real version would put a reminder on your calendar.",
+      },
+      finishAssessment: {
+        title: (company: string, role: string | null) => (role ? `The ${company} assessment for ${role}` : `The ${company} assessment`),
+        confirm: "Mark as submitted",
+        note: "This demo sends nothing. The real version would open their assessment page in a new tab.",
+      },
+      finishApplication: {
+        title: (company: string, role: string | null) => (role ? `Your ${company} application for ${role}` : `Your ${company} application`),
+        confirm: "Mark as submitted",
+        note: "This demo sends nothing. The real version would open their application page in a new tab.",
+      },
+      followUp: {
+        title: (company: string) => `Follow up with ${company}`,
+        draft: (_company: string, role: string | null) =>
+          `I wanted to check in on ${role ? `the ${role} role` : "my application"}. I'm still very interested and happy to share anything that helps. Thanks for your time.`,
+        confirm: "Send the follow-up",
+        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+      },
+      joinMeeting: {
+        title: (company: string) => `Your call with ${company}`,
+        confirm: "Mark as joined",
+        note: "This demo sends nothing. When it's live, the real version opens Meet or Zoom at the time of the call.",
+      },
+      bringForward: {
+        title: (company: string) => `Ask ${company} to move faster`,
+        draft: (company: string) =>
+          `I have an offer with a deadline, and ${company} is high on my list. Is there any way to move the next step up? Thanks for considering it.`,
+        confirm: "Send the request",
+        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+      },
+      apply: {
+        title: (company: string, role: string | null) => (role ? `Apply to ${company} for ${role}` : `Apply to ${company}`),
+        confirm: "Mark as applied",
+        note: "This demo sends nothing. The real version would open the role's page in a new tab.",
+      },
+    },
+  },
   brief: {
     heading: "this morning, 8:02 am",
     subhead: "The brief you'd get. It only says what changed for you, so it never reads like a newsletter.",
@@ -512,7 +602,7 @@ export const speedrunCopy = {
     },
     sam: {
       name: "Sam",
-      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and three founder intros.",
+      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and four founder intros.",
       mode: "Pipeline",
     },
     lena: {

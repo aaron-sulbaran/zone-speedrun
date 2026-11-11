@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { classifyEmail } from "./classify";
 import { FICTIONAL_COMPANIES, FOUNDER_FUNDS, FOUNDER_ORGS } from "./fictional";
-import { INBOX_TODAY, OVERNIGHT, generateInbox } from "./inbox";
+import { INBOX_TODAY, OVERNIGHT, PINNED, generateInbox } from "./inbox";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
 import { getSnapshot } from "./snapshot";
@@ -35,7 +35,7 @@ describe("generateInbox", () => {
     expect(count("interview")).toBeGreaterThanOrEqual(6);
     expect(count("interview")).toBeLessThanOrEqual(10);
     expect(count("offer")).toBe(2);
-    expect(pipelineFor("sam").stats.intros).toBe(3);
+    expect(pipelineFor("sam").stats.intros).toBe(4);
   });
 
   it("keeps each person's applied count where the overnight moves found it", () => {
@@ -70,6 +70,29 @@ describe("generateInbox", () => {
         expect(Date.parse(move.at) - Date.parse(applied?.date ?? move.at), label).toBeGreaterThanOrEqual(3 * 86_400_000);
       }
     }
+  });
+
+  // Catches: a pinned event that never lands on its application, or one that leaks into another person's inbox.
+  it("lands Sam's pinned events and leaves everyone else's inbox as it was", () => {
+    expect(Object.keys(PINNED)).toEqual(["sam"]);
+    const events = generateInbox(PEOPLE.sam).map(classifyEmail);
+    const quiet = buildPipeline(events, INBOX_TODAY).rows.find((row) => row.company === "Vantablue" && row.role === "Full Stack Engineer");
+    expect(quiet).toMatchObject({ furthest: "screen", exit: "open", lastEventAt: "2026-10-29T10:00:00.000Z" });
+    expect(events.find((event) => event.company === "min/Max")).toMatchObject({ kind: "intro", date: "2026-11-05T16:20:00.000Z" });
+    for (const key of KEYS.filter((other) => other !== "sam")) {
+      expect(generateInbox(PEOPLE[key]).every((email) => email.id.startsWith(`${key}-`))).toBe(true);
+      expect(PINNED[key]).toBeUndefined();
+    }
+  });
+
+  // Catches: appending the pinned events shifting an id the seeded generator already handed out.
+  it("keeps every earlier id where it was when the pinned events are added", () => {
+    const sam = generateInbox(PEOPLE.sam);
+    const ids = sam.map((email) => email.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const pinnedEmails = sam.slice(-(PINNED.sam?.length ?? 0));
+    expect(pinnedEmails.map((email) => email.date)).toEqual((PINNED.sam ?? []).map((move) => move.at));
+    expect(generateInbox(PEOPLE.sam, 2).some((email) => email.date === PINNED.sam?.[0].at)).toBe(false);
   });
 
   it("gives Dev a founder lane with accelerator and fund threads", () => {
