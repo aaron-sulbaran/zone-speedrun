@@ -76,6 +76,8 @@ Rules for the beat:
 
 **Ruling 28.** The join footer is in flow, and the pick scroll applies, on landscape phones too (`max-height: 559px` and landscape, the shell's existing condition), not only below md. The same "cutting off text" problem showed there.
 
+**Ruling 31.** On phones (below md, or a phone held sideways, Ruling 28's definition), the 400 caption starts at the left edge of the paragraph that holds "84 applications". It's left-aligned and never wider than that paragraph. Desktop keeps it centred under the words. The caption's wrap is balanced, so at 320 "400." never sits alone on a second line. From the lead's gate (D30); Aaron: "Align it".
+
 ## Out of this round
 
 - **The Board tab's content.** Aaron: "it just looks like it's a page that, that's like a Linktree for their own links". He wants to rethink it with me on desktop: brainstorm first.
