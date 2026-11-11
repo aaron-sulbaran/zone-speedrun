@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { introCues, introEndMs, pressableAtMs } from "./heroIntro";
+import { beatOffsets, introCues, introEndMs, pressableAtMs } from "./heroIntro";
 import { MOTION } from "./motion";
 
 const counts = { words: 3, subtitleWords: 13, paragraphs: 2 };
@@ -65,5 +65,29 @@ describe("introCues", () => {
   it("starts the flash at the subtitle's end whatever the stagger", () => {
     const flat = introCues({ ...MOTION, introSubtitleWordStaggerMs: 0 }, counts);
     expect(cue(flat, "flash")!.atMs).toBe(MOTION.introSubtitleAtMs + MOTION.introWordMs);
+  });
+
+  it("places the veil's hold and fade-out inside its one animation", () => {
+    const offsets = beatOffsets(cue(cues, "veil")!, cue(cues, "unveil")!)!;
+    expect(offsets.totalMs).toBe(1520);
+    expect(offsets.settled).toBeCloseTo(300 / 1520);
+    expect(offsets.held).toBeCloseTo(1000 / 1520);
+  });
+
+  // Catches: NaN keyframe offsets (a thrown animate() call) when the tuning panel zeroes the beat.
+  it("has no beat when the dim, hold and flight are all zero", () => {
+    const flat = introCues({ ...MOTION, introSpotlightDimMs: 0, introSpotlightHoldMs: 0, introFlightMs: 0 }, counts);
+    expect(beatOffsets(cue(flat, "veil")!, cue(flat, "unveil")!)).toBeNull();
+  });
+
+  it("keeps the offsets ordered with a zero dim or a zero flight", () => {
+    const noDim = introCues({ ...MOTION, introSpotlightDimMs: 0 }, counts);
+    const a = beatOffsets(cue(noDim, "veil")!, cue(noDim, "unveil")!)!;
+    expect(a.settled).toBe(0);
+    expect(a.held).toBeLessThanOrEqual(1);
+    const noFlight = introCues({ ...MOTION, introFlightMs: 0 }, counts);
+    const b = beatOffsets(cue(noFlight, "veil")!, cue(noFlight, "unveil")!)!;
+    expect(b.settled).toBeLessThanOrEqual(b.held);
+    expect(b.held).toBe(1);
   });
 });

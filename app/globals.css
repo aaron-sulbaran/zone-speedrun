@@ -13,7 +13,7 @@
   --color-glass-strong: rgba(255, 255, 255, 0.78);
   /* The /speedrun intro's veil: near-black in both themes, never pure black. */
   --spotlight-veil: #0b0e12;
-  --spotlight-caption: #f5f2ec;
+  --spotlight-lit: #f5f2ec;
   /* Shared deceleration curve. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   /* Flow chart ribbons on Aaron's side of /speedrun: the accent for flow, a
@@ -26,7 +26,7 @@
 
 [data-theme="dark"] {
   --spotlight-veil: #05070a;
-  --spotlight-caption: #f5f2ec;
+  --spotlight-lit: #f5f2ec;
   --color-background: #0E1419;
   --color-foreground: #F5F2EC;
   --color-muted: #8A8A8A;
@@ -144,8 +144,8 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   opacity: 1;
 }
 
-/* The 84 spotlight: a body-level layer the intro mounts and removes. The veil has a soft elliptical
-   hole centred on "84 applications" (the --hole-* values are measured), so the words stay where they are. */
+/* The 84 spotlight: a body-level layer the intro mounts and removes. The veil covers the viewport;
+   a lit copy of "84 applications" sits over it at the words' own rect, so the words stay where they are. */
 [data-spotlight] {
   position: fixed;
   inset: 0;
@@ -157,8 +157,15 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   inset: 0;
   opacity: 0;
   background: var(--spotlight-veil);
-  -webkit-mask-image: radial-gradient(ellipse var(--hole-rx) var(--hole-ry) at var(--hole-x) var(--hole-y), transparent 60%, rgb(1 1 1) 100%);
-  mask-image: radial-gradient(ellipse var(--hole-rx) var(--hole-ry) at var(--hole-x) var(--hole-y), transparent 60%, rgb(1 1 1) 100%);
+}
+[data-spotlight-lit],
+[data-spotlight-lit-count] {
+  position: absolute;
+  margin: 0;
+  opacity: 0;
+  white-space: nowrap;
+  transform-origin: center;
+  color: var(--spotlight-lit);
 }
 [data-spotlight-caption] {
   @apply font-label text-label-lg;
@@ -167,7 +174,7 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   max-width: min(22rem, calc(100vw - 2rem));
   text-align: center;
   opacity: 0;
-  color: var(--spotlight-caption);
+  color: var(--spotlight-lit);
 }
 
 /* ---- /speedrun, Act 2: the talent network's look, scoped ---- */

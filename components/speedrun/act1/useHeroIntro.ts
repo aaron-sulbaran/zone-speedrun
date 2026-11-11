@@ -2,10 +2,10 @@
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { introCues, pressableAtMs, type IntroCue } from "@/lib/speedrun/heroIntro";
+import { introCues, pressableAtMs } from "@/lib/speedrun/heroIntro";
 import { registerIntroHold } from "@/lib/speedrun/introHold";
 import { motion, prefersReducedMotion, SR_EASE } from "@/lib/speedrun/motion";
-import { mountSpotlight, type SpotlightLayer } from "./spotlightLayer";
+import { mountSpotlight, type Spotlight } from "./spotlightLayer";
 
 // The root carries the intro state for CSS and for the e2e pins.
 function setIntro(el: HTMLElement, state: "running" | "done") {
@@ -88,10 +88,10 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const rootRect = el.getBoundingClientRect();
     const from = count?.getBoundingClientRect();
     const to = value?.getBoundingClientRect();
-    // The beat needs the number's words; without them (and without a flight) it is skipped.
+    // The beat is skipped only when the number or its words are missing; with the chart's value hidden it plays without the flight.
     const spotlightWords = el.querySelector<HTMLElement>("[data-hero-spotlight]");
-    const spotlight: SpotlightLayer | null = spotlightWords && count ? mountSpotlight(spotlightWords, speedrunCopy.act1.spotlightCaption, m.introSpotlightPadPx) : null;
-    let veilCue: IntroCue | undefined;
+    const spotlight: Spotlight | null = spotlightWords && count ? mountSpotlight(spotlightWords, count, speedrunCopy.act1.spotlightCaption) : null;
+    let flightMove: string | null = null;
 
     const animations: Animation[] = [];
     let clone: HTMLElement | null = null;
@@ -109,27 +109,20 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     for (const cue of cues) {
       if (cue.target === "word") fade(words[cue.index], cue.atMs, cue.durationMs);
       else if (cue.target === "subtitle") fade(subtitleWords[cue.index], cue.atMs, cue.durationMs);
-      else if (cue.target === "flash") {
-        // Two pulses of "84 applications", opacity and scale only; nothing is left behind at the end.
-        if (!spotlightWords || !spotlight) continue;
-        const pulse = { transform: "scale(1.06)", opacity: 0.4 };
-        const rest = { transform: "scale(1)", opacity: 1 };
-        animations.push(spotlightWords.animate([rest, pulse, rest, pulse, rest], { delay: cue.atMs, duration: cue.durationMs, easing: "ease-in-out" }));
-      } else if (cue.target === "veil") veilCue = cue;
-      else if (cue.target === "unveil") {
-        if (spotlight && veilCue) animations.push(...spotlight.animate(veilCue, cue, m));
-      } else if (cue.target === "paragraph") fade(paragraphs[cue.index], cue.atMs, cue.durationMs);
+      else if (cue.target === "paragraph") fade(paragraphs[cue.index], cue.atMs, cue.durationMs);
       else if (cue.target === "flight") {
         if (!count || !value || !from || !to || !to.width) continue;
         clone = makeClone(el, count, rootRect, from);
         const dx = to.left + to.width / 2 - (from.left + from.width / 2);
         const dy = to.top + to.height / 2 - (from.top + from.height / 2);
         const scale = to.width / from.width;
+        flightMove = `translate(${dx}px, ${dy}px) scale(${scale})`;
         const flying = clone;
         const flight = flying.animate(
           [
-            { opacity: 1, transform: "none" },
-            { opacity: 1, transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
+            // The page-coloured 84 fades in as its lit twin (on the veil) fades out.
+            { opacity: 0, transform: "none" },
+            { opacity: 1, transform: flightMove },
           ],
           { delay: cue.atMs, duration: cue.durationMs, easing: SR_EASE, fill: "forwards" },
         );
@@ -149,17 +142,25 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
           ),
         );
         if (note) animations.push(note.animate([{ opacity: 0 }, { opacity: 1 }], { delay: cue.atMs + cue.durationMs - m.introWordMs, duration: m.introWordMs, fill: "both" }));
-      } else {
+      } else if (cue.target === "second" || cue.target === "close") {
         const target = of(cue.target)[cue.index];
         if (target) fade(target, cue.atMs, cue.durationMs);
       }
     }
+    const beat = (target: "flash" | "veil" | "unveil") => cues.find((cue) => cue.target === target)!;
+    if (spotlight) animations.push(...spotlight.play({ flash: beat("flash"), veil: beat("veil"), unveil: beat("unveil") }, m, flightMove));
+
+    // Fonts can move the words after the first measure; place the lit copy again once they are in.
+    const replace = () => spotlight?.place();
+    let releaseHold: (() => void) | undefined;
 
     const stopListening = () => SKIP_EVENTS.forEach((type) => document.removeEventListener(type, skip));
     const complete = () => {
       if (el.dataset.intro === "done") return;
       clone?.remove();
       spotlight?.remove();
+      window.removeEventListener("resize", replace);
+      releaseHold?.();
       stopListening();
       setIntro(el, "done");
       // The CSS done rule holds the end state; drop the fill so no clip lingers on the chart at rest.
@@ -175,11 +176,9 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     SKIP_EVENTS.forEach((type) => document.addEventListener(type, skip, { passive: true }));
     Promise.all(animations.map((animation) => animation.finished)).then(complete, () => {});
 
-    // Fonts can move the words after the first measure; place the hole again once they are in.
-    const replace = () => spotlight?.place();
     document.fonts?.ready.then(() => el.dataset.intro === "running" && replace());
     window.addEventListener("resize", replace);
-    const releaseHold = process.env.NODE_ENV === "development" ? registerIntroHold(animations) : undefined;
+    if (process.env.NODE_ENV === "development") releaseHold = registerIntroHold(animations);
 
     return () => {
       releaseHold?.();

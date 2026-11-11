@@ -46,3 +46,13 @@ export function introEndMs(cues: IntroCue[]): number {
 export function pressableAtMs(cues: IntroCue[]): number {
   return cues.find((cue) => cue.target === "close")?.atMs ?? introEndMs(cues);
 }
+
+/**
+ * Where the veil's hold and fade-out sit inside its one animation (as fractions of its length), or null
+ * when the beat has no length (a tuning panel can zero the dim, hold and flight together).
+ */
+export function beatOffsets(veil: IntroCue, unveil: IntroCue): { totalMs: number; settled: number; held: number } | null {
+  const totalMs = unveil.atMs + unveil.durationMs - veil.atMs;
+  if (!(totalMs > 0)) return null;
+  return { totalMs, settled: veil.durationMs / totalMs, held: (unveil.atMs - veil.atMs) / totalMs };
+}

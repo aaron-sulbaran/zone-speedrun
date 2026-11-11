@@ -936,7 +936,8 @@ test("84 applications pulses before the screen goes dark", async ({ page }) => {
     return page.evaluate(() => {
       const words = getComputedStyle(document.querySelector("[data-hero-spotlight]")!);
       const veil = document.querySelector("[data-spotlight-veil]");
-      return { transform: words.transform, opacity: Number(words.opacity), veil: veil ? Number(getComputedStyle(veil).opacity) : 0 };
+      const lit = document.querySelector("[data-spotlight-lit]");
+      return { transform: words.transform, scale: new DOMMatrix(words.transform).a, opacity: Number(words.opacity), veil: veil ? Number(getComputedStyle(veil).opacity) : 0, lit: lit ? Number(getComputedStyle(lit).opacity) : 0 };
     });
   };
   const before = await read(flash.atMs - 10);
@@ -946,14 +947,17 @@ test("84 applications pulses before the screen goes dark", async ({ page }) => {
   expect(before).toMatchObject({ transform: "none", opacity: 1 });
   for (const pulse of [peak, second]) {
     expect(pulse.transform).not.toBe("none");
-    expect(pulse.opacity).toBeLessThan(1);
+    // Catches: the flash amplitude hard-coded instead of read from the Motion keys.
+    expect(Math.abs(pulse.opacity - MOTION.introSpotlightFlashOpacity)).toBeLessThan(0.02);
+    expect(Math.abs(pulse.scale - MOTION.introSpotlightFlashScale)).toBeLessThan(0.02);
     expect(pulse.veil).toBe(0);
+    expect(pulse.lit).toBe(0);
   }
   expect(after.transform).toBe("none");
 });
 
 for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844]] as const) {
-  // Catches: a veil that is too weak, pure black, off-centre from the words, missing its caption or not above the chrome and below the flying 84.
+  // Catches: a veil that is too weak, pure black, has a hole again, a lit copy off the words (or the same colour as them in light), a missing caption, or a layer not above the chrome.
   test(`the veil holds on 84 applications with the caption at ${width} in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width, height });
@@ -966,7 +970,10 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
       const layer = document.querySelector<HTMLElement>("[data-spotlight]")!;
       const veil = layer.querySelector<HTMLElement>("[data-spotlight-veil]")!;
       const caption = layer.querySelector<HTMLElement>("[data-spotlight-caption]")!;
-      const words = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+      const original = document.querySelector<HTMLElement>("[data-hero-spotlight]")!;
+      const lit = layer.querySelector<HTMLElement>("[data-spotlight-lit]")!;
+      const words = original.getBoundingClientRect();
+      const litRect = lit.getBoundingClientRect();
       const style = getComputedStyle(veil);
       const stackingRoot = (el: Element) => {
         for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
@@ -983,9 +990,16 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
       return {
         opacity: Number(style.opacity),
         colour: style.backgroundColor,
-        holeX: parseFloat(veil.style.getPropertyValue("--hole-x")),
-        holeY: parseFloat(veil.style.getPropertyValue("--hole-y")),
-        centre: { x: words.left + words.width / 2, y: words.top + words.height / 2 },
+        mask: style.maskImage,
+        litDelta: Math.max(Math.abs(litRect.left - words.left), Math.abs(litRect.top - words.top), Math.abs(litRect.width - words.width), Math.abs(litRect.height - words.height)),
+        litColour: getComputedStyle(lit).color,
+        wordsColour: getComputedStyle(original).color,
+        litOpacity: Number(getComputedStyle(lit).opacity),
+        litText: lit.textContent,
+        wordsText: original.textContent,
+        litAfterVeil: Boolean(veil.compareDocumentPosition(lit) & Node.DOCUMENT_POSITION_FOLLOWING),
+        litHooks: layer.querySelectorAll("[data-intro-el], [data-hero-count], [data-hero-spotlight]").length,
+        copiesInBody: document.querySelectorAll("[data-spotlight-lit]").length,
         caption: caption.textContent,
         captionOpacity: Number(getComputedStyle(caption).opacity),
         captionBelow: caption.getBoundingClientRect().top >= words.bottom,
@@ -1001,8 +1015,15 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
     expect(held.opacity).toBeGreaterThanOrEqual(0.85);
     expect(held.colour).not.toBe("rgb(0, 0, 0)");
     expect(held.colour).not.toBe("rgba(0, 0, 0, 0)");
-    expect(Math.abs(held.holeX - held.centre.x)).toBeLessThanOrEqual(3);
-    expect(Math.abs(held.holeY - held.centre.y)).toBeLessThanOrEqual(3);
+    expect(held.mask === "none" || held.mask === "").toBe(true);
+    expect(held.litDelta).toBeLessThanOrEqual(1);
+    expect(held.litOpacity).toBeGreaterThan(0.95);
+    expect(held.litText).toBe(held.wordsText);
+    expect(held.litAfterVeil).toBe(true);
+    expect(held.litHooks).toBe(0);
+    expect(held.copiesInBody).toBe(1);
+    // In light the page's text is dark; the lit copy has to differ or it is invisible on the veil.
+    if (scheme === "light") expect(held.litColour).not.toBe(held.wordsColour);
     expect(held.caption).toBe(speedrunCopy.act1.spotlightCaption);
     expect(held.captionOpacity).toBeGreaterThan(0.95);
     expect(held.captionBelow).toBe(true);
@@ -1030,6 +1051,43 @@ test("the flying 84 sits above the veil", async ({ page }) => {
   expect(z.clone).toBeGreaterThan(z.layer);
 });
 
+// Catches: the lit copy placed from a rect measured mid-pulse (a late font load or a resize during the flash), so it lands off the words.
+test("a resize during the flash still puts the lit copy on the words", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  const flash = cueAt(schedule, "flash");
+  const veilCue = cueAt(schedule, "veil");
+  await seekIntro(page, flash.atMs + flash.durationMs * 0.25);
+  await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  const delta = await page.evaluate(() => {
+    const a = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+    const b = document.querySelector("[data-spotlight-lit]")!.getBoundingClientRect();
+    return Math.max(Math.abs(a.left - b.left), Math.abs(a.top - b.top), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
+  });
+  expect(delta).toBeLessThanOrEqual(1);
+});
+
+// Catches: the page-coloured 84 appearing at full opacity on the veil at the flight's start (dark on dark in light theme) instead of crossfading from its lit twin.
+test("the flying 84 crossfades from its lit twin", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => ({
+      clone: Number(getComputedStyle(document.querySelector("[data-intro-flight]")!).opacity),
+      twin: Number(getComputedStyle(document.querySelector("[data-spotlight-lit-count]")!).opacity),
+    }));
+  };
+  const start = await read(flight.atMs);
+  const mid = await read(flight.atMs + flight.durationMs * 0.15);
+  expect(start).toEqual({ clone: 0, twin: 1 });
+  expect(mid.clone).toBeGreaterThan(0);
+  expect(mid.twin).toBeLessThan(1);
+});
+
 // Catches: the veil and the caption fading out only at the end of the intro, or not following the flight.
 test("the veil and caption fade out over the flight", async ({ page }) => {
   await page.goto("/speedrun");
@@ -1040,13 +1098,19 @@ test("the veil and caption fade out over the flight", async ({ page }) => {
     return page.evaluate(() => ({
       veil: Number(getComputedStyle(document.querySelector("[data-spotlight-veil]")!).opacity),
       caption: Number(getComputedStyle(document.querySelector("[data-spotlight-caption]")!).opacity),
+      lit: Number(getComputedStyle(document.querySelector("[data-spotlight-lit]")!).opacity),
     }));
   };
   const start = await read(flight.atMs - 10);
   const end = await read(flight.atMs + flight.durationMs);
   expect(start.veil).toBeGreaterThanOrEqual(0.85);
   expect(start.caption).toBeGreaterThan(0.95);
-  expect(end).toEqual({ veil: 0, caption: 0 });
+  expect(start.lit).toBeGreaterThan(0.95);
+  expect(end).toEqual({ veil: 0, caption: 0, lit: 0 });
+  // Catches: the lit copy cutting out at the flight's start instead of crossfading with the originals under it.
+  const mid = await read(flight.atMs + flight.durationMs * 0.2);
+  expect(mid.lit).toBeGreaterThan(0);
+  expect(mid.lit).toBeLessThan(1);
 });
 
 // Catches: the skip leaving the layer behind, or removing it a tick after the intro is marked done.
@@ -1104,7 +1168,7 @@ test.describe("reduced motion spotlight", () => {
       }).observe(document, { childList: true, subtree: true });
     });
     await page.goto("/speedrun");
-    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 500 });
+    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 1500 });
     await page.waitForTimeout(1500);
     expect(await page.evaluate(() => (window as unknown as { __layers: number }).__layers)).toBe(0);
     expect(await page.locator(SPOTLIGHT).count()).toBe(0);

@@ -39,7 +39,8 @@ export type Motion = {
   introSpotlightDimMs: number;
   introSpotlightHoldMs: number;
   introSpotlightVeilOpacity: number;
-  introSpotlightPadPx: number;
+  introSpotlightFlashScale: number;
+  introSpotlightFlashOpacity: number;
   introFlightMs: number;
   introParagraphsAfterLandMs: number;
   introParagraphStaggerMs: number;
@@ -75,8 +76,9 @@ export const MOTION: Motion = {
   introSpotlightFlashMs: 450,
   introSpotlightDimMs: 300,
   introSpotlightHoldMs: 700,
-  introSpotlightVeilOpacity: 0.92,
-  introSpotlightPadPx: 24,
+  introSpotlightVeilOpacity: 0.95,
+  introSpotlightFlashScale: 1.06,
+  introSpotlightFlashOpacity: 0.4,
   introFlightMs: 520,
   introParagraphsAfterLandMs: 280,
   introParagraphStaggerMs: 150,

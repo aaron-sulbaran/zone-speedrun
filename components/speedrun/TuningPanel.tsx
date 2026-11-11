@@ -36,9 +36,11 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
 // Holds the running intro at a time, so the spotlight can be judged frame by frame.
 function HoldRow() {
   const [at, setAt] = useState<number | null>(null);
+  const [idle, setIdle] = useState(false);
   const move = (next: number | null) => {
-    setAt(next);
-    holdIntro(next);
+    const held = holdIntro(next);
+    setIdle(!held);
+    setAt(held ? next : null);
   };
   return (
     <div className="flex flex-col gap-1">
@@ -47,6 +49,7 @@ function HoldRow() {
         <span className="tabular-nums">{at ?? "playing"}</span>
         <input type="range" min={0} max={6000} step={10} value={at ?? 0} onChange={(event) => move(Number(event.target.value))} className="col-span-2 w-full accent-accent" />
       </label>
+      {idle && <p className="text-xs text-muted">No intro is running. Replay the intro first.</p>}
       {at !== null && (
         <button type="button" className={buttonClass} onClick={() => move(null)}>
           Resume the intro
