@@ -997,7 +997,7 @@ test("84 applications pulses before the screen goes dark", async ({ page }) => {
   expect(after.transform).toBe("none");
 });
 
-for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844], [375, 812], [320, 700]] as const) {
   // Catches: a veil that is too weak, pure black, has a hole again, a lit copy off the words (or the same colour as them in light), a missing caption, or a layer not above the chrome.
   test(`the veil holds on 84 applications with the caption at ${width} in ${scheme}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
@@ -1044,6 +1044,12 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
         caption: caption.textContent,
         captionOpacity: Number(getComputedStyle(caption).opacity),
         captionBelow: caption.getBoundingClientRect().top >= words.bottom,
+        captionLeft: caption.getBoundingClientRect().left,
+        captionRight: caption.getBoundingClientRect().right,
+        captionCentre: caption.getBoundingClientRect().left + caption.getBoundingClientRect().width / 2,
+        wordsCentre: words.left + words.width / 2,
+        paragraphLeft: original.closest("p")!.getBoundingClientRect().left,
+        captionAlign: getComputedStyle(caption).textAlign,
         captionInside: caption.getBoundingClientRect().left >= 0 && caption.getBoundingClientRect().right <= innerWidth,
         layerAria: layer.getAttribute("aria-hidden"),
         layerEvents: getComputedStyle(layer).pointerEvents,
@@ -1069,6 +1075,17 @@ for (const scheme of ["light", "dark"] as const) for (const [width, height] of [
     expect(held.captionOpacity).toBeGreaterThan(0.95);
     expect(held.captionBelow).toBe(true);
     expect(held.captionInside).toBe(true);
+    if (width < 768) {
+      // Catches: the caption centred under the words and clamped to 16 px, so on a phone it sits left of the text column (Ruling 31).
+      expect(Math.abs(held.captionLeft - held.paragraphLeft)).toBeLessThanOrEqual(1);
+      // Catches: the caption centred or right-aligned, so a wrapped second line stops lining up with the paragraph.
+      expect(["left", "start"]).toContain(held.captionAlign);
+      // Catches: a caption allowed to outgrow the paragraph and run into the right gutter.
+      expect(held.captionRight).toBeLessThanOrEqual(width - 16);
+    } else {
+      // Catches: the phone alignment leaking onto desktop, or the centring under the lit words changing.
+      expect(Math.abs(held.captionCentre - held.wordsCentre)).toBeLessThanOrEqual(1);
+    }
     expect(held.layerAria).toBe("true");
     expect(held.layerEvents).toBe("none");
     expect(held.parent).toBe(true);

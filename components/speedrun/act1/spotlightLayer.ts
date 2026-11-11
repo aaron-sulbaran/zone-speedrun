@@ -1,6 +1,8 @@
 import { beatOffsets, type IntroCue } from "@/lib/speedrun/heroIntro";
 import { CAPTION_OUT_EASE, SPOTLIGHT_IN_EASE, SR_EASE, type Motion } from "@/lib/speedrun/motion";
+import { captionLeft, phoneCaptionMaxWidth } from "@/lib/speedrun/spotlightCaption";
 import { flashKeyframes } from "@/lib/speedrun/spotlightFrames";
+import { SHORT_LANDSCAPE } from "@/lib/speedrun/viewport";
 
 // The 84 spotlight: a body-level layer (so no stacking context inside the hero can trap it) holding a
 // full-viewport veil, a lit copy of "84 applications" over it at the words' exact rect, and a caption.
@@ -8,7 +10,6 @@ import { flashKeyframes } from "@/lib/speedrun/spotlightFrames";
 // only opacity and transform animate). All of the layer's look lives in globals.css.
 
 const CAPTION_GAP_PX = 20;
-const EDGE_PX = 16;
 
 type Box = { left: number; top: number; width: number; height: number };
 
@@ -80,9 +81,14 @@ export function mountSpotlight(words: HTMLElement, count: HTMLElement, captionTe
     const box = restBox(words, words);
     fit(lit, box, words);
     fit(twin, { left: box.left + inside.x, top: box.top + inside.y, width: inside.width, height: inside.height }, count);
-    const width = caption.offsetWidth;
-    const left = Math.min(Math.max(box.left + box.width / 2 - width / 2, EDGE_PX), Math.max(EDGE_PX, document.documentElement.clientWidth - EDGE_PX - width));
-    caption.style.left = `${left}px`;
+    // On phones the caption lines up with the paragraph (Ruling 31). Its width depends on that, so set it before measuring.
+    const paragraph = words.closest("p")?.getBoundingClientRect() ?? null;
+    const phone = matchMedia(`(max-width: 767px), ${SHORT_LANDSCAPE}`).matches && paragraph !== null;
+    const viewportWidth = document.documentElement.clientWidth;
+    if (phone) caption.setAttribute("data-align", "start");
+    else caption.removeAttribute("data-align");
+    caption.style.maxWidth = phone && paragraph ? `${phoneCaptionMaxWidth(paragraph, viewportWidth)}px` : "";
+    caption.style.left = `${captionLeft({ words: box, paragraph, captionWidth: caption.offsetWidth, viewportWidth, phone })}px`;
     caption.style.top = `${box.top + box.height + CAPTION_GAP_PX}px`;
   };
   place();

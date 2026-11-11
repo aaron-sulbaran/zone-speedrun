@@ -176,6 +176,9 @@ html[data-input="pointer"] .metrics-stage:has(canvas:focus-visible) {
   opacity: 0;
   color: var(--spotlight-lit);
 }
+[data-spotlight-caption][data-align="start"] {
+  text-align: start;
+}
 
 /* ---- /speedrun, Act 2: the talent network's look, scoped ---- */
 [data-speedrun] {
