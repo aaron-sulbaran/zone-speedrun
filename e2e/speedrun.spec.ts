@@ -1089,7 +1089,7 @@ test("the flying 84 crossfades from its lit twin", async ({ page }) => {
 });
 
 // Catches: the veil and the caption fading out only at the end of the intro, or not following the flight.
-test("the veil and caption fade out over the flight", async ({ page }) => {
+test("the veil fades out over the flight and the caption is gone as it starts", async ({ page }) => {
   await page.goto("/speedrun");
   await page.waitForSelector(RUNNING);
   const flight = cueAt(await introSchedule(page), "flight");
@@ -1101,10 +1101,15 @@ test("the veil and caption fade out over the flight", async ({ page }) => {
       lit: Number(getComputedStyle(document.querySelector("[data-spotlight-lit]")!).opacity),
     }));
   };
+  const beforeOut = await read(flight.atMs - MOTION.introSpotlightCaptionOutMs - 10);
+  expect(beforeOut.caption).toBeGreaterThan(0.95);
+  // Catches: the caption still visible as the flight starts, so the flying 84 crosses it.
+  const atFlight = await read(flight.atMs);
+  expect(atFlight.caption).toBe(0);
   const start = await read(flight.atMs - 10);
   const end = await read(flight.atMs + flight.durationMs);
   expect(start.veil).toBeGreaterThanOrEqual(0.85);
-  expect(start.caption).toBeGreaterThan(0.95);
+  expect(start.caption).toBeLessThan(0.5);
   expect(start.lit).toBeGreaterThan(0.95);
   expect(end).toEqual({ veil: 0, caption: 0, lit: 0 });
   // Catches: the lit copy cutting out at the flight's start instead of crossfading with the originals under it.

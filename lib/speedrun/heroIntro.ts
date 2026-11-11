@@ -49,10 +49,13 @@ export function pressableAtMs(cues: IntroCue[]): number {
 
 /**
  * Where the veil's hold and fade-out sit inside its one animation (as fractions of its length), or null
- * when the beat has no length (a tuning panel can zero the dim, hold and flight together).
+ * when the beat has no length (a tuning panel can zero the dim, hold and flight together). The caption
+ * leaves earlier: it starts fading `captionOutMs` before the flight and is gone as the flight starts.
  */
-export function beatOffsets(veil: IntroCue, unveil: IntroCue): { totalMs: number; settled: number; held: number } | null {
+export function beatOffsets(veil: IntroCue, unveil: IntroCue, captionOutMs = 0): { totalMs: number; settled: number; held: number; captionFrom: number } | null {
   const totalMs = unveil.atMs + unveil.durationMs - veil.atMs;
   if (!(totalMs > 0)) return null;
-  return { totalMs, settled: veil.durationMs / totalMs, held: (unveil.atMs - veil.atMs) / totalMs };
+  const settled = veil.durationMs / totalMs;
+  const held = (unveil.atMs - veil.atMs) / totalMs;
+  return { totalMs, settled, held, captionFrom: Math.min(held, Math.max(settled, held - captionOutMs / totalMs)) };
 }

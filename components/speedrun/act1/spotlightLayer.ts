@@ -84,7 +84,7 @@ export function mountSpotlight(words: HTMLElement, count: HTMLElement, captionTe
     const rest = { transform: "scale(1)", opacity: 1 };
     const pulse = { transform: `scale(${m.introSpotlightFlashScale})`, opacity: m.introSpotlightFlashOpacity };
     const animations = [words.animate([{ ...rest, easing: ease }, { ...pulse, easing: ease }, { ...rest, easing: ease }, { ...pulse, easing: ease }, rest], { delay: flash.atMs, duration: flash.durationMs })];
-    const offsets = beatOffsets(dim, out);
+    const offsets = beatOffsets(dim, out, m.introSpotlightCaptionOutMs);
     if (!offsets) return animations;
     // One animation per element, so no later one can override an earlier one's fill: in, hold, out.
     const timing: KeyframeAnimationOptions = { delay: dim.atMs, duration: offsets.totalMs, fill: "both" };
@@ -94,7 +94,15 @@ export function mountSpotlight(words: HTMLElement, count: HTMLElement, captionTe
       { opacity: peak, offset: offsets.held, easing: SR_EASE },
       { opacity: 0, offset: 1 },
     ];
-    animations.push(veil.animate(frames(m.introSpotlightVeilOpacity), timing), lit.animate(frames(1), timing), caption.animate(frames(1), timing));
+    // The caption is gone when the flight starts, so the flying 84 never crosses it.
+    const captionFrames: Keyframe[] = [
+      { opacity: 0, offset: 0, easing: "ease-out" },
+      { opacity: 1, offset: offsets.settled },
+      { opacity: 1, offset: offsets.captionFrom, easing: "ease-in" },
+      { opacity: 0, offset: offsets.held },
+      { opacity: 0, offset: 1 },
+    ];
+    animations.push(veil.animate(frames(m.introSpotlightVeilOpacity), timing), lit.animate(frames(1), timing), caption.animate(captionFrames, timing));
     // The 84's lit twin flies with the page-coloured clone and fades out as that one fades in.
     if (move) animations.push(twin.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: move }], { delay: out.atMs, duration: out.durationMs, easing: SR_EASE, fill: "forwards" }));
     return animations;

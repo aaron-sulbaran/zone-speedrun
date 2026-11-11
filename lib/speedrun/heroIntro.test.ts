@@ -90,4 +90,13 @@ describe("introCues", () => {
     expect(b.settled).toBeLessThanOrEqual(b.held);
     expect(b.held).toBe(1);
   });
+
+  // Catches: the caption still on screen when the flying 84 crosses it.
+  it("fades the caption out so it is gone as the flight starts", () => {
+    const offsets = beatOffsets(cue(cues, "veil")!, cue(cues, "unveil")!, MOTION.introSpotlightCaptionOutMs)!;
+    expect(offsets.held).toBeCloseTo(1000 / 1520);
+    expect(offsets.captionFrom).toBeCloseTo(800 / 1520);
+    const short = beatOffsets(cue(cues, "veil")!, cue(cues, "unveil")!, 5000)!;
+    expect(short.captionFrom).toBeCloseTo(short.settled);
+  });
 });

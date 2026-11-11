@@ -34,6 +34,7 @@ export const TUNING_RANGES: Record<keyof Motion, Range> = {
   introSpotlightFlashMs: ms(1200),
   introSpotlightDimMs: ms(800),
   introSpotlightHoldMs: ms(2000),
+  introSpotlightCaptionOutMs: ms(1000),
   introSpotlightVeilOpacity: { min: 0.5, max: 1, step: 0.01 },
   introSpotlightFlashScale: { min: 1, max: 1.3, step: 0.01 },
   introSpotlightFlashOpacity: { min: 0, max: 1, step: 0.01 },
