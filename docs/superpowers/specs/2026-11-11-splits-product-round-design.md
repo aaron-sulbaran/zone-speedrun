@@ -218,6 +218,53 @@ Top to bottom on desktop, in one column of the shared content width. The order i
 - **68. The join flow, the build log, the switch, Act 1 and phones' shell are unchanged.** The phone gets the new content stacked, and must pass at 375 and 390 with no sideways scroll.
 - **69. The e2e suite's existing flows keep passing.** Tests that pinned removed things (the paste box, arrange controls, the pill tabs) are rewritten or removed, each removal named in the PR.
 
+## Settled after the builder check (my calls)
+
+A fresh builder read the draft. These are its questions and my answers. Each one is my call, and Aaron can overrule any of them.
+
+1. **Aaron's links on the intros.**
+   - Every simulated founder links to Aaron's real LinkedIn, which is his ask: "this can be me across all profiles".
+   - X renders only when an X URL is in `lib/content.ts` socials. Aaron gives the URL, or the cards show LinkedIn only.
+2. **Sam's details are pinned, not looked up.** Sam gets fixed extra events, added the way `OVERNIGHT` adds them, without touching the seeded generator:
+   - two offers with deadlines;
+   - one application quiet past its window;
+   - a min/Max intro.
+
+   `details.ts` is keyed to those exact companies, and the inbox tests and e2e counts that change are updated, each named in the PR. That makes the 1440 check deterministic.
+3. **Today is `INBOX_TODAY`; "this week" is the next six days.** The follow-up windows are:
+   - an application at screen or later, quiet for 7 days;
+   - an intro, quiet for 5 days.
+
+   No-reply stays at the existing 21 days. Generic people have no due dates. Their needs-you rank by stage (offer, then interview, assessment, screen, quiet), then by `lastEventAt`, and the deadline cell shows how long it's been quiet ("quiet 9 days") instead of a date.
+4. **Brief lines carry identity.**
+   - `BriefItem` gains `company` and `actionKey`. The server and email schema may change, and the email keeps its links.
+   - The action comes from the underlying event's kind and stage, never from the line's text.
+   - A visitor with no inbox gets role lines only, and their actions are Bring forward and Apply.
+5. **The board with no inbox and no sample person.**
+   - It shows the shortlist, the live request and Tools.
+   - Needs you, the tiles, the chart and the table are replaced by one line pointing to Connect and to Matches.
+   - The heading reads "Your board". With a sample person it's "{Name}'s board".
+   - A new build (`pickPerson`, `built`) or `reset` clears the shortlist, the request and the done set, because the matches change underneath them.
+6. **Picks are per match,** keyed by `matchKey` as in Ruling 70. Any match can be brought forward, including a founder route without a role. The intro is per match, and eligible only when its `connect` includes `"intro"`. One company may have two picks.
+7. **Tiles and chips.**
+   - Applied clears the filter (All).
+   - In process is open rows at assessment or later.
+   - Offers is open rows at offer.
+   - Intros is founder-lane rows, matching the stat. Its drop-down lists the warm intros.
+   - Closed is rejected plus no-reply.
+   - A row with no applied event shows a dash in Applied.
+8. **State lives in `DemoState`, in the reducer.** It adds:
+   - `done: string[]` (action ids);
+   - `shortlist: string[]` (matchKeys, in rank order);
+   - `introRequest: IntroRequest | null`.
+
+   It removes `boardOrder`, `hidden`, `moveCard` and `toggleCard`. `events` and `addEvents` stay if anything besides the paste box uses them, and are removed only when nothing does.
+9. **The PR 7 contract is the recruiter spec's Ruling 70,** as written in Ruling 45. `introRequest.ts` exports the type plus `createRequest`, `swapRequest` and `pass`.
+10. **Phones.**
+    - The table scrolls sideways inside its own container. The page never does.
+    - Tile drop-downs and sheets stack full width.
+    - Tools shows for visitors without an inbox, as today.
+
 ## Left to the builder
 
 - Component split, and the sheet's look within the existing `sr-*` styles. Reuse today's connect sheet pattern if it fits.
