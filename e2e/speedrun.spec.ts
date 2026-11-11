@@ -1611,7 +1611,7 @@ test("keyboard then mouse: Start over and Replay from the top still work from th
   await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
 });
 
-// Catches: the group's arrow handler not getting the key after a click. WebKit does focus a button that carries a tabindex, so this holds without a focus call; the pin keeps it that way.
+// Catches: the explicit tabindex dropped from the Yes and No pills. WebKit focuses a clicked button only when it carries a tabindex, so without it the click leaves focus on the body and the group's arrow handler never gets the key.
 test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", async ({ page }) => {
   await page.goto("/speedrun");
   await playSwitch(page);
@@ -1621,14 +1621,26 @@ test("a Yes or No pill: click, then ArrowRight moves the answer and the focus", 
   await form.getByRole("button", { name: join.targetLabels.product, exact: true }).click();
   await form.getByRole("button", { name: join.next }).click();
   const yes = form.getByRole("radio", { name: join.yes, exact: true });
-  const no = form.getByRole("radio", { name: join.no, exact: true });
   await yes.click();
+  // A pill advances the card 260 ms (choiceAdvanceMs) after the answer, which removes the radios; read the state one tick after the key instead of racing that.
+  await page.evaluate(() => {
+    const w = window as unknown as { __afterArrow?: { checked: string | null; focused: string | null } };
+    document.addEventListener(
+      "keydown",
+      () =>
+        setTimeout(() => {
+          const active = document.activeElement;
+          w.__afterArrow = { checked: document.querySelector('[role="radio"][aria-checked="true"]')?.textContent ?? null, focused: active?.getAttribute("role") === "radio" ? active.textContent : null };
+        }, 0),
+      { once: true, capture: true },
+    );
+  });
   await page.keyboard.press("ArrowRight");
-  await expect(no).toHaveAttribute("aria-checked", "true");
-  await expect(no).toBeFocused();
+  const after = await page.waitForFunction(() => (window as unknown as { __afterArrow?: unknown }).__afterArrow).then((handle) => handle.jsonValue());
+  expect(after).toEqual({ checked: join.no, focused: join.no });
 });
 
-// Catches: the same dead arrow after a click on a person card (also a tabindex button).
+// Catches: the explicit tabindex dropped from the person cards, so WebKit leaves focus on the body after a click and the arrow never reaches the group.
 test("a person card: click, then ArrowDown selects and focuses the next person", async ({ page }) => {
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Alex", stopAtResume: true });
@@ -1639,7 +1651,7 @@ test("a person card: click, then ArrowDown selects and focuses the next person",
   await expect(form.locator('[data-person="lena"]')).toBeFocused();
 });
 
-// Catches: the same dead arrow after a click on a network tab (also a tabindex button).
+// Catches: the explicit tabindex dropped from the network tabs, so WebKit leaves focus on the body after a click and the arrow never reaches the tablist.
 test("a network tab: click, then ArrowRight selects the next tab", async ({ page }) => {
   await reachNetwork(page);
   await openTab(page, network.tabs.matches);

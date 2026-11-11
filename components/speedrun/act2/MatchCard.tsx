@@ -46,16 +46,17 @@ export function MatchCard({ match }: { match: Match }) {
     if (event.key !== "Escape" || !sheet) return;
     // The detail around the card closes on an Escape nobody has handled; this one is the sheet's.
     event.preventDefault();
-    (sheet === "intro" ? introRef : followRef).current?.focus();
+    (sheet === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
     setSheet(null);
   };
-  // The sheet is not a live region: focus lands on it, so it is announced once. Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
+  // The sheet is not a live region: focus lands on it, so it is announced once.
+  // Safari does not focus a button on click, so the sheet takes focus from code when it opens (its Escape needs it),
   // and a click that closes it puts focus back on the button.
   useEffect(() => {
     if (sheet) sheetRef.current?.focus({ preventScroll: true });
   }, [sheet]);
   const toggle = (kind: "intro" | "follow") => {
-    if (sheet === kind) (kind === "intro" ? introRef : followRef).current?.focus();
+    if (sheet === kind) (kind === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
     setSheet(sheet === kind ? null : kind);
   };
 

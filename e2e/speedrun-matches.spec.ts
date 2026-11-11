@@ -218,6 +218,8 @@ test("phone: the list is inert behind an open detail, and not inert once widened
   await page.locator("[data-detail-back]").focus();
   for (let i = 0; i < 3; i++) {
     await page.keyboard.press(`Shift+${tabKey(browserName)}`);
+    // Catches: a key that moves nothing (a Tab that WebKit ignores), which would leave the list rows unreachable for the wrong reason.
+    if (i === 0) expect(await page.evaluate(() => document.activeElement?.matches("[data-detail-back]"))).toBe(false);
     expect(await page.evaluate(() => document.activeElement?.closest("[data-match-row]") !== null)).toBe(false);
   }
   await page.setViewportSize(DESKTOP);
