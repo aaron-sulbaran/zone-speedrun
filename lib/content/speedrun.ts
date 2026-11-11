@@ -21,6 +21,7 @@ export const speedrunCopy = {
       count: (n: number) => `${n} applications`,
       after: " this fall.",
     },
+    spotlightCaption: "Some of my friends have sent 400.",
     p1: "I've been grinding for internships for a long time. Every recruiting season I know I'm not the only one suffering, because my friends are too.",
     p2: "I believe in what speedrun is doing: actually helping people land these jobs, not just listing them. Building that with you sounds like a lot of fun.",
     privacyNote: "Numbers nudged for privacy. No company names.",

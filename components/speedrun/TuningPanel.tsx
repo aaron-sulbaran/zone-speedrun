@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { MOTION, motion, type Motion } from "@/lib/speedrun/motion";
+import { holdIntro } from "@/lib/speedrun/introHold";
 import { getMotionOverrides, resetMotionOverrides, setMotionOverrides, subscribeMotion } from "@/lib/speedrun/tuning";
 import { motionJson, TUNING_PRESETS, TUNING_RANGES } from "@/lib/speedrun/tuningPresets";
 
@@ -29,6 +30,29 @@ function SliderRow({ name, value }: { name: keyof Motion; value: number }) {
         className="col-span-2 w-full accent-accent"
       />
     </label>
+  );
+}
+
+// Holds the running intro at a time, so the spotlight can be judged frame by frame.
+function HoldRow() {
+  const [at, setAt] = useState<number | null>(null);
+  const move = (next: number | null) => {
+    setAt(next);
+    holdIntro(next);
+  };
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="grid grid-cols-[1fr_auto] items-center gap-x-3 text-xs text-foreground">
+        <span>hold the intro at (ms)</span>
+        <span className="tabular-nums">{at ?? "playing"}</span>
+        <input type="range" min={0} max={6000} step={10} value={at ?? 0} onChange={(event) => move(Number(event.target.value))} className="col-span-2 w-full accent-accent" />
+      </label>
+      {at !== null && (
+        <button type="button" className={buttonClass} onClick={() => move(null)}>
+          Resume the intro
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -61,6 +85,7 @@ export default function TuningPanel({ onReplay, onReplayIntro }: { onReplay: () 
               </button>
             ))}
           </div>
+          <HoldRow />
           <div className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto pr-1">
             {keys.map((key) => (
               <SliderRow key={key} name={key} value={values[key]} />

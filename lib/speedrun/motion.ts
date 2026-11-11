@@ -34,11 +34,16 @@ export type Motion = {
   introRisePx: number;
   introSecondAtMs: number;
   introSubtitleAtMs: number;
-  introParagraphsAtMs: number;
-  introParagraphStaggerMs: number;
-  introCloseAtMs: number;
-  introFlightAtMs: number;
+  introSubtitleWordStaggerMs: number;
+  introSpotlightFlashMs: number;
+  introSpotlightDimMs: number;
+  introSpotlightHoldMs: number;
+  introSpotlightVeilOpacity: number;
+  introSpotlightPadPx: number;
   introFlightMs: number;
+  introParagraphsAfterLandMs: number;
+  introParagraphStaggerMs: number;
+  introCloseAfterLandMs: number;
   introLinksMs: number;
 };
 
@@ -66,11 +71,16 @@ export const MOTION: Motion = {
   introRisePx: 8,
   introSecondAtMs: 700,
   introSubtitleAtMs: 1100,
-  introParagraphsAtMs: 2300,
-  introParagraphStaggerMs: 150,
-  introCloseAtMs: 3000,
-  introFlightAtMs: 1500,
+  introSubtitleWordStaggerMs: 35,
+  introSpotlightFlashMs: 450,
+  introSpotlightDimMs: 300,
+  introSpotlightHoldMs: 700,
+  introSpotlightVeilOpacity: 0.92,
+  introSpotlightPadPx: 24,
   introFlightMs: 520,
+  introParagraphsAfterLandMs: 280,
+  introParagraphStaggerMs: 150,
+  introCloseAfterLandMs: 980,
   introLinksMs: 1100,
 };
 

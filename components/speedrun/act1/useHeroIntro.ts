@@ -1,8 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
-import { introCues, pressableAtMs } from "@/lib/speedrun/heroIntro";
+import { speedrunCopy } from "@/lib/content";
+import { introCues, pressableAtMs, type IntroCue } from "@/lib/speedrun/heroIntro";
+import { registerIntroHold } from "@/lib/speedrun/introHold";
 import { motion, prefersReducedMotion, SR_EASE } from "@/lib/speedrun/motion";
+import { mountSpotlight, type SpotlightLayer } from "./spotlightLayer";
 
 // The root carries the intro state for CSS and for the e2e pins.
 function setIntro(el: HTMLElement, state: "running" | "done") {
@@ -33,6 +36,7 @@ function makeClone(root: HTMLElement, source: HTMLElement, rootRect: DOMRect, fr
     opacity: "0",
     pointerEvents: "none",
     whiteSpace: "nowrap",
+    zIndex: "44", // above the spotlight layer (42), which sits at the page's root stacking context
     transformOrigin: "center",
     font: style.font,
     fontWeight: "700",
@@ -72,7 +76,8 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const of = (kind: string) => items.filter((item) => item.dataset.introEl === kind).sort(byIndex);
     const words = of("word");
     const paragraphs = of("paragraph");
-    const cues = introCues(m, { words: words.length, paragraphs: paragraphs.length });
+    const subtitleWords = of("subtitle");
+    const cues = introCues(m, { words: words.length, subtitleWords: subtitleWords.length, paragraphs: paragraphs.length });
     pressableAt.current = startedAt + pressableAtMs(cues);
 
     // Measure before any animation moves things.
@@ -83,6 +88,10 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const rootRect = el.getBoundingClientRect();
     const from = count?.getBoundingClientRect();
     const to = value?.getBoundingClientRect();
+    // The beat needs the number's words; without them (and without a flight) it is skipped.
+    const spotlightWords = el.querySelector<HTMLElement>("[data-hero-spotlight]");
+    const spotlight: SpotlightLayer | null = spotlightWords && count ? mountSpotlight(spotlightWords, speedrunCopy.act1.spotlightCaption, m.introSpotlightPadPx) : null;
+    let veilCue: IntroCue | undefined;
 
     const animations: Animation[] = [];
     let clone: HTMLElement | null = null;
@@ -99,7 +108,17 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
 
     for (const cue of cues) {
       if (cue.target === "word") fade(words[cue.index], cue.atMs, cue.durationMs);
-      else if (cue.target === "paragraph") fade(paragraphs[cue.index], cue.atMs, cue.durationMs);
+      else if (cue.target === "subtitle") fade(subtitleWords[cue.index], cue.atMs, cue.durationMs);
+      else if (cue.target === "flash") {
+        // Two pulses of "84 applications", opacity and scale only; nothing is left behind at the end.
+        if (!spotlightWords || !spotlight) continue;
+        const pulse = { transform: "scale(1.06)", opacity: 0.4 };
+        const rest = { transform: "scale(1)", opacity: 1 };
+        animations.push(spotlightWords.animate([rest, pulse, rest, pulse, rest], { delay: cue.atMs, duration: cue.durationMs, easing: "ease-in-out" }));
+      } else if (cue.target === "veil") veilCue = cue;
+      else if (cue.target === "unveil") {
+        if (spotlight && veilCue) animations.push(...spotlight.animate(veilCue, cue, m));
+      } else if (cue.target === "paragraph") fade(paragraphs[cue.index], cue.atMs, cue.durationMs);
       else if (cue.target === "flight") {
         if (!count || !value || !from || !to || !to.width) continue;
         clone = makeClone(el, count, rootRect, from);
@@ -140,6 +159,7 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const complete = () => {
       if (el.dataset.intro === "done") return;
       clone?.remove();
+      spotlight?.remove();
       stopListening();
       setIntro(el, "done");
       // The CSS done rule holds the end state; drop the fill so no clip lingers on the chart at rest.
@@ -155,10 +175,19 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     SKIP_EVENTS.forEach((type) => document.addEventListener(type, skip, { passive: true }));
     Promise.all(animations.map((animation) => animation.finished)).then(complete, () => {});
 
+    // Fonts can move the words after the first measure; place the hole again once they are in.
+    const replace = () => spotlight?.place();
+    document.fonts?.ready.then(() => el.dataset.intro === "running" && replace());
+    window.addEventListener("resize", replace);
+    const releaseHold = process.env.NODE_ENV === "development" ? registerIntroHold(animations) : undefined;
+
     return () => {
+      releaseHold?.();
+      window.removeEventListener("resize", replace);
       stopListening();
       animations.forEach((animation) => animation.cancel());
       clone?.remove();
+      spotlight?.remove();
     };
   }, [root]);
 

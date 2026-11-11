@@ -1,4 +1,6 @@
 import { speedrunCopy } from "../lib/content";
+import { introCues, type IntroCue } from "../lib/speedrun/heroIntro";
+import { MOTION } from "../lib/speedrun/motion";
 import type { Arrangement, StepKey } from "../lib/speedrun/onboarding";
 import type { Fn, PersonKey } from "../lib/speedrun/types";
 import { expect, type Page } from "@playwright/test";
@@ -36,6 +38,24 @@ export async function settleHero(page: Page) {
   await hero.dispatchEvent("pointerdown");
   await expect(hero).toHaveAttribute("data-intro", "done");
   await page.evaluate(() => document.fonts.ready);
+}
+
+/** The intro's schedule for the words on this page, so pins read the cue times instead of hard-coding them. */
+export async function introSchedule(page: Page): Promise<IntroCue[]> {
+  const count = (kind: string) => page.locator(`[data-intro-el="${kind}"]`).count();
+  return introCues(MOTION, { words: await count("word"), subtitleWords: await count("subtitle"), paragraphs: await count("paragraph") });
+}
+
+/** Holds the running intro at `ms`: every animation of the hero, its flying 84 and the spotlight layer is paused and seeked. */
+export async function seekIntro(page: Page, ms: number) {
+  await page.evaluate((at) => {
+    for (const animation of document.getAnimations()) {
+      const target = (animation.effect as KeyframeEffect | null)?.target as Element | null | undefined;
+      if (!target?.closest("[data-hero], [data-spotlight], [data-intro-flight]")) continue;
+      animation.pause();
+      animation.currentTime = at;
+    }
+  }, ms);
 }
 
 /** Opens /speedrun when the page is blank, presses the switch and waits for the join card to be ready. */

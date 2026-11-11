@@ -13,21 +13,42 @@ import { useHeroIntro } from "./useHeroIntro";
 
 const flow = aaronFlow({ lanes: false });
 
-// The subtitle's number sits in its own span so the intro can fly it into the chart.
+// The subtitle comes in word by word. "84 applications" are two of those words, grouped in one span
+// so the intro can flash and light them, and the number sits in its own span so it can fly into the chart.
 function Subtitle() {
   const { before, count, after } = speedrunCopy.act1.subtitle;
   const total = AARON_ENTRIES.length;
-  const full = count(total);
   const digits = String(total);
-  const rest = full.startsWith(digits) ? full.slice(digits.length) : "";
+  const split = (text: string) => text.split(" ").filter(Boolean);
+  const beforeWords = split(before);
+  const countWords = split(count(total));
+  const word = (text: string, index: number) => (
+    <span key={index} data-intro-el="subtitle" data-intro-index={index} className="inline-block">
+      {text === digits ? <span data-hero-count="">{text}</span> : text}
+    </span>
+  );
+  const afterWords = split(after);
   return (
-    <p data-intro-el="subtitle" data-intro-index="0" className="mt-5 max-w-xl text-lg leading-snug text-foreground lg:text-xl">
-      {before}
-      <strong className="font-bold">
-        <span data-hero-count="">{digits}</span>
-        {rest}
+    <p className="mt-5 max-w-xl text-lg leading-snug text-foreground lg:text-xl">
+      {beforeWords.map((text, index) => (
+        <span key={index}>
+          {word(text, index)}{" "}
+        </span>
+      ))}
+      <strong data-hero-spotlight="" className="inline-block whitespace-nowrap font-bold">
+        {countWords.map((text, index) => (
+          <span key={index}>
+            {index > 0 && " "}
+            {word(text, beforeWords.length + index)}
+          </span>
+        ))}
       </strong>
-      {after}
+      {afterWords.map((text, index) => (
+        <span key={index}>
+          {" "}
+          {word(text, beforeWords.length + countWords.length + index)}
+        </span>
+      ))}
     </p>
   );
 }

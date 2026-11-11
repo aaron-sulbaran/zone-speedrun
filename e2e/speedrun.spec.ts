@@ -2,7 +2,9 @@ import type { Page } from "@playwright/test";
 import { siteContent, speedrunCopy } from "../lib/content";
 import { test, expect } from "./support/fixtures";
 import { AARON_ENTRIES } from "../lib/speedrun/aaronMock";
-import { accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
+import { pressableAtMs } from "../lib/speedrun/heroIntro";
+import { MOTION } from "../lib/speedrun/motion";
+import { introSchedule, seekIntro, accountButton, accountPanel, answerOnboarding, expectVisitorName, joinPhase, probeFlowLabels, networkHeading, networkPhase, openAccountMenu, openTab, playSwitch, replayFromTop, settleHero, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
 
 // The site's MVP link label (quickCopy.titleShort on the site), kept literal here.
 const QUICK_TITLE_SHORT = "MVP";
@@ -901,8 +903,212 @@ test("the closing block arrives last", async ({ page }) => {
     }
     return out;
   });
-  expect(delays.close).toBe(3000);
+  const schedule = await introSchedule(page);
+  expect(delays.close).toBe(pressableAtMs(schedule));
   for (const [kind, delay] of Object.entries(delays)) if (kind !== "close") expect(delay, kind).toBeLessThan(delays.close);
+});
+
+// ---- the 84 spotlight (Rulings 20 and 21) ----
+
+const SPOTLIGHT = "[data-spotlight]";
+const cueAt = (schedule: Awaited<ReturnType<typeof introSchedule>>, target: string, index = 0) => schedule.find((c) => c.target === target && c.index === index)!;
+
+// Catches: the subtitle coming in as one fade again, so an early word and the last word show together.
+test("the subtitle comes in word by word", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  const words = schedule.filter((c) => c.target === "subtitle");
+  await seekIntro(page, words[words.length - 1].atMs - 20);
+  const opacities = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => Number(getComputedStyle(el).opacity)));
+  expect(opacities).toHaveLength(words.length);
+  expect(opacities[0]).toBeGreaterThan(0.9);
+  expect(opacities[opacities.length - 1]).toBe(0);
+});
+
+// Catches: the flash dropped or run after the veil, or one that animates something other than the two words.
+test("84 applications pulses before the screen goes dark", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flash = cueAt(await introSchedule(page), "flash");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => {
+      const words = getComputedStyle(document.querySelector("[data-hero-spotlight]")!);
+      const veil = document.querySelector("[data-spotlight-veil]");
+      return { transform: words.transform, opacity: Number(words.opacity), veil: veil ? Number(getComputedStyle(veil).opacity) : 0 };
+    });
+  };
+  const before = await read(flash.atMs - 10);
+  const peak = await read(flash.atMs + flash.durationMs * 0.25);
+  const second = await read(flash.atMs + flash.durationMs * 0.75);
+  const after = await read(flash.atMs + flash.durationMs + 10);
+  expect(before).toMatchObject({ transform: "none", opacity: 1 });
+  for (const pulse of [peak, second]) {
+    expect(pulse.transform).not.toBe("none");
+    expect(pulse.opacity).toBeLessThan(1);
+    expect(pulse.veil).toBe(0);
+  }
+  expect(after.transform).toBe("none");
+});
+
+for (const scheme of ["light", "dark"] as const) for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  // Catches: a veil that is too weak, pure black, off-centre from the words, missing its caption or not above the chrome and below the flying 84.
+  test(`the veil holds on 84 applications with the caption at ${width} in ${scheme}`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width, height });
+    await page.goto("/speedrun");
+    await page.waitForSelector(RUNNING);
+    const schedule = await introSchedule(page);
+    const veilCue = cueAt(schedule, "veil");
+    await seekIntro(page, veilCue.atMs + veilCue.durationMs + MOTION.introSpotlightHoldMs / 2);
+    const held = await page.evaluate(() => {
+      const layer = document.querySelector<HTMLElement>("[data-spotlight]")!;
+      const veil = layer.querySelector<HTMLElement>("[data-spotlight-veil]")!;
+      const caption = layer.querySelector<HTMLElement>("[data-spotlight-caption]")!;
+      const words = document.querySelector("[data-hero-spotlight]")!.getBoundingClientRect();
+      const style = getComputedStyle(veil);
+      const stackingRoot = (el: Element) => {
+        for (let node = el.parentElement; node && node !== document.documentElement; node = node.parentElement) {
+          const s = getComputedStyle(node);
+          if ((s.position !== "static" && s.zIndex !== "auto") || s.opacity !== "1" || s.transform !== "none" || s.filter !== "none" || s.isolation === "isolate") return node.tagName;
+        }
+        return "HTML";
+      };
+      const clone = document.createElement("div");
+      clone.setAttribute("data-intro-flight", "");
+      document.querySelector("[data-hero]")!.appendChild(clone);
+      const root = stackingRoot(clone);
+      clone.remove();
+      return {
+        opacity: Number(style.opacity),
+        colour: style.backgroundColor,
+        holeX: parseFloat(veil.style.getPropertyValue("--hole-x")),
+        holeY: parseFloat(veil.style.getPropertyValue("--hole-y")),
+        centre: { x: words.left + words.width / 2, y: words.top + words.height / 2 },
+        caption: caption.textContent,
+        captionOpacity: Number(getComputedStyle(caption).opacity),
+        captionBelow: caption.getBoundingClientRect().top >= words.bottom,
+        captionInside: caption.getBoundingClientRect().left >= 0 && caption.getBoundingClientRect().right <= innerWidth,
+        layerAria: layer.getAttribute("aria-hidden"),
+        layerEvents: getComputedStyle(layer).pointerEvents,
+        layerZ: Number(getComputedStyle(layer).zIndex),
+        parent: layer.parentElement === document.body,
+        wordsOpacity: Number(getComputedStyle(document.querySelector("[data-hero-spotlight]")!).opacity),
+        heroRoot: root,
+      };
+    });
+    expect(held.opacity).toBeGreaterThanOrEqual(0.85);
+    expect(held.colour).not.toBe("rgb(0, 0, 0)");
+    expect(held.colour).not.toBe("rgba(0, 0, 0, 0)");
+    expect(Math.abs(held.holeX - held.centre.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(held.holeY - held.centre.y)).toBeLessThanOrEqual(3);
+    expect(held.caption).toBe(speedrunCopy.act1.spotlightCaption);
+    expect(held.captionOpacity).toBeGreaterThan(0.95);
+    expect(held.captionBelow).toBe(true);
+    expect(held.captionInside).toBe(true);
+    expect(held.layerAria).toBe("true");
+    expect(held.layerEvents).toBe("none");
+    expect(held.parent).toBe(true);
+    expect(held.layerZ).toBeGreaterThan(40);
+    expect(held.wordsOpacity).toBe(1);
+    // The flying 84 is in the page's own stacking context, so its z-index (above the layer's) is what puts it over the veil.
+    expect(held.heroRoot).toBe("HTML");
+  });
+}
+
+// Catches: the flying clone's z-index falling under the veil's, so the 84 vanishes into the dark on its way to Applied.
+test("the flying 84 sits above the veil", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  await seekIntro(page, flight.atMs + flight.durationMs / 2);
+  const z = await page.evaluate(() => ({
+    clone: Number(getComputedStyle(document.querySelector("[data-intro-flight]")!).zIndex),
+    layer: Number(getComputedStyle(document.querySelector("[data-spotlight]")!).zIndex),
+  }));
+  expect(z.clone).toBeGreaterThan(z.layer);
+});
+
+// Catches: the veil and the caption fading out only at the end of the intro, or not following the flight.
+test("the veil and caption fade out over the flight", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const flight = cueAt(await introSchedule(page), "flight");
+  const read = async (ms: number) => {
+    await seekIntro(page, ms);
+    return page.evaluate(() => ({
+      veil: Number(getComputedStyle(document.querySelector("[data-spotlight-veil]")!).opacity),
+      caption: Number(getComputedStyle(document.querySelector("[data-spotlight-caption]")!).opacity),
+    }));
+  };
+  const start = await read(flight.atMs - 10);
+  const end = await read(flight.atMs + flight.durationMs);
+  expect(start.veil).toBeGreaterThanOrEqual(0.85);
+  expect(start.caption).toBeGreaterThan(0.95);
+  expect(end).toEqual({ veil: 0, caption: 0 });
+});
+
+// Catches: the skip leaving the layer behind, or removing it a tick after the intro is marked done.
+test("a keydown during the hold removes the layer in the same tick", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const veilCue = cueAt(await introSchedule(page), "veil");
+  await seekIntro(page, veilCue.atMs + veilCue.durationMs + 100);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  const after = await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    return {
+      layers: document.querySelectorAll("[data-spotlight]").length,
+      intro: document.querySelector("[data-hero]")!.getAttribute("data-intro"),
+      animations: document.getAnimations().filter((a) => ((a.effect as KeyframeEffect | null)?.target as Element | null | undefined)?.closest("[data-spotlight], [data-hero-spotlight]")).length,
+    };
+  });
+  expect(after).toEqual({ layers: 0, intro: "done", animations: 0 });
+});
+
+// Catches: the layer outliving the intro, or the beat's animations lingering at rest.
+test("at done the layer is gone", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  expect(await page.locator(SPOTLIGHT).count()).toBe(1);
+  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "done", { timeout: 10_000 });
+  expect(await page.evaluate(() => ({ layers: document.querySelectorAll("[data-spotlight]").length, veils: document.querySelectorAll("[data-spotlight-veil], [data-spotlight-caption]").length }))).toEqual({ layers: 0, veils: 0 });
+  const words = await page.evaluate(() => getComputedStyle(document.querySelector("[data-hero-spotlight]")!).transform);
+  expect(words).toBe("none");
+});
+
+// Catches: the beat holding the hero's words back after a skip, so the subtitle stays partly transparent.
+test("a skip during the subtitle shows every word", async ({ page }) => {
+  await page.goto("/speedrun");
+  await page.waitForSelector(RUNNING);
+  const schedule = await introSchedule(page);
+  await seekIntro(page, cueAt(schedule, "subtitle", 4).atMs + 50);
+  const state = await page.evaluate(() => {
+    document.querySelector("[data-hero]")!.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    return [...document.querySelectorAll('[data-intro-el="subtitle"]')].map((el) => getComputedStyle(el).opacity);
+  });
+  expect(state.length).toBeGreaterThan(8);
+  expect(state.every((opacity) => opacity === "1")).toBe(true);
+});
+
+test.describe("reduced motion spotlight", () => {
+  test.use({ reducedMotion: "reduce" });
+  // Catches: the layer mounting before the reduced-motion check, so a reader who asked for no motion gets a veil.
+  test("the layer never mounts", async ({ page }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __layers: number };
+      w.__layers = 0;
+      new MutationObserver((records) => {
+        for (const record of records) for (const node of record.addedNodes) if (node instanceof Element && node.matches("[data-spotlight]")) w.__layers += 1;
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto("/speedrun");
+    await page.waitForSelector('[data-hero][data-intro="done"]', { timeout: 500 });
+    await page.waitForTimeout(1500);
+    expect(await page.evaluate(() => (window as unknown as { __layers: number }).__layers)).toBe(0);
+    expect(await page.locator(SPOTLIGHT).count()).toBe(0);
+  });
 });
 
 for (const [width, height] of [[1440, 900], [390, 844]] as const) {
@@ -1138,7 +1344,7 @@ test("a hydration slower than the failsafe goes straight to done", async ({ page
   expect(await page.evaluate(() => (window as unknown as { __introSeen: string[] }).__introSeen)).toEqual(["done"]);
 });
 
-// Catches: the button's pressable moment tied to the whole intro ending (about 3.4 s) instead of its own cue (3 s).
+// Catches: the button's pressable moment tied to the whole intro ending instead of its own cue.
 test("the button plays the switch from its own cue, before the intro has ended", async ({ page }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __introStart: number };
@@ -1148,12 +1354,13 @@ test("the button plays the switch from its own cue, before the intro has ended",
   });
   await page.goto("/speedrun");
   await page.waitForSelector(RUNNING);
+  const pressableAfter = pressableAtMs(await introSchedule(page));
   const pressedWhile = await page.evaluate(
-    () =>
+    (pressableAfter) =>
       new Promise<string>((resolve) => {
         const start = (window as unknown as { __introStart: number }).__introStart;
         const tick = () => {
-          if (performance.now() - start < 3080) return requestAnimationFrame(tick);
+          if (performance.now() - start < pressableAfter + 80) return requestAnimationFrame(tick);
           const intro = document.querySelector("[data-hero]")!.getAttribute("data-intro")!;
           const button = document.querySelector<HTMLElement>("[data-hero-start]")!;
           button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
@@ -1162,6 +1369,7 @@ test("the button plays the switch from its own cue, before the intro has ended",
         };
         tick();
       }),
+    pressableAfter,
   );
   expect(pressedWhile).toBe("running");
   await expect(joinPhase(page)).toBeVisible({ timeout: 8000 });
