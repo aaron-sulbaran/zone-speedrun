@@ -19,8 +19,13 @@ describe("introSlot", () => {
   it("waits for the shortlist first, then for #1, then for a path", () => {
     expect(introSlot(A, [], null)).toEqual({ kind: "request", enabled: false, hint: { reason: "bring" } });
     expect(introSlot(B, keys(A, B), null)).toEqual({ kind: "request", enabled: false, hint: { reason: "first", rank: 2 } });
-    expect(introSlot(C, keys(C), null)).toEqual({ kind: "request", enabled: false, hint: { reason: "noPath" } });
+    expect(introSlot(C, keys(C), null)).toEqual({ kind: "noPath" });
     expect(introSlot(A, keys(A, B), null)).toEqual({ kind: "request", enabled: true, hint: null });
+  });
+
+  it("gives an ineligible match the no-path line whether or not it is on the shortlist", () => {
+    expect(introSlot(C, [], null)).toEqual({ kind: "noPath" });
+    expect(introSlot(C, keys(A, C), null)).toEqual({ kind: "noPath" });
   });
 
   it("shows the line on every other match, and a swap only on a brought-forward eligible one", () => {

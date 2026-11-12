@@ -16,6 +16,9 @@ export type IntroRequest = {
   passedBy: "team" | "founder" | null;
 };
 
+/** At most one request is live; a passed one stays stored but blocks nothing. */
+export const isLive = (request: IntroRequest | null): request is IntroRequest => request !== null && request.status !== "passed";
+
 export const eligible = (match: Match): boolean => match.connect.includes("intro");
 
 function build(candidate: IntroRequest["candidate"], match: Match, ranked: string[], intake: Intake): IntroRequest {

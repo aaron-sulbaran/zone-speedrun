@@ -322,6 +322,16 @@ describe("demoReducer shortlist, intro request and done set", () => {
     expect(demoReducer(requested, { type: "requestIntro", request: request([B, A]) })).toBe(requested);
   });
 
+  it("a passed request does not block a new one, and a live one still does", () => {
+    const state = withKeys([matchKey(A), matchKey(B)]);
+    const passed = { ...state, introRequest: { ...request([A, B]), status: "passed" as const, passedBy: "team" as const } };
+    const next = demoReducer(passed, { type: "requestIntro", request: request([B, A]) });
+    expect(next.introRequest?.matchKey).toBe(matchKey(B));
+    expect(next.introRequest?.status).toBe("requested");
+    const live = { ...state, introRequest: { ...request([A, B]), status: "withFounder" as const } };
+    expect(demoReducer(live, { type: "requestIntro", request: request([B, A]) })).toBe(live);
+  });
+
   it("swapIntro applies only while requested and onto a shortlisted key", () => {
     const state = demoReducer(withKeys([matchKey(A), matchKey(B)]), { type: "requestIntro", request: request([A, B]) });
     expect(demoReducer(withKeys([matchKey(A), matchKey(B)]), { type: "swapIntro", request: request([B, A]) }).introRequest).toBeNull();

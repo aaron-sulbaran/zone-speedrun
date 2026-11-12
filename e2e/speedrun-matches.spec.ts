@@ -473,6 +473,7 @@ const SAM_ANSWERS = { name: "Sam", targets: ["product", "engineering"] as ("prod
 const bringToggle = (page: Page) => detail(page).locator("[data-bring-forward]");
 const requestButton = (page: Page) => detail(page).locator("[data-request-intro]");
 const introOn = (page: Page) => detail(page).locator("[data-intro-on]");
+const rankText = (page: Page) => detail(page).locator("[data-shortlist-rank]");
 const swapButton = (page: Page) => detail(page).getByRole("button", { name: INTRO.swap });
 
 /** The row indexes of the first two matches that take a warm intro. */
@@ -498,7 +499,8 @@ test("intro request: the detail pane has exactly one filled action, and it is th
   const seen = await watchMatches(page);
   await joinAs(page, "sam");
   await toMatches(page);
-  const [first] = eligibleRows(seen.result!);
+  const first = seen.result!.matches.findIndex((match) => match.connect.includes("intro") && match.connect.includes("apply") && match.role);
+  expect(first, "the fixture needs a match with both an intro and an Apply").toBeGreaterThanOrEqual(0);
   const ink = await page.locator("[data-speedrun]").first().evaluate((root) => {
     const probe = document.createElement("div");
     probe.className = "bg-sr-ink";
@@ -515,6 +517,9 @@ test("intro request: the detail pane has exactly one filled action, and it is th
   // Catches: the action reading last in the pane (design-review cold read), or two filled marks competing.
   await expect.poll(filled).toEqual([expect.stringContaining(copy.connect.apply)]);
   await bringForward(page, first);
+  // Catches: a match without Apply, which would let "Apply keeping the fill" pass for nothing.
+  await expect(detail(page).getByRole("link", { name: copy.connect.apply, exact: true })).toBeVisible();
+  // Catches: the request staying disabled on a brought-forward, eligible #1.
   await expect(requestButton(page)).toBeEnabled();
   // Catches: Apply keeping the fill once the request is the pane's main action.
   await expect.poll(filled).toEqual([INTRO.request]);
@@ -536,6 +541,7 @@ test("intro request: the button waits for a shortlist and for #1, and says why",
   await expect(requestButton(page)).toBeDisabled();
   await expect(detail(page)).toContainText(INTRO.hintFirst(2));
   await pick(page, a);
+  // Catches: the first pick staying locked after the second was added.
   await expect(requestButton(page)).toBeEnabled();
 });
 
@@ -553,12 +559,13 @@ test("intro request: one request on #1 puts the line on every other match", asyn
   // Catches: the request button staying live on the match that holds it, so a second request can be made.
   await expect(requestButton(page)).toHaveCount(0);
   await expect(detail(page)).toContainText(INTRO.here);
+  // Catches: focus dropped to the body when the pressed button is replaced by the line.
   await expect(detail(page).locator("[data-intro-here]")).toBeFocused();
   await pick(page, b);
   // Catches: more than one live request, or the line missing on the other match.
   await expect(introOn(page)).toHaveText(INTRO.on(nameA));
   await expect(requestButton(page)).toHaveCount(0);
-  // A match outside the shortlist shows the line too, and no swap.
+  // Catches: a match outside the shortlist offering a swap, or no line, once the request is spent.
   const outside = seen.result!.matches.findIndex((_, i) => i !== a && i !== b);
   await pick(page, outside);
   await expect(introOn(page)).toHaveText(INTRO.on(nameA));
@@ -577,16 +584,18 @@ test("intro request: Move my request here makes that match #1 and moves the line
   await pick(page, a);
   await requestButton(page).click();
   await pick(page, b);
-  await expect(bringToggle(page)).toContainText("#2");
+  await expect(rankText(page)).toHaveText("#2");
   await swapButton(page).click();
   // Catches: a swap that leaves the rank, so #2 holds the request.
-  await expect(bringToggle(page)).toContainText("#1");
+  await expect(rankText(page)).toHaveText("#1");
   // Catches: a swap that leaves the line on the old match, or two live requests.
   await expect(introOn(page)).toHaveCount(0);
   await expect(detail(page)).toContainText(INTRO.here);
+  // Catches: focus dropped to the body when the swap button is replaced by the line.
   await expect(detail(page).locator("[data-intro-here]")).toBeFocused();
   await pick(page, a);
-  await expect(bringToggle(page)).toContainText("#2");
+  // Catches: the old #1 keeping its rank after the swap.
+  await expect(rankText(page)).toHaveText("#2");
   await expect(introOn(page)).toHaveText(INTRO.on(nameB));
   await expect(swapButton(page)).toBeVisible();
   expect(nameA).not.toBe(nameB);
@@ -641,8 +650,11 @@ test("bring forward: the row toggle and the detail toggle are one state, and a r
   // Catches: the toggle sitting inside the row's button, so one click also selects the match.
   await expect(rows(page).first()).toHaveAttribute("aria-current", "true");
   await pick(page, 1);
+  // Catches: the row and the detail keeping separate shortlist state.
   await expect(bringToggle(page)).toHaveAttribute("aria-pressed", "true");
-  await expect(bringToggle(page)).toContainText("#1");
+  // Catches: the rank missing beside the toggle, or the toggle's name changing with its state.
+  await expect(rankText(page)).toHaveText("#1");
+  await expect(bringToggle(page)).toHaveAccessibleName(INTRO.bring);
 });
 
 test("intro request: on a phone every new control is at least 44 by 44", async ({ page }) => {
@@ -673,4 +685,43 @@ test("intro request: on a phone every new control is at least 44 by 44", async (
   await rows(page).nth(b).click();
   await expect(detail(page)).toBeVisible();
   await big(swapButton(page));
+});
+
+test("intro request: with no request and no Apply the toggle is the filled action, and an ineligible match shows only the no-path line", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  // Row 0 is company-only (an intro and Follow, no role); the last row has no intro path.
+  const seen = await watchMatches(page, (result) => {
+    const matches = result.matches.map((match) => ({ ...match }));
+    matches[0] = { ...matches[0], role: null, connect: ["intro", "follow"] };
+    const last = matches.length - 1;
+    matches[last] = { ...matches[last], connect: matches[last].connect.filter((way) => way !== "intro") };
+    return { ...result, matches };
+  });
+  await joinAs(page, "sam");
+  await toMatches(page);
+  const last = seen.result!.matches.length - 1;
+  const ink = await page.locator("[data-speedrun]").first().evaluate((root) => {
+    const probe = document.createElement("div");
+    probe.className = "bg-sr-ink";
+    root.appendChild(probe);
+    const color = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  });
+  const filled = () =>
+    detail(page).locator("button:visible, a:visible").evaluateAll((nodes, color) => nodes.filter((node) => getComputedStyle(node).backgroundColor === color).map((node) => node.textContent?.trim()), ink);
+  await pick(page, 0);
+  // Catches: a company-only match with no filled action at all (the pane reads flat).
+  await expect.poll(filled).toEqual([INTRO.bring]);
+  await bringToggle(page).click();
+  // Catches: the toggle keeping its fill once it is pressed and the request is available.
+  await expect.poll(filled).toEqual([INTRO.request]);
+  await pick(page, last);
+  // Catches: an ineligible match told to bring it forward first, or offered a request button.
+  await expect(detail(page)).toContainText(INTRO.hintNoPath);
+  await expect(detail(page)).not.toContainText(INTRO.hintBring);
+  await expect(requestButton(page)).toHaveCount(0);
+  await bringToggle(page).click();
+  await expect(detail(page)).toContainText(INTRO.hintNoPath);
+  await expect(requestButton(page)).toHaveCount(0);
 });

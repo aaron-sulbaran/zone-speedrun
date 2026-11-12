@@ -15,13 +15,21 @@ export const FILLED = `${BASE} border-sr-ink bg-sr-ink text-sr-surface hover:opa
 
 type ToggleProps = { rank: number | null; onChange: (on: boolean) => void };
 
-export function BringForwardToggle({ rank, onChange }: ToggleProps) {
+/** The name stays "Bring forward"; aria-pressed carries the state and the rank is the text beside it. */
+export function BringForwardToggle({ rank, onChange, filled }: ToggleProps & { filled: boolean }) {
   const on = rank !== null;
   return (
-    <button type="button" data-bring-forward="" aria-pressed={on} onClick={() => onChange(!on)} className={SECONDARY}>
-      <Bookmark aria-hidden="true" size={14} className={on ? "fill-current" : ""} />
-      {on ? copy.brought(rank) : copy.bring}
-    </button>
+    <>
+      <button type="button" data-bring-forward="" aria-pressed={on} onClick={() => onChange(!on)} className={filled && !on ? FILLED : SECONDARY}>
+        <Bookmark aria-hidden="true" size={14} className={on ? "fill-current" : ""} />
+        {copy.bring}
+      </button>
+      {on && (
+        <span data-shortlist-rank="" className="font-srcond text-xs uppercase tracking-wider text-sr-ink2">
+          {copy.rank(rank)}
+        </span>
+      )}
+    </>
   );
 }
 
@@ -89,9 +97,16 @@ export function IntroNote({ slot }: { slot: IntroSlot }) {
       </p>
     );
   }
+  if (slot.kind === "noPath") {
+    return (
+      <p id="sr-intro-note" className="mt-3 text-sm text-sr-ink2">
+        {copy.hintNoPath}
+      </p>
+    );
+  }
   const { hint } = slot;
   if (!hint) return null;
-  const text = hint.reason === "bring" ? copy.hintBring : hint.reason === "first" ? copy.hintFirst(hint.rank) : copy.hintNoPath;
+  const text = hint.reason === "bring" ? copy.hintBring : copy.hintFirst(hint.rank);
   return (
     <p id="sr-intro-note" className="mt-3 text-sm text-sr-ink2">
       {text}

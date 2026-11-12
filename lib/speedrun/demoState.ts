@@ -1,7 +1,7 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
-import type { IntroRequest } from "./introRequest";
+import { isLive, type IntroRequest } from "./introRequest";
 import type { BoardCard, InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
@@ -165,9 +165,9 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       [shortlist[at], shortlist[to]] = [shortlist[to], shortlist[at]];
       return withShortlist(state, shortlist);
     }
-    // One request at a time, and only on a match that is on the shortlist.
+    // One live request at a time (a passed one does not count), and only on a match that is on the shortlist.
     case "requestIntro":
-      if (state.introRequest !== null || !state.shortlist.includes(action.request.matchKey)) return state;
+      if (isLive(state.introRequest) || !state.shortlist.includes(action.request.matchKey)) return state;
       return withShortlist({ ...state, introRequest: action.request }, state.shortlist);
     // The swap moves the pick to #1 and the request with it, and only while the talent team has not picked it up.
     case "swapIntro":

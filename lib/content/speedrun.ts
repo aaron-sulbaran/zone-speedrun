@@ -180,7 +180,7 @@ export const speedrunCopy = {
     // Drafts: the intro request is a one-per-person pick on the #1 match (Rulings 42 to 45).
     intro: {
       bring: "Bring forward",
-      brought: (rank: number) => `Brought forward, #${rank}`,
+      rank: (rank: number) => `#${rank}`,
       bringRow: (company: string) => `Bring ${company} forward`,
       request: "Request a warm intro",
       swap: "Move my request here",

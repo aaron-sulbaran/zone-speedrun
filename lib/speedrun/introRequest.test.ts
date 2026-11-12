@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRequest, eligible, pass, swapRequest, type IntroRequest } from "./introRequest";
+import { createRequest, eligible, isLive, pass, swapRequest, type IntroRequest } from "./introRequest";
 import { matchKey } from "./matchList";
 import type { Match } from "./match";
 import type { Intake } from "./types";
@@ -73,5 +73,14 @@ describe("pass", () => {
   it("returns live: null when nothing eligible is left", () => {
     const request = createRequest({ candidate: CANDIDATE, shortlist: [A, B], intake: INTAKE }) as IntroRequest;
     expect(pass(request, "founder", [A, B], INTAKE).live).toBeNull();
+  });
+});
+
+describe("isLive", () => {
+  it("is false for none and for a passed request, true for every other status", () => {
+    const base = createRequest({ candidate: CANDIDATE, shortlist: [A], intake: INTAKE }) as IntroRequest;
+    expect(isLive(null)).toBe(false);
+    expect(isLive({ ...base, status: "passed" })).toBe(false);
+    for (const status of ["requested", "withFounder", "connected"] as const) expect(isLive({ ...base, status })).toBe(true);
   });
 });

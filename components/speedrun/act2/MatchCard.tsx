@@ -69,6 +69,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
   };
   // The request is the pane's one filled action when it can be made; otherwise Apply is.
   const requestReady = intro.slot.kind === "request" && intro.slot.enabled;
+  const applyAvailable = connect.includes("apply") && role !== null;
   const applyClass = `${requestReady ? SECONDARY : FILLED} no-underline`;
 
   return (
@@ -118,7 +119,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
             {copy.connect.follow}
           </button>
         )}
-        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} />
+        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} />
       </div>
       <IntroNote slot={intro.slot} />
       <div id={sheetId}>
