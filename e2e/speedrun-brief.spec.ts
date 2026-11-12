@@ -96,6 +96,8 @@ test("brief action: tapping a time sends that time, dims the line and keeps it i
   await expect(lines(page).first().locator("[data-brief-text]")).toHaveText(words);
   // Catches: a confirmed line keeping a live button, which could send the same reply twice.
   await expect(first.locator("[data-brief-action]")).toHaveCount(0);
+  // Catches: focus dropping to the page when the tapped time swaps the line's button for "Sent", which should take it.
+  await expect(first.locator("[data-brief-done]")).toBeFocused();
   // Catches: a done line that does not look quiet.
   await expect(first).toHaveCSS("opacity", "0.7");
   // Catches: the other lines marked done along with it.

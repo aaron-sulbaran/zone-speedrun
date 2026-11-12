@@ -22,7 +22,7 @@ type Channel = (typeof CHANNELS)[number];
 export function BriefPreview({ state, dispatch, name }: { state: DemoState; dispatch: Dispatch<DemoAction>; name: string }) {
   const { personKey, profile, result, inboxConnected: connected, events: pasted, live } = state;
   const [channel, setChannel] = useState<Channel>("email");
-  const [open, setOpen] = useState<{ action: Action; opener: HTMLButtonElement } | null>(null);
+  const [open, setOpen] = useState<{ action: Action; opener: HTMLButtonElement; line: Element | null } | null>(null);
   // The time tapped on a Pick a time sheet, by action id, so the line can say which one it sent.
   const [picked, setPicked] = useState<Record<string, string>>({});
   const firstName = profile?.firstName ?? "";
@@ -54,8 +54,8 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
   // The opener while it is on the page; after a confirm it has been swapped for the line's "Sent", which takes focus instead.
   const returnFocus = () => {
     if (!open) return null;
-    const line = open.opener.closest("[data-brief-item]");
-    return line?.querySelector<HTMLElement>("[data-brief-done]") ?? (open.opener.isConnected ? open.opener : null);
+    // The line is kept from when the sheet opened: by the time focus returns, the opener has been swapped out of it.
+    return open.line?.querySelector<HTMLElement>("[data-brief-done]") ?? (open.opener.isConnected ? open.opener : null);
   };
 
   const subject = briefSubject(brief, name);
@@ -87,7 +87,7 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
           ) : (
             <ul className="mt-3 divide-y divide-sr-soft">
               {brief.items.map((item, i) => (
-                <BriefLine key={item.text} item={item} action={actions[i]} done={isDone(actions[i])} picked={actions[i] ? picked[actions[i]!.id] : undefined} onOpen={(action, opener) => setOpen({ action, opener })} />
+                <BriefLine key={item.text} item={item} action={actions[i]} done={isDone(actions[i])} picked={actions[i] ? picked[actions[i]!.id] : undefined} onOpen={(action, opener) => setOpen({ action, opener, line: opener.closest("[data-brief-item]") })} />
               ))}
             </ul>
           )}
