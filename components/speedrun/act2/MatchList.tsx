@@ -5,6 +5,7 @@ import { forwardRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { reasonLine, type ListItem } from "@/lib/speedrun/matchList";
 import { CompanyLogo } from "./MatchCard";
+import { RowBringForward } from "./IntroControls";
 import { NEXT_LINK, NextArrow } from "./NetworkTabs";
 
 const copy = speedrunCopy.matches;
@@ -22,6 +23,8 @@ type MatchListProps = {
   nextLabel: string;
   onNext: () => void;
   registerRow: (key: string, node: HTMLButtonElement | null) => void;
+  rankOf: (key: string) => number | null;
+  onBring: (key: string, on: boolean) => void;
 };
 
 function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFounding: boolean }) {
@@ -59,7 +62,7 @@ function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFoundin
 
 // The rows are plain buttons: Up and Down move the selection and the focus with it, so focus never leaves the list.
 export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function MatchList(
-  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow, inert, nextLabel, onNext },
+  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow, inert, nextLabel, onNext, rankOf, onBring },
   ref,
 ) {
   const onKeyDown = (event: KeyboardEvent) => {
@@ -84,18 +87,19 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
       )}
       <ul aria-labelledby="sr-matches-heading" className="mt-4 space-y-2">
         {items.map((item) => (
-          <li key={item.key}>
+          <li key={item.key} className="relative">
             <button
               ref={(node) => registerRow(item.key, node)}
               type="button"
               data-match-row={item.key}
               aria-current={item.key === selectedKey ? "true" : undefined}
               onClick={() => onSelect(item.key)}
-              className="flex w-full items-start gap-3 rounded-xl border border-sr-soft bg-sr-surface p-3 text-left transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple lg:bg-sr-hud lg:hover:bg-sr-strong aria-[current=true]:border-sr-ink lg:aria-[current=true]:bg-sr-surface motion-reduce:transition-none"
+              className="flex w-full items-start gap-3 rounded-xl border border-sr-soft bg-sr-surface p-3 pr-14 text-left transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sr-purple lg:bg-sr-hud lg:hover:bg-sr-strong aria-[current=true]:border-sr-ink lg:aria-[current=true]:bg-sr-surface motion-reduce:transition-none"
             >
               <RowBody item={item} mentionedFounding={mentionedFounding} />
-              <ChevronRight aria-hidden="true" size={18} className="ml-auto h-[18px] w-[18px] shrink-0 self-center text-sr-ink2" />
+              <ChevronRight aria-hidden="true" size={18} className="absolute right-3 top-3 h-[18px] w-[18px] text-sr-ink2" />
             </button>
+            {item.kind === "match" && <RowBringForward company={item.match.company.name} rank={rankOf(item.key)} onChange={(on) => onBring(item.key, on)} />}
           </li>
         ))}
       </ul>
@@ -105,7 +109,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
         </p>
       )}
       <div className="mt-8 pb-4">
-        <button type="button" onClick={onNext} className={NEXT_LINK}>
+        <button type="button" onClick={onNext} className={`${NEXT_LINK} focus-visible:ring-inset`}>
           {nextLabel}
           <NextArrow />
         </button>

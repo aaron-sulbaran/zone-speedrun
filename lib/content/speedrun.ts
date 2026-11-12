@@ -176,9 +176,21 @@ export const speedrunCopy = {
     listCount: (n: number) => `${n} worth your time first`,
     founderRow: "Founder route",
     back: "Back to matches",
-    connect: { intro: "Ask for a warm intro", apply: "Apply", follow: "Follow" },
+    connect: { apply: "Apply", follow: "Follow" },
+    // Drafts: the intro request is a one-per-person pick on the #1 match (Rulings 42 to 45).
+    intro: {
+      bring: "Bring forward",
+      brought: (rank: number) => `Brought forward, #${rank}`,
+      bringRow: (company: string) => `Bring ${company} forward`,
+      request: "Request a warm intro",
+      swap: "Move my request here",
+      hintBring: "Bring this match forward first, then ask for an intro.",
+      hintFirst: (rank: number) => `You get one intro request, and it goes to your #1 pick. This one is #${rank}.`,
+      hintNoPath: "There is no warm intro path here yet. Apply or follow instead.",
+      on: (company: string) => `Your intro request is on ${company}`,
+      here: "Intro requested. The talent team reviews it next.",
+    },
     connectSheet: {
-      intro: "The talent team would see your profile and this match, and reach out to the founder if it fits. Nothing is sent from this demo.",
       apply: "Opens the role on the speedrun jobs board in a new tab.",
       follow: "You'd hear about it in your morning brief when they post something new.",
     },

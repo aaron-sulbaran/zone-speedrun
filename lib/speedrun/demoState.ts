@@ -96,6 +96,15 @@ function clampStep(answers: Answers, joinStep: number) {
   return Math.max(0, Math.min(stepsFor(answers).length - 1, joinStep));
 }
 
+/** The request's key first, then the live shortlist in order (Ruling 45's `ranked`). */
+const rankedFor = (requestKey: string, shortlist: string[]) => [requestKey, ...shortlist.filter((key) => key !== requestKey)];
+
+/** Sets the shortlist and keeps the request's `ranked` in step with it. */
+function withShortlist(state: DemoState, shortlist: string[]): DemoState {
+  const request = state.introRequest;
+  return { ...state, shortlist, introRequest: request ? { ...request, ranked: rankedFor(request.matchKey, shortlist) } : null };
+}
+
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
     case "answer": {
@@ -142,10 +151,11 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return { ...state, events: [...state.events, ...action.events] };
     case "bringForward": {
       const has = state.shortlist.includes(action.key);
-      if (action.on) return has ? state : { ...state, shortlist: [...state.shortlist, action.key] };
-      if (!has) return state;
+      if (action.on === has) return state;
+      if (action.on) return withShortlist(state, [...state.shortlist, action.key]);
+      // Taking the requested match off the shortlist withdraws the request with it.
       const requestGone = state.introRequest?.matchKey === action.key;
-      return { ...state, shortlist: state.shortlist.filter((key) => key !== action.key), introRequest: requestGone ? null : state.introRequest };
+      return withShortlist({ ...state, introRequest: requestGone ? null : state.introRequest }, state.shortlist.filter((key) => key !== action.key));
     }
     case "moveShortlist": {
       const at = state.shortlist.indexOf(action.key);
@@ -153,17 +163,16 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       if (at < 0 || to < 0 || to >= state.shortlist.length) return state;
       const shortlist = [...state.shortlist];
       [shortlist[at], shortlist[to]] = [shortlist[to], shortlist[at]];
-      return { ...state, shortlist };
+      return withShortlist(state, shortlist);
     }
+    // One request at a time, and only on a match that is on the shortlist.
     case "requestIntro":
-      return { ...state, introRequest: action.request };
-    // The swap moves the pick to #1 and the request with it.
+      if (state.introRequest !== null || !state.shortlist.includes(action.request.matchKey)) return state;
+      return withShortlist({ ...state, introRequest: action.request }, state.shortlist);
+    // The swap moves the pick to #1 and the request with it, and only while the talent team has not picked it up.
     case "swapIntro":
-      return {
-        ...state,
-        introRequest: action.request,
-        shortlist: [action.request.matchKey, ...state.shortlist.filter((key) => key !== action.request.matchKey)],
-      };
+      if (state.introRequest?.status !== "requested" || !state.shortlist.includes(action.request.matchKey)) return state;
+      return withShortlist({ ...state, introRequest: action.request }, [action.request.matchKey, ...state.shortlist.filter((key) => key !== action.request.matchKey)]);
     case "markDone":
       return state.done.includes(action.id) ? state : { ...state, done: [...state.done, action.id] };
     case "reset":

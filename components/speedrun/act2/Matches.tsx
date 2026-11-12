@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { Dispatch } from "react";
+import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import type { MatchResult } from "@/lib/speedrun/match";
 import { listItems, moveSelection } from "@/lib/speedrun/matchList";
 import { SHORT_LANDSCAPE } from "@/lib/speedrun/viewport";
 import { motion, prefersReducedMotion, SR_EASE, STEP_EASE } from "@/lib/speedrun/motion";
 import { MatchDetail } from "./MatchDetail";
 import { MatchList } from "./MatchList";
+import { useIntro } from "./useIntro";
 
 const CASCADE_MS = 420;
 const STAGGER_MS = 70;
@@ -15,11 +18,12 @@ const MAX_STAGGERED = 8;
 const LOGO_CLEARANCE = 80;
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
-type MatchesProps = { result: MatchResult; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
+type MatchesProps = { result: MatchResult; state: DemoState; dispatch: Dispatch<DemoAction>; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
 
 // Two panes from lg: the list on the left, the selected match on the right. Below lg the detail slides over the list.
-export function Matches({ result, name, mentionedFounding = false, nextLabel, onNext }: MatchesProps) {
+export function Matches({ result, state, dispatch, name, mentionedFounding = false, nextLabel, onNext }: MatchesProps) {
   const items = listItems(result);
+  const intro = useIntro(state, dispatch);
   const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
   const [detailOpen, setDetailOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -126,11 +130,13 @@ export function Matches({ result, name, mentionedFounding = false, nextLabel, on
         onSelect={select}
         onMove={move}
         registerRow={registerRow}
+        rankOf={intro.rankOf}
+        onBring={intro.bring}
         inert={!wide && detailOpen}
         nextLabel={nextLabel}
         onNext={onNext}
       />
-      <MatchDetail ref={detailRef} item={selected} routes={result.routes} mentionedFounding={mentionedFounding} open={detailOpen} onClose={closeDetail} />
+      <MatchDetail ref={detailRef} item={selected} forMatch={intro.forMatch} routes={result.routes} mentionedFounding={mentionedFounding} open={detailOpen} onClose={closeDetail} />
     </section>
   );
 }

@@ -293,6 +293,43 @@ describe("demoReducer shortlist, intro request and done set", () => {
     expect(state.shortlist).toEqual([matchKey(C), matchKey(A), matchKey(B)]);
   });
 
+  it("keeps ranked equal to the request's key, then the live shortlist, through every change", () => {
+    const [ka, kb, kc] = [matchKey(A), matchKey(B), matchKey(C)];
+    let state = withKeys([ka, kb]);
+    state = demoReducer(state, { type: "requestIntro", request: request([A, B]) });
+    expect(state.introRequest?.ranked).toEqual([ka, kb]);
+    state = demoReducer(state, { type: "bringForward", key: kc, on: true });
+    expect(state.introRequest?.ranked).toEqual([ka, kb, kc]);
+    // The request stays first even when its match is no longer #1.
+    state = demoReducer(state, { type: "moveShortlist", key: kc, direction: -1 });
+    state = demoReducer(state, { type: "moveShortlist", key: ka, direction: 1 });
+    expect(state.shortlist).toEqual([kc, ka, kb]);
+    expect(state.introRequest?.ranked).toEqual([ka, kc, kb]);
+    state = demoReducer(state, { type: "bringForward", key: kb, on: false });
+    expect(state.introRequest?.ranked).toEqual([ka, kc]);
+    state = demoReducer(state, { type: "swapIntro", request: request([C, A]) });
+    expect(state.shortlist[0]).toBe(kc);
+    expect(state.introRequest?.ranked).toEqual([kc, ...state.shortlist.slice(1)]);
+  });
+
+  it("requestIntro applies only with no request yet and a key on the shortlist", () => {
+    const state = withKeys([matchKey(A), matchKey(B)]);
+    // A key off the shortlist is refused.
+    expect(demoReducer(state, { type: "requestIntro", request: request([C]) })).toBe(state);
+    const requested = demoReducer(state, { type: "requestIntro", request: request([A, B]) });
+    expect(requested.introRequest?.matchKey).toBe(matchKey(A));
+    // A second request, on another pick, is refused.
+    expect(demoReducer(requested, { type: "requestIntro", request: request([B, A]) })).toBe(requested);
+  });
+
+  it("swapIntro applies only while requested and onto a shortlisted key", () => {
+    const state = demoReducer(withKeys([matchKey(A), matchKey(B)]), { type: "requestIntro", request: request([A, B]) });
+    expect(demoReducer(withKeys([matchKey(A), matchKey(B)]), { type: "swapIntro", request: request([B, A]) }).introRequest).toBeNull();
+    expect(demoReducer(state, { type: "swapIntro", request: request([C]) })).toBe(state);
+    const moved = { ...state, introRequest: { ...state.introRequest!, status: "withFounder" as const } };
+    expect(demoReducer(moved, { type: "swapIntro", request: request([B, A]) })).toBe(moved);
+  });
+
   it("markDone is idempotent", () => {
     let state = demoReducer(initialDemoState(LIVE), { type: "markDone", id: "x" });
     state = demoReducer(state, { type: "markDone", id: "x" });

@@ -5,13 +5,15 @@ import { forwardRef, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { FounderRoute as Route } from "@/lib/speedrun/match";
 import type { ListItem } from "@/lib/speedrun/matchList";
+import type { Match } from "@/lib/speedrun/match";
 import { FounderRoute } from "./FounderRoute";
-import { MatchCard } from "./MatchCard";
+import { MatchCard, type MatchIntro } from "./MatchCard";
 
 const copy = speedrunCopy.matches;
 
 type MatchDetailProps = {
   item: ListItem | null;
+  forMatch: (match: Match) => MatchIntro;
   routes: Route[];
   mentionedFounding: boolean;
   open: boolean;
@@ -19,7 +21,7 @@ type MatchDetailProps = {
 };
 
 // Below lg this sits over the list and shows only while open; from lg it is the right column and always shows.
-export const MatchDetail = forwardRef<HTMLDivElement, MatchDetailProps>(function MatchDetail({ item, routes, mentionedFounding, open, onClose }, ref) {
+export const MatchDetail = forwardRef<HTMLDivElement, MatchDetailProps>(function MatchDetail({ item, forMatch, routes, mentionedFounding, open, onClose }, ref) {
   // An Escape the connect sheet already handled is marked defaultPrevented; only an unhandled one closes the detail.
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape" && !event.defaultPrevented) onClose();
@@ -42,13 +44,13 @@ export const MatchDetail = forwardRef<HTMLDivElement, MatchDetailProps>(function
         {copy.back}
       </button>
       {item === null ? (
-        <p data-detail-empty="" className="rounded-xl border border-sr-soft bg-sr-surface p-6 text-sr-ink2">
+        <p data-detail-empty="" className="rounded-xl border border-sr-soft bg-sr-surface p-6 text-sr-ink2 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
           {copy.empty}
         </p>
       ) : item.kind === "founder" ? (
         <FounderRoute routes={routes} mentioned={mentionedFounding} />
       ) : (
-        <MatchCard key={item.key} match={item.match} />
+        <MatchCard key={item.key} match={item.match} intro={forMatch(item.match)} />
       )}
     </div>
   );
