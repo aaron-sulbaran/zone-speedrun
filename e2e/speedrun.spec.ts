@@ -914,14 +914,15 @@ for (const size of [
     expect(shell.right - avatar.right).toBeLessThanOrEqual(32);
     expect(avatar.left).toBeGreaterThan((await list.evaluate((el) => el.getBoundingClientRect().right)));
 
-    // Catches: the PR 7 team switch has no mount point, or it lands away from the avatar, or it renders something now.
+    // Catches: the team switch has no mount point, or it lands away from the avatar.
     const slot = page.locator("[data-shell-switch-slot]");
     await expect(slot).toHaveCount(1);
     const slotBox = await rect("[data-shell-switch-slot]");
     expect(slotBox.right).toBeLessThanOrEqual(avatar.left);
     expect(avatar.left - slotBox.right).toBeLessThanOrEqual(16);
     expect(slotBox.right - slotBox.left).toBeGreaterThan(80);
-    expect(await slot.evaluate((el) => el.childElementCount + (el.textContent ?? "").length)).toBe(0);
+    // Catches: the slot left empty, so the switch is somewhere else or missing from the bar.
+    await expect(slot.locator("[data-side-switch]")).toBeVisible();
 
     // Catches: pill tabs, a filled selected tab (the old black pill) or a selected state with no underline.
     const selectedTab = list.getByRole("tab", { selected: true });
@@ -978,8 +979,8 @@ test("desktop shell: the Matches detail pane runs the list's full height, select
   expect(tones.other).not.toBe(tones.selected);
 });
 
-// Catches: the lg changes leaking below it: the icon dock must stay at the bottom, the switch slot must not take space on a phone.
-test("desktop shell: the 390 phone keeps the bottom dock with icons and no switch slot", async ({ page }) => {
+// Catches: the lg changes leaking below it: the icon dock must stay at the bottom, and the switch must be its own full-width row on a phone.
+test("desktop shell: the 390 phone keeps the bottom dock with icons and the switch on its own row", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/speedrun");
   await skipToSam(page);
@@ -987,7 +988,10 @@ test("desktop shell: the 390 phone keeps the bottom dock with icons and no switc
   const list = page.getByRole("tablist", { name: network.tabsLabel });
   await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
   await expect(list.locator("svg")).toHaveCount(4);
-  await expect(page.locator("[data-shell-switch-slot]")).toBeHidden();
+  const switchBox = await page.locator("[data-side-switch]").evaluate((el) => { const r = el.getBoundingClientRect(); return { top: r.top, left: r.left, right: r.right }; });
+  const avatarBottom = await accountButton(page).evaluate((el) => el.getBoundingClientRect().bottom);
+  expect(switchBox.top).toBeGreaterThanOrEqual(avatarBottom);
+  expect(switchBox.right - switchBox.left).toBeGreaterThan(300);
   expect(await list.getByRole("tab", { selected: true }).evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
 });
 

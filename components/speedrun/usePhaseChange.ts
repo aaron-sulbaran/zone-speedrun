@@ -24,7 +24,7 @@ export function usePhaseChange(phase: Phase, dispatchPhase: Dispatch<PhaseEvent>
   const queueRef = useRef<ExitQueue<Change> | null>(null);
   const shownRef = useRef<Phase>(phase);
   // The phase once every queued event has run; the tab never matters to `go`.
-  const projectedRef = useRef<PhaseState>({ phase, tab: "matches" });
+  const projectedRef = useRef<PhaseState>({ phase, tab: "matches", side: "candidate" });
   const queuedRef = useRef(0);
 
   const go = useCallback(
@@ -64,7 +64,7 @@ export function usePhaseChange(phase: Phase, dispatchPhase: Dispatch<PhaseEvent>
   );
 
   useLayoutEffect(() => {
-    if (queuedRef.current === 0) projectedRef.current = { phase, tab: "matches" };
+    if (queuedRef.current === 0) projectedRef.current = { phase, tab: "matches", side: "candidate" };
     if (shownRef.current === phase) return;
     shownRef.current = phase;
     window.scrollTo({ top: 0, behavior: "instant" });

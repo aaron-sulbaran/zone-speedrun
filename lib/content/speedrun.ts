@@ -173,6 +173,10 @@ export const speedrunCopy = {
     tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why I built this" },
     nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why I built this" },
   },
+  team: {
+    switch: { label: "View as", candidate: "Candidate", team: "Talent team" },
+    heading: "what this unlocks for the talent team",
+  },
   matches: {
     listHeading: (name: string | null) => (name ? `${name}'s matches` : "Your matches"),
     listCount: (n: number) => `${n} worth your time first`,

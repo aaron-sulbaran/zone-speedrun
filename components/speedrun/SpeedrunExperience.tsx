@@ -40,7 +40,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
   const tuning = useSyncExternalStore(noopSubscribe, wantsTuning, () => false);
   const [playSignal, setPlaySignal] = useState(0);
   const [heroRun, setHeroRun] = useState(0);
-  const { phase, tab } = phaseState;
+  const { phase, tab, side } = phaseState;
   const { go, announcement } = usePhaseChange(phase, dispatchPhase);
   const { lines, failed, retry, readUpload } = useDemoBuild(state, dispatch);
 
@@ -100,11 +100,11 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
       {phase === "opener" ? (
         <SplitsHero key={heroRun} onStart={() => setPlaySignal((n) => n + 1)} />
       ) : (
-        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} className={`min-h-dvh [overflow-y:clip] focus:outline-none ${themeClassName}`}>
+        <section id="act-2" tabIndex={-1} data-speedrun="" data-phase={phase} data-side={phase === "network" ? side : undefined} className={`min-h-dvh [overflow-y:clip] focus:outline-none ${themeClassName}`}>
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
             {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}
-            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
+            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} side={side} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onSide={(next) => dispatchPhase({ type: "side", side: next })} onStartOver={startOver} onReplayTop={replayTop} />}
             {EGG_ENABLED && <Egg />}
           </div>
           {phase !== "network" && <PinnedAffiliation />}

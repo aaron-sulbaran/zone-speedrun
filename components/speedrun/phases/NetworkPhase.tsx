@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
-import { nextTab, NETWORK_TABS, type NetworkTab } from "@/lib/speedrun/phase";
+import { nextTab, NETWORK_TABS, type NetworkTab, type Side } from "@/lib/speedrun/phase";
 import { Board } from "../act2/Board";
 import { BriefPreview } from "../act2/BriefPreview";
 import { Close } from "../act2/Close";
@@ -12,6 +12,7 @@ import { Decisions } from "../act2/Decisions";
 import { Matches } from "../act2/Matches";
 import { NEXT_LINK, NextArrow, panelId, tabId } from "../act2/NetworkTabs";
 import { AppShell } from "../shell/AppShell";
+import { DeskPlaceholder } from "../team/DeskPlaceholder";
 import { visitorFirstName, visitorName } from "../visitorName";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
@@ -19,15 +20,17 @@ type NetworkPhaseProps = {
   state: DemoState;
   dispatch: Dispatch<DemoAction>;
   tab: NetworkTab;
+  side: Side;
   onTab: (tab: NetworkTab) => void;
+  onSide: (side: Side) => void;
   onStartOver: () => void;
   onReplayTop: () => void;
 };
 
 // Four tabs: every panel wrapper exists, a panel's content mounts on first selection and then stays
 // (drafts, sent state and toggles survive a switch), and one is visible. A tab change plays the step enter (forward or back by
-// tab order) on the panel only. The egg lives in SpeedrunExperience, so it works on every tab.
-export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onReplayTop }: NetworkPhaseProps) {
+// tab order) on the panel only. On the team side every panel stays mounted and hidden, so the candidate side returns as left. The egg lives in SpeedrunExperience, so it works on every tab.
+export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStartOver, onReplayTop }: NetworkPhaseProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const panels = useRef<Partial<Record<NetworkTab, HTMLDivElement | null>>>({});
   const shownTab = useRef(tab);
@@ -59,11 +62,11 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
   const name = visitorName(state);
   return (
     <div ref={frameRef} data-phase-frame="">
-      <AppShell name={visitorFirstName(state)} tab={tab} onTab={onTab} onStartOver={onStartOver} onReplayTop={onReplayTop}>
+      <AppShell name={visitorFirstName(state)} tab={tab} side={side} onSide={onSide} onTab={onTab} onStartOver={onStartOver} onReplayTop={onReplayTop}>
         {NETWORK_TABS.map((id) => {
           const following = nextTab(id);
           return (
-            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
+            <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab || side === "team"} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
               {visited.has(id) && id === "matches" && <Matches result={state.result!} state={state} dispatch={dispatch} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} onTab={goTo} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} dispatch={dispatch} name={name} />}
@@ -84,6 +87,7 @@ export function NetworkPhase({ state, dispatch, tab, onTab, onStartOver, onRepla
             </div>
           );
         })}
+        {side === "team" && <DeskPlaceholder />}
       </AppShell>
     </div>
   );
