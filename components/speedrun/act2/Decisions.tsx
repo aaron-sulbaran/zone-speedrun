@@ -2,7 +2,7 @@ import { speedrunCopy } from "@/lib/content";
 
 const copy = speedrunCopy.decisions;
 
-// Aaron's product decisions: six cards, then what he would measure. Each card
+// Aaron's product decisions: nine cards, then what he would measure. Each card
 // sits under a 2px black rule, like the trait columns on their application page.
 export function Decisions() {
   return (
@@ -11,6 +11,9 @@ export function Decisions() {
       <h2 id="sr-decisions-heading" className="mt-2 text-3xl font-semibold tracking-tight md:text-5xl">
         {copy.heading}
       </h2>
+      <p data-why-refresher="" className="mt-4 max-w-xl text-lg leading-relaxed text-sr-ink2">
+        {copy.refresher}
+      </p>
       <ul className="mt-10 grid gap-x-8 gap-y-10 md:grid-cols-2">
         {copy.cards.map((card) => (
           <li key={card.title} data-decision-card="" className="border-t-2 border-sr-ink pt-4">

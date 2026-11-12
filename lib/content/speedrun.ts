@@ -171,8 +171,8 @@ export const speedrunCopy = {
     badge: "Concept \u00b7 not affiliated",
     account: { label: "Your account", startOver: "Start over", replayTop: "Replay from the top" },
     tabsLabel: "Your network",
-    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why" },
-    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why" },
+    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why I built this" },
+    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why I built this" },
   },
   matches: {
     listHeading: (name: string | null) => (name ? `${name}'s matches` : "Your matches"),
@@ -609,18 +609,27 @@ export const speedrunCopy = {
   decisions: {
     eyebrow: "Product decisions",
     heading: "what I decided, and why.",
+    refresher: "I've sent 84 applications this fall, and some of my friends have sent 400. Splits is the tool I wanted on the other side of that.",
     cards: [
       {
         title: "The brief comes first.",
         body: "Nobody opens a dashboard every morning. A short brief that only says what changed is the reason to come back, and the board is where it lands.",
       },
       {
-        title: "The board arranges itself.",
-        body: "It starts from who you are: depth for five applications, triage for five hundred. Rearranging is there for people who want it, never required.",
+        title: "Every screen ends in a next step.",
+        body: "Nothing here is a dead end. Each view closes on the one thing worth doing next, so you never have to work out where to go.",
       },
       {
         title: "AI suggests. You decide.",
         body: "Matches come with reasons you can check, and nothing applies on your behalf. Apply better to fewer.",
+      },
+      {
+        title: "One tap for the human.",
+        body: "When a person is the next step, one tap opens the draft, the profile or the thread. The work that needs you is a single move.",
+      },
+      {
+        title: "No pasting.",
+        body: "Drafts arrive filled in with the role, the company and what you share, so nothing gets copied from one tab into another.",
       },
       {
         title: "Your inbox is read-only.",
@@ -629,6 +638,10 @@ export const speedrunCopy = {
       {
         title: "Intros stay human.",
         body: "The system tees up a warm intro when a founder's role fits your pipeline. The talent team still makes the call and the introduction.",
+      },
+      {
+        title: "One intro, your top pick.",
+        body: "Ask for one intro at a time, to the role you want most. A single clear ask is easier to say yes to than a list.",
       },
       {
         title: "Founders get routed, not buried.",

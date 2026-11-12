@@ -50,7 +50,7 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
       </h3>
       <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
 
-      <article data-brief-email="" aria-label={subject} className="mt-6 max-w-3xl overflow-hidden rounded-2xl bg-sr-surface text-sr-ink">
+      <article data-brief-email="" aria-label={subject} className="mt-6 max-w-xl overflow-hidden rounded-2xl bg-sr-surface text-sr-ink">
         <header className="border-b border-sr-soft px-5 py-4">
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-sm font-semibold">{copy.from}</p>

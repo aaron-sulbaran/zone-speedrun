@@ -16,7 +16,7 @@ export function Close() {
         <h2 id="sr-close-heading" className="font-srcond text-sm font-normal uppercase tracking-widest">
           {copy.eyebrow}
         </h2>
-        <p className="mt-4 text-lg leading-relaxed">{copy.body}</p>
+        <p className="mt-4 max-w-xl text-lg leading-relaxed">{copy.body}</p>
         <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
           {LINKS.map((link) => {
             const external = link.href.startsWith("http");

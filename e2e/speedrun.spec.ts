@@ -673,7 +673,8 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   await openTab(page, network.tabs.decisions);
   const section = page.locator("[data-decisions]");
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
-  await expect(section.locator("[data-decision-card]")).toHaveCount(6);
+  // Catches: a card dropped or left behind in the Rulings 61 to 64 rewrite (five kept, one replaced, three added makes nine).
+  await expect(section.locator("[data-decision-card]")).toHaveCount(9);
   const close = page.locator("[data-close]");
   await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
   await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
@@ -693,6 +694,52 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
     return { sameParent: decisions.parentElement === close.parentElement, after: !!(decisions.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING) };
   });
   expect(order).toEqual({ sameParent: true, after: true });
+});
+
+test("the last tab is named Why I built this, with the refresher above the cards and the old self-arranging card gone", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const tabs = page.getByRole("tablist", { name: network.tabsLabel });
+  // Catches: the last tab keeping its bare "Why" label (exact name match, so "Why I built this" would not satisfy "Why").
+  await expect(tabs.getByRole("tab").last()).toHaveAccessibleName("Why I built this");
+  await openTab(page, network.tabs.brief);
+  // Catches: the Brief tab's Next link still reading "Next: Why" after the tab was renamed.
+  await expect(page.getByRole("button", { name: "Next: Why I built this", exact: true })).toBeVisible();
+  await openTab(page, network.tabs.decisions);
+  const section = page.locator("[data-decisions]");
+  const refresher = section.locator("[data-why-refresher]");
+  // Catches: the refresher line missing from the tab or reworded away from the ruling's draft.
+  await expect(refresher).toHaveText(speedrunCopy.decisions.refresher);
+  await expect(refresher).toContainText("84 applications this fall");
+  // Catches: the refresher rendered below the cards, where it no longer sets up the decisions.
+  const tops = await page.evaluate(() => ({
+    refresher: document.querySelector("[data-why-refresher]")!.getBoundingClientRect().top,
+    firstCard: document.querySelector("[data-decision-card]")!.getBoundingClientRect().top,
+  }));
+  expect(tops.refresher).toBeLessThan(tops.firstCard);
+  const titles = await section.locator("[data-decision-card] h3").allTextContents();
+  // Catches: the retired "The board arranges itself." card surviving the rewrite.
+  expect(titles).not.toContain("The board arranges itself.");
+  // Catches: any of the four ruled cards missing, or its title drifting from the ruling.
+  for (const title of ["Every screen ends in a next step.", "One tap for the human.", "No pasting.", "One intro, your top pick."]) {
+    expect(titles, title).toContain(title);
+  }
+});
+
+test("the Why tab keeps its reading text to a comfortable measure at 1440", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await openTab(page, network.tabs.decisions);
+  const closeBody = await page.locator("[data-close] p").first().evaluate((el) => ({ width: el.getBoundingClientRect().width, font: parseFloat(getComputedStyle(el).fontSize) }));
+  // Catches: the close paragraph running the full 66rem column (about 110 characters a line) instead of the capped measure.
+  expect(closeBody.width).toBeLessThanOrEqual(closeBody.font * 34);
+  await openTab(page, network.tabs.brief);
+  const email = await page.locator("[data-brief-email]").boundingBox();
+  // Catches: the brief email growing past 36rem (576px) and stretching its lines past about 75 characters.
+  expect(email!.width).toBeLessThanOrEqual(576);
 });
 
 const TABS = Object.values(network.tabs);
