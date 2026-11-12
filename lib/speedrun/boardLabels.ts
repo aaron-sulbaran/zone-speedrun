@@ -1,7 +1,7 @@
 import { speedrunCopy } from "@/lib/content";
-import type { Action } from "@/lib/speedrun/actions";
-import { shortDay } from "@/lib/speedrun/when";
-import type { AppRow } from "@/lib/speedrun/types";
+import type { Action } from "./actions";
+import { shortDay } from "./when";
+import type { AppRow } from "./types";
 
 const copy = speedrunCopy.board;
 
@@ -9,6 +9,11 @@ const copy = speedrunCopy.board;
 export function deadlineText(action: Action): string {
   if (action.due) return copy.needs.due(shortDay(action.due));
   return copy.needs.quiet(action.quietDays ?? 0);
+}
+
+/** A date for a table or list cell; the dash (with its plain words for a screen reader) stands in for one that does not exist. */
+export function dayCell(iso: string | null): { text: string; hint: string | null } {
+  return iso ? { text: shortDay(iso), hint: null } : { text: copy.table.noDate, hint: copy.table.noApplied };
 }
 
 export function stageLabel(row: AppRow): string {

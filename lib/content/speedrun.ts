@@ -3,6 +3,9 @@
 import type { Arrangement } from "@/lib/speedrun/onboarding";
 import type { Fn } from "@/lib/speedrun/types";
 
+// Two board lines say the same thing in a row's next step and in an action's name.
+const BOARD_WORDS = { decideOffer: "Decide on the offer", finishAssessment: "Finish the assessment" };
+
 export const speedrunCopy = {
   meta: {
     title: "Splits: a concept for the speedrun talent team \u00b7 Aaron Sulbaran",
@@ -233,10 +236,10 @@ export const speedrunCopy = {
   board: {
     next: {
       applied: "Wait for a reply",
-      assessment: "Finish the assessment",
+      assessment: BOARD_WORDS.finishAssessment,
       screen: "Prepare for the screen",
       interview: "Prepare for the interview",
-      offer: "Decide on the offer",
+      offer: BOARD_WORDS.decideOffer,
     },
     // A sample person's board names them; anyone else gets "Your board".
     heading: (name: string | null) => (name ? `${name}'s board` : "Your board"),
@@ -254,12 +257,12 @@ export const speedrunCopy = {
     },
     // The short words on a Next step link and on a tile's list; the sheet it opens says the rest.
     nextStep: {
-      decideOffer: "Decide on the offer",
+      decideOffer: BOARD_WORDS.decideOffer,
       pickTime: "Pick a time",
       replyTimes: "Reply with times",
       confirmInterview: "Confirm the interview",
       prepare: "Prepare",
-      finishAssessment: "Finish the assessment",
+      finishAssessment: BOARD_WORDS.finishAssessment,
       finishApplication: "Finish the application",
       followUp: "Follow up",
       joinMeeting: "Join the call",
@@ -274,6 +277,7 @@ export const speedrunCopy = {
     },
     tileNone: "Nothing here yet.",
     tileMore: (shown: number, total: number) => `Showing ${shown} of ${total}. The table below has the rest.`,
+    listMore: (shown: number, total: number) => `Showing ${shown} of ${total}.`,
     appliedOn: (day: string) => `Applied ${day}`,
     introStatus: { requested: "Requested", withFounder: "With the founder", connected: "Connected", replied: "Founder replied", scheduled: "Scheduled", waiting: "Waiting" },
     // Shown when there is no inbox and no sample person: one line, two ways forward.
@@ -295,13 +299,13 @@ export const speedrunCopy = {
     table: {
       headers: { company: "company", role: "role", stage: "stage", applied: "applied", lastUpdate: "last update", next: "next step" },
       filtersLabel: "Show by stage",
-      filters: { all: "All", inProcess: "In process", offers: "Offers", intros: "Intros", closed: "Closed" },
+      filters: { all: "All", inProcess: "In process", offers: "Offers", closed: "Closed" },
       noRows: "No rows in this stage yet.",
       noApplied: "No application email",
       noRole: "Not listed",
       closed: "Closed",
       quiet: "Send a short follow-up",
-      quietFor: (days: number) => (days === 0 ? "heard today" : `quiet ${days} ${days === 1 ? "day" : "days"}`),
+      noDate: "-",
       showAll: (count: number) => `show all ${count}`,
       showFewer: "show fewer",
     },

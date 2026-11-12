@@ -27,6 +27,15 @@ describe("buildPipeline", () => {
     expect(inviteOnly.rows[0].appliedAt).toBeNull();
   });
 
+  it("counts an offer in the Offers stat only while it is open", () => {
+    const open = buildPipeline([event("applied", "2026-10-20", "Aster"), event("offer", "2026-10-25", "Aster")], "2026-11-01");
+    expect(open.stats.offers).toBe(1);
+    const declined = buildPipeline([event("applied", "2026-10-20", "Aster"), event("offer", "2026-10-25", "Aster"), event("rejection", "2026-10-28", "Aster")], "2026-11-01");
+    // The row is closed, so the tile and the Offers filter drop it together.
+    expect(declined.rows[0].exit).toBe("rejected");
+    expect(declined.stats.offers).toBe(0);
+  });
+
   it("marks an applied event older than 21 days as no reply", () => {
     const pipeline = buildPipeline([event("applied", "2026-10-02")], "2026-11-01");
     expect(pipeline.rows[0].exit).toBe("noreply");

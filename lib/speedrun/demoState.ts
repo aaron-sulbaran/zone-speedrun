@@ -29,6 +29,8 @@ export type DemoState = {
   introRequest: IntroRequest | null;
   /** Ids of next steps marked done. */
   done: string[];
+  /** The time tapped on a Pick a time sheet, by action id, so every done marker names the same one. */
+  picked: Record<string, string>;
   live: Live;
   /** Why the last upload failed; cleared by the next pick, upload or reset. */
   uploadError: UploadErrorKey | null;
@@ -51,12 +53,12 @@ export type DemoAction =
   | { type: "moveShortlist"; key: string; direction: -1 | 1 }
   | { type: "requestIntro"; request: IntroRequest }
   | { type: "swapIntro"; request: IntroRequest }
-  | { type: "markDone"; id: string }
+  | { type: "markDone"; id: string; slot?: string }
   | { type: "reset" };
 
 export const MAX_PLACES = 8;
 
-const NO_PICKS = { shortlist: [] as string[], introRequest: null, done: [] as string[] };
+const NO_PICKS = { shortlist: [] as string[], introRequest: null, done: [] as string[], picked: {} as Record<string, string> };
 
 export function initialDemoState(live: Live): DemoState {
   return {
@@ -74,6 +76,7 @@ export function initialDemoState(live: Live): DemoState {
     shortlist: [],
     introRequest: null,
     done: [],
+    picked: {},
     live,
     uploadError: null,
   };
@@ -171,7 +174,8 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       if (state.introRequest?.status !== "requested" || !state.shortlist.includes(action.request.matchKey)) return state;
       return withShortlist({ ...state, introRequest: action.request }, [action.request.matchKey, ...state.shortlist.filter((key) => key !== action.request.matchKey)]);
     case "markDone":
-      return state.done.includes(action.id) ? state : { ...state, done: [...state.done, action.id] };
+      if (state.done.includes(action.id)) return state;
+      return { ...state, done: [...state.done, action.id], picked: action.slot ? { ...state.picked, [action.id]: action.slot } : state.picked };
     case "reset":
       return { ...initialDemoState(state.live), buildId: state.buildId + 1 };
   }

@@ -2,16 +2,16 @@
 
 import { useMemo, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { briefAction, type Action } from "@/lib/speedrun/actions";
+import { briefAction } from "@/lib/speedrun/actions";
 import { briefSubject } from "@/lib/speedrun/brief";
 import { briefEvents, roleIdsOf, sampleBrief, visitorBrief } from "@/lib/speedrun/briefSample";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { DETAILS } from "@/lib/speedrun/details";
 import { INBOX_TODAY } from "@/lib/speedrun/inbox";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
-import { ActionSheet } from "./ActionSheet";
 import { BriefLine } from "./BriefLine";
 import { BriefSend } from "./BriefSend";
+import { useActionSheet } from "./useActionSheet";
 
 const copy = speedrunCopy.brief;
 const CHANNELS = ["email", "text", "agent"] as const;
@@ -22,9 +22,7 @@ type Channel = (typeof CHANNELS)[number];
 export function BriefPreview({ state, dispatch, name }: { state: DemoState; dispatch: Dispatch<DemoAction>; name: string }) {
   const { personKey, profile, result, inboxConnected: connected, events: pasted, live } = state;
   const [channel, setChannel] = useState<Channel>("email");
-  const [open, setOpen] = useState<{ action: Action; opener: HTMLButtonElement; line: Element | null } | null>(null);
-  // The time tapped on a Pick a time sheet, by action id, so the line can say which one it sent.
-  const [picked, setPicked] = useState<Record<string, string>>({});
+  const sheet = useActionSheet(state, dispatch);
   const firstName = profile?.firstName ?? "";
 
   // The role line comes from the visitor's own matches, the same ids the sent email is built from.
@@ -41,22 +39,6 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
     return brief.items.map((item) => briefAction(item, pipeline, details, INBOX_TODAY));
   }, [brief, personKey, connected, pasted]);
   if (!brief || !profile) return null;
-
-  const confirm = (id: string, time?: string) => {
-    if (!open) return;
-    dispatch({ type: "markDone", id });
-    if (open.action.matchKey) dispatch({ type: "bringForward", key: open.action.matchKey, on: true });
-    if (time) setPicked((before) => ({ ...before, [id]: time }));
-    setOpen(null);
-  };
-  // A Bring forward line is done while its match is on the shortlist, and no longer once the pick is removed.
-  const isDone = (action: Action | null) => !!action && (action.matchKey ? state.shortlist.includes(action.matchKey) : state.done.includes(action.id));
-  // The opener while it is on the page; after a confirm it has been swapped for the line's "Sent", which takes focus instead.
-  const returnFocus = () => {
-    if (!open) return null;
-    // The line is kept from when the sheet opened: by the time focus returns, the opener has been swapped out of it.
-    return open.line?.querySelector<HTMLElement>("[data-brief-done]") ?? (open.opener.isConnected ? open.opener : null);
-  };
 
   const subject = briefSubject(brief, name);
   const quiet = brief.items.length === 0;
@@ -87,7 +69,7 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
           ) : (
             <ul className="mt-3 divide-y divide-sr-soft">
               {brief.items.map((item, i) => (
-                <BriefLine key={item.text} item={item} action={actions[i]} done={isDone(actions[i])} picked={actions[i] ? picked[actions[i]!.id] : undefined} onOpen={(action, opener) => setOpen({ action, opener, line: opener.closest("[data-brief-item]") })} />
+                <BriefLine key={item.text} item={item} action={actions[i]} done={!!actions[i] && sheet.isDone(actions[i]!)} picked={actions[i] ? sheet.pickedFor(actions[i]!) : undefined} onOpen={sheet.onOpen} />
               ))}
             </ul>
           )}
@@ -129,7 +111,7 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
       </div>
 
       {channel === "email" && <BriefSend live={live.email} personKey={personKey} connected={connected} roleIds={roleIds} />}
-      <ActionSheet action={open?.action ?? null} onConfirm={confirm} onClose={() => setOpen(null)} returnFocus={returnFocus} />
+      {sheet.sheet}
     </section>
   );
 }

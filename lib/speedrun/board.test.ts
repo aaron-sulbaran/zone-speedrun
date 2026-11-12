@@ -20,21 +20,17 @@ describe("filterRows", () => {
     row("Declined", "rejected", "2026-11-05", "offer"),
     row("Rejected", "rejected", "2026-11-06"),
     row("Quiet", "noreply", "2026-10-01"),
-    row("Founder", "open", "2026-11-07", "applied", { lane: "founder" }),
   ];
   const names = (filter: Parameters<typeof filterRows>[1]) => filterRows(rows, filter).map((r) => r.company);
 
   it("keeps every row for Applied (all)", () => {
-    expect(names("all")).toHaveLength(8);
+    expect(names("all")).toHaveLength(7);
   });
   it("keeps open rows past the application and before an offer for In process", () => {
     expect(names("inProcess")).toEqual(["Screen", "Interview"]);
   });
   it("keeps open offers only for Offers", () => {
     expect(names("offers")).toEqual(["Offer"]);
-  });
-  it("keeps founder-lane rows for Intros", () => {
-    expect(names("intros")).toEqual(["Founder"]);
   });
   it("keeps rejected and no-reply rows for Closed", () => {
     expect(names("closed")).toEqual(["Declined", "Rejected", "Quiet"]);
@@ -220,9 +216,11 @@ describe("readPaste", () => {
 });
 
 describe("tiles and chips", () => {
-  it("maps each tile to the chip it sets, and back", () => {
-    expect(TILE_FILTER).toEqual({ applied: "all", inProcess: "inProcess", intros: "intros", offers: "offers" });
+  it("maps each filtering tile to the chip it sets, and back; Intros sets none", () => {
+    expect(TILE_FILTER).toEqual({ applied: "all", inProcess: "inProcess", offers: "offers" });
+    expect(TILE_FILTER.intros).toBeUndefined();
     expect(tileOfFilter("offers")).toBe("offers");
+    expect(tileOfFilter("inProcess")).toBe("inProcess");
     expect(tileOfFilter("all")).toBeNull();
     expect(tileOfFilter("closed")).toBeNull();
   });

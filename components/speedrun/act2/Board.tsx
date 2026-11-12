@@ -70,11 +70,14 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
   const pressTile = (tile: TileKey) => {
     const closing = openTile === tile;
     setOpenTile(closing ? null : tile);
-    setFilter(closing ? "all" : TILE_FILTER[tile]);
+    // Intros opens its list and leaves the table where it was; the other tiles also filter it.
+    const filters = TILE_FILTER[tile];
+    if (filters) setFilter(closing ? "all" : filters);
   };
   const pressChip = (next: BoardFilter) => {
     setFilter(next);
-    setOpenTile(tileOfFilter(next));
+    // A chip never closes the Intros list, which has nothing to do with the table's filter.
+    setOpenTile((open) => tileOfFilter(next) ?? (open === "intros" ? open : null));
   };
   const connect = () => {
     pendingFocus.current = true;
@@ -104,7 +107,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
           <Rise className="space-y-6">
             <NeedsYou actions={needs} rows={pipeline.rows} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
             <div className="space-y-3">
-              <BoardStats stats={pipeline.stats} open={openTile} onToggle={pressTile} />
+              <BoardStats stats={{ ...pipeline.stats, intros: intros.length }} open={openTile} onToggle={pressTile} />
               {openTile && <TilePanel key={openTile} tile={openTile} rows={pipeline.rows} actions={actions} intros={intros} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />}
             </div>
             {/* On the surface colour the chart's label outlines are drawn in; no heading or controls, so it is no longer a card. */}

@@ -20,7 +20,7 @@ type Props = {
 export function ActionSlot({ action, slot, label, done, picked, className, onOpen }: Props) {
   if (done) {
     return (
-      <span data-action-done={action.id} tabIndex={-1} role="status" className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-sr-ink2 focus:outline-none">
+      <span data-action-done={action.id} tabIndex={-1} className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-sr-ink2 focus:outline-none">
         <Check aria-hidden="true" size={16} />
         {picked ? `${action.sheet.done} ${picked}` : action.sheet.done}
       </span>

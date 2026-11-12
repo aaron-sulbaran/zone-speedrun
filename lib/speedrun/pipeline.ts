@@ -127,7 +127,7 @@ export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
       applied: rows.length,
       inProcess: rows.filter((row) => row.exit === "open" && row.furthest !== "applied" && row.furthest !== "offer").length,
       intros,
-      offers: rows.filter((row) => row.furthest === "offer").length,
+      offers: rows.filter((row) => row.exit === "open" && row.furthest === "offer").length,
     },
   };
 }

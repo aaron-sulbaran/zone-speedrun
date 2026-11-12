@@ -220,8 +220,10 @@ test("needs you: confirming one dims it in place, lowers the count and leaves th
   await joinAs(page, "sam", true);
   const first = needs(page).first();
   await first.locator("[data-needs-action]").click();
+  // Catches: a button that opens nothing, so the decision cannot be made.
   await expect(sheet(page)).toBeVisible();
   await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   // Catches: a done item removed from the list, so the others jump up under the visitor (Ruling P8).
   await expect(needs(page)).toHaveCount(4);
@@ -243,11 +245,14 @@ test("needs you: confirming one dims it in place, lowers the count and leaves th
 test("needs you: confirming Pick a time in the brief drops the Board's count by one", async ({ page }) => {
   await joinAs(page, "sam", true);
   const before = await countLine(page).innerText();
+  // Catches: a starting count that is not the four items the Board shows.
   expect(before).toBe(COPY.count(4));
   await openTab(page, speedrunCopy.network.tabs.brief);
   await page.locator('[data-brief-action="pickTime"]').click();
+  // Catches: a button that opens nothing, so the decision cannot be made.
   await expect(sheet(page)).toBeVisible();
   await sheet(page).locator("[data-sheet-slot]").nth(1).click();
+  // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   await openTab(page, speedrunCopy.network.tabs.board);
   // Catches: a Board that keeps its own idea of what is done, so a decision made in the brief leaves the count at 4 (Ruling P4).
@@ -274,9 +279,11 @@ test("board top: pressing the Offers tile lists both offers with deadlines, filt
   await expect(rows(page).locator('[data-cell="stage"]')).toHaveText([speedrunCopy.flow.stages.offer, speedrunCopy.flow.stages.offer]);
   // Catches: Decide on the offer opening a different sheet from the needs-you item's.
   await panel.locator("[data-tile-action]").first().click();
+  // Catches: a button that opens nothing, so the decision cannot be made.
   await expect(sheet(page)).toBeVisible();
   await expect(sheet(page).locator("#sr-sheet-title")).toContainText("Wrenfield");
   await sheet(page).locator("[data-sheet-close]").click();
+  // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   await tile.click();
   // Catches: a pressed tile that cannot be un-pressed.
@@ -285,25 +292,34 @@ test("board top: pressing the Offers tile lists both offers with deadlines, filt
   await expect(rows(page)).toHaveCount(8);
 });
 
-test("board top: the Intros tile lists the warm intros with who they are with and where they stand", async ({ page }) => {
+test("board top: the Intros tile lists the warm intros, counts exactly them, and leaves the table alone", async ({ page }) => {
   await joinAs(page, "sam", true);
-  await stat(page, "intros").click();
+  const tile = stat(page, "intros");
+  const before = await rows(page).count();
+  await tile.click();
   const panel = page.locator('[data-tile-panel="intros"]');
+  const items = panel.locator("[data-tile-item]");
   // Catches: an Intros drop-down that lists companies with no person or status.
-  await expect(panel.locator("[data-tile-item]").filter({ hasText: "Lumora Health" })).toContainText("Aaron Sulbaran");
-  await expect(panel.locator("[data-tile-item]").filter({ hasText: "Lumora Health" })).toContainText(COPY.introStatus.replied);
-  await expect(panel.locator("[data-tile-item]").filter({ hasText: "min/Max" })).toContainText(COPY.introStatus.scheduled);
-  // Catches: the Intros tile not setting the table's filter.
-  await expect(page.locator('[data-board-table] [data-filter="intros"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(items.filter({ hasText: "Lumora Health" })).toContainText("Aaron Sulbaran");
+  await expect(items.filter({ hasText: "Lumora Health" })).toContainText(COPY.introStatus.replied);
+  await expect(items.filter({ hasText: "min/Max" })).toContainText(COPY.introStatus.scheduled);
+  // Catches: the Intros tile emptying or reshaping the table (it counts intros, which the table's rows are not).
+  await expect(rows(page)).toHaveCount(before);
+  await expect(page.locator("[data-board-table] [data-filter]")).toHaveCount(4);
+  await expect(page.locator('[data-board-table] [data-filter="all"]')).toHaveAttribute("aria-pressed", "true");
+  // Catches: a tile number that is not the length of its own list.
+  expect(await statValue(page, "intros")).toBe(await items.count());
 });
 
 test("board table: stage chips and tiles stay in step", async ({ page }) => {
   await joinAs(page, "sam", true);
   const chip = (key: string) => page.locator(`[data-board-table] [data-filter="${key}"]`);
+  // Catches: a table that opens with a filter already on, or with no chip marked as the one in force.
   await expect(chip("all")).toHaveAttribute("aria-pressed", "true");
   await chip("closed").click();
   const closed = [speedrunCopy.flow.exits.rejected, speedrunCopy.flow.exits.noreply];
   const labels = await rows(page).locator('[data-cell="stage"]').allTextContents();
+  // Catches: a Closed chip that lists nothing, which would pass the loop below without checking a row.
   expect(labels.length).toBeGreaterThan(0);
   // Catches: the Closed chip showing rows that are still open.
   for (const label of labels) expect(closed).toContain(label.trim());
@@ -355,11 +371,13 @@ test("board table: the cells carry dates, and the Next step cell opens the very 
   await needs(page).first().locator("[data-needs-action]").click();
   const fromNeeds = await sheet(page).locator("#sr-sheet-title").innerText();
   await sheet(page).locator("[data-sheet-close]").click();
+  // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   await wren.locator("[data-next-action]").click();
   // Catches: the table link opening a different sheet from the same action's other entrance.
   await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(fromNeeds);
   await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   // Catches: focus dropping to the page when the link is swapped for the quiet check.
   await expect(wren.locator("[data-action-done]")).toBeFocused();
@@ -376,8 +394,10 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
   // Catches: a table squeezed to fit, with no sideways scroll of its own.
   expect(await box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
   await expect(box).toHaveCSS("overflow-x", "auto");
+  await stat(page, "offers").click();
   // Catches: any new control under the 44 px touch size (Ruling 68), tiles and chips and headers and links included.
-  const controls = page.locator("[data-needs-action], [data-needs-toggle], [data-stat], [data-board-table] [data-filter], [data-board-table] th button, [data-next-action], [data-board-table] button[aria-expanded]");
+  const controls = page.locator("[data-needs-action], [data-needs-toggle], [data-tile-action], [data-stat], [data-board-table] [data-filter], [data-board-table] th button, [data-next-action], [data-board-table] button[aria-expanded]");
+  // Catches: the selector matching almost nothing, so the size loop below checks no controls at all.
   expect(await controls.count()).toBeGreaterThan(20);
   const sizes = await controls.evaluateAll((els) => els.map((el) => [el.textContent?.trim().slice(0, 20), el.getBoundingClientRect().width, el.getBoundingClientRect().height] as const));
   // 43.95 and not 44: a min-h-11 button lays out at 43.99997 px here, which is 44 px to a thumb.
@@ -386,7 +406,6 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
     expect(height, `${label} height`).toBeGreaterThanOrEqual(43.95);
   }
   // Catches: a tile drop-down narrower than the phone, instead of stacking full width.
-  await stat(page, "offers").click();
   const panel = (await page.locator('[data-tile-panel="offers"]').boundingBox())!;
   expect(panel.width).toBeGreaterThanOrEqual(390 - 32 - 2);
 });
@@ -435,4 +454,67 @@ test("board top: a visitor with no inbox and no sample person sees Your board an
   // Catches: a Matches control that leaves the visitor on the Board.
   await page.locator("[data-board-empty]").getByRole("button", { name: COPY.empty.matches }).click();
   await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("needs you: the contact and status columns start at the same x on every row, at 1024 and 1440", async ({ page }) => {
+  for (const width of [1440, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    await joinAs(page, "sam", true);
+    const lefts = (selector: string) => page.locator(selector).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left));
+    // Catches: free-width rows whose columns drift, so the eye cannot run down a column (L1).
+    const who = await lefts("[data-needs-who]");
+    expect(who).toHaveLength(4);
+    for (const left of who) expect(Math.abs(left - who[0]), `contact column at ${width}`).toBeLessThanOrEqual(1);
+    const due = await lefts("[data-needs-due]");
+    for (const left of due) expect(Math.abs(left - due[0]), `due column at ${width}`).toBeLessThanOrEqual(1);
+    await stat(page, "intros").click();
+    const status = await lefts("[data-tile-status]");
+    expect(status.length).toBeGreaterThanOrEqual(2);
+    // Catches: the same drift in a tile's list, where the status column is the one to scan.
+    for (const left of status) expect(Math.abs(left - status[0]), `status column at ${width}`).toBeLessThanOrEqual(1);
+  }
+});
+
+test("board table: stage chips read as labels, not buttons, and every body row is the same height", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const chip = rows(page).first().locator('[data-cell="stage"] > span');
+  const button = needs(page).first().locator("[data-needs-action]");
+  const look = (locator: typeof chip) => locator.evaluate((el) => { const s = getComputedStyle(el); return { background: s.backgroundColor, radius: parseFloat(s.borderTopLeftRadius), height: el.getBoundingClientRect().height }; });
+  const [c, b] = [await look(chip), await look(button)];
+  // Catches: a chip filled with the same ink as the primary buttons, which reads as one (L2).
+  expect(c.background).not.toBe(b.background);
+  // Catches: a chip as tall as a button, or as round as one.
+  expect(c.height).toBeLessThan(b.height);
+  expect(c.radius).toBeLessThan(b.radius);
+  await page.locator('[data-board-table] [data-filter="all"]').scrollIntoViewIfNeeded();
+  const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(heights.length).toBeGreaterThan(5);
+  // Catches: rows with a Next-step link taller than rows with plain text, so the table looks ragged (L3).
+  for (const height of heights) expect(Math.abs(height - heights[0])).toBeLessThanOrEqual(1);
+});
+
+test("needs you: Details does not say the same thing three times", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const first = needs(page).first();
+  await first.locator("[data-needs-toggle]").click();
+  const details = first.locator("[data-needs-details]");
+  await expect(details).toBeVisible();
+  // Catches: the offer's role and stage restated under a title that already names the role (L4).
+  await expect(details).not.toContainText(`Founding Engineer, ${speedrunCopy.flow.stages.offer}`);
+  // Catches: Details that say nothing, or lose the line that remains.
+  await expect(details).toContainText("Wrenfield");
+});
+
+test("needs you: a time picked in the Brief shows on the Board's done marker", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  await openTab(page, speedrunCopy.network.tabs.brief);
+  await page.locator('[data-brief-action="pickTime"]').click();
+  // Catches: a button that opens nothing, so no time can be picked.
+  await expect(sheet(page)).toBeVisible();
+  const slot = sheet(page).locator("[data-sheet-slot]").nth(1);
+  const time = (await slot.innerText()).trim();
+  await slot.click();
+  await openTab(page, speedrunCopy.network.tabs.board);
+  // Catches: a Board that knows the item is done but not which time was sent, because the pick lived in the Brief's own state.
+  await expect(needs(page).nth(1).locator("[data-action-done]")).toHaveText(`${ACTIONS.sheets.pickTime.done} ${time}`);
 });

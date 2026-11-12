@@ -2,8 +2,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Board } from "@/components/speedrun/act2/Board";
+import { TilePanel } from "@/components/speedrun/act2/TilePanel";
 import { speedrunCopy } from "@/lib/content";
+import { introCards } from "./actions";
+import { classifyEmail } from "./classify";
 import { initialDemoState, type DemoState } from "./demoState";
+import { DETAILS } from "./details";
+import { generateInbox, INBOX_TODAY } from "./inbox";
+import { PEOPLE } from "./people";
+import type { AppRow } from "./types";
 
 // The empty board is only reachable in a browser through a live resume read, which the default test server does not allow,
 // so the render itself is pinned here: the Board's server markup for each way a visitor can arrive.
@@ -30,6 +37,11 @@ describe("the Board with no inbox and no sample person", () => {
   it("draws no tiles, list, chart or table", () => {
     // Catches: empty tiles, a needs-you list, a chart or a table drawn over nothing.
     for (const marker of ["data-stat=", "data-needs-you", "data-needs-item", "data-board-flow", "data-board-table", "data-board-stats"]) expect(html).not.toContain(marker);
+  });
+
+  it("keeps both pointer buttons at least 44 px tall", () => {
+    // Catches: a pointer line whose two links are too small to tap on a phone (Ruling 68).
+    for (const marker of ["data-empty-connect", "data-empty-matches"]) expect(html).toMatch(new RegExp(`<button[^>]*${marker}[^>]*class="[^"]*min-h-11`));
   });
 
   it("keeps Tools", () => {
@@ -69,5 +81,29 @@ describe("the Board for a sample person", () => {
     // Catches: a heading that says "0 things need you today" instead of a calm line.
     expect(allDone).toContain(apos(copy.allClear));
     expect(allDone).not.toContain("things need you");
+  });
+});
+
+describe("the Board's Intros tile", () => {
+  it("counts the warm intros it lists, not the intro emails", () => {
+    const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true });
+    const events = generateInbox(PEOPLE.sam).map(classifyEmail);
+    const cards = introCards(events, null, DETAILS.sam, INBOX_TODAY);
+    // The tile and the Intros list are built from the same cards.
+    // Catches: a tile number that disagrees with its own list.
+    expect(html).toContain(`data-stat="intros" data-value="${cards.length}"`);
+    // The list the tile opens has one item per card, and the pipeline's own count (intro emails) is not what the tile shows.
+    expect(cards.length).toBeGreaterThan(0);
+  });
+});
+
+describe("a tile's list for a row with no application email", () => {
+  const row: AppRow = { company: "Mossgate", role: "Engineer", lane: "jobs", furthest: "interview", exit: "open", appliedAt: null, lastEventAt: "2026-11-02T10:00:00.000Z", next: null };
+  const html = renderToStaticMarkup(createElement(TilePanel, { tile: "applied", rows: [row], actions: new Map(), intros: [], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
+
+  it("shows no Applied date, and says why", () => {
+    // Catches: "Applied" followed by the date of the last email, which is not when the application went in.
+    expect(html).not.toContain("Applied Nov");
+    expect(html).toContain(copy.table.noApplied);
   });
 });

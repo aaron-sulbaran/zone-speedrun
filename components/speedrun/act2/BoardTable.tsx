@@ -49,7 +49,7 @@ export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor,
         ))}
       </div>
       <div data-table-scroll="" className="overflow-x-auto rounded-2xl border border-sr-soft bg-sr-surface">
-        <table className="w-full min-w-[52rem] border-collapse text-sm">
+        <table className="w-full min-w-[58rem] border-collapse text-sm">
           <thead>
             <tr className="border-b border-sr-soft">
               {COLUMNS.map((key) => {

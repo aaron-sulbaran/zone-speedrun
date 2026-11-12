@@ -12,16 +12,16 @@ const MAX_PASTE_CHARS = 20_000;
 const MAX_HEADER_CHARS = 200;
 const SENDER_SEARCH_LINES = 6;
 
-export type BoardFilter = "all" | "inProcess" | "offers" | "intros" | "closed";
+export type BoardFilter = "all" | "inProcess" | "offers" | "closed";
 export type SortKey = "company" | "role" | "stage" | "applied" | "lastUpdate" | "next";
 
-export const BOARD_FILTERS: BoardFilter[] = ["all", "inProcess", "offers", "intros", "closed"];
+export const BOARD_FILTERS: BoardFilter[] = ["all", "inProcess", "offers", "closed"];
 
 export type TileKey = "applied" | "inProcess" | "intros" | "offers";
-/** Applied is every row, so its tile sets the filter to All. */
-export const TILE_FILTER: Record<TileKey, BoardFilter> = { applied: "all", inProcess: "inProcess", intros: "intros", offers: "offers" };
+/** The tiles that filter the table. Applied is every row, so it sets the filter to All; Intros lists warm intros and leaves the table alone. */
+export const TILE_FILTER: Partial<Record<TileKey, BoardFilter>> = { applied: "all", inProcess: "inProcess", offers: "offers" };
 /** The tile a chip belongs to; All and Closed have none. */
-export const tileOfFilter = (filter: BoardFilter): TileKey | null => (filter === "all" || filter === "closed" ? null : filter);
+export const tileOfFilter = (filter: BoardFilter): TileKey | null => (filter === "inProcess" || filter === "offers" ? filter : null);
 
 // In process counts the same rows the tile counts: open and past the application, before an offer. Applied is every row.
 const IN_PROCESS: Stage[] = ["assessment", "screen", "interview"];
@@ -35,8 +35,6 @@ export function filterRows(rows: AppRow[], filter: BoardFilter): AppRow[] {
       return rows.filter((row) => row.exit === "open" && IN_PROCESS.includes(row.furthest));
     case "offers":
       return rows.filter((row) => row.exit === "open" && row.furthest === "offer");
-    case "intros":
-      return rows.filter((row) => row.lane === "founder");
     case "closed":
       return rows.filter((row) => row.exit !== "open");
   }
@@ -46,7 +44,7 @@ export function filterRows(rows: AppRow[], filter: BoardFilter): AppRow[] {
 const stageRank = (row: AppRow) => (row.exit === "open" ? STAGES.indexOf(row.furthest) : STAGES.length + (row.exit === "rejected" ? 0 : 1));
 
 /** The row's next due date, from its action; null when nothing is due. */
-export const dueOf = (row: AppRow, actions: Map<string, Action>) => actions.get(rowKey(row))?.due ?? null;
+const dueOf = (row: AppRow, actions: Map<string, Action>) => actions.get(rowKey(row))?.due ?? null;
 
 type Cell = string | number | null;
 

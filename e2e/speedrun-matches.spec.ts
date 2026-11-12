@@ -732,3 +732,26 @@ test("intro request: with no request and no Apply the toggle is the filled actio
   // Catches: the request button appearing on a brought-forward match that has no intro path.
   await expect(requestButton(page)).toHaveCount(0);
 });
+
+test("intro request: the Board's Intros tile counts the request, and its list agrees, before and after", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  const seen = await watchMatches(page);
+  await page.goto("/speedrun");
+  await answerOnboarding(page, { ...SAM_ANSWERS, connectGmail: true });
+  await toMatches(page);
+  const tile = page.locator("[data-stat=intros]");
+  const items = page.locator('[data-tile-panel="intros"] [data-tile-item]');
+  await openTab(page, TAB.board);
+  await tile.click();
+  const before = await items.count();
+  // Catches: a tile number from the raw intro emails while its list is built from the cards, so the two disagree.
+  expect(Number(await tile.getAttribute("data-value"))).toBe(before);
+  const [a] = eligibleRows(seen.result!);
+  await openTab(page, TAB.matches);
+  await bringForward(page, a);
+  await requestButton(page).click();
+  await openTab(page, TAB.board);
+  // Catches: a live intro request that the tile and the list both ignore, or only one of them counts.
+  await expect(items).toHaveCount(before + 1);
+  expect(Number(await tile.getAttribute("data-value"))).toBe(before + 1);
+});

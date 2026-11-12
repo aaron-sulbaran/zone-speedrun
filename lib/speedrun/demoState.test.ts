@@ -340,6 +340,17 @@ describe("demoReducer shortlist, intro request and done set", () => {
     expect(demoReducer(moved, { type: "swapIntro", request: request([B, A]) })).toBe(moved);
   });
 
+  it("markDone keeps the tapped time by action id, once", () => {
+    let state = demoReducer(initialDemoState(LIVE), { type: "markDone", id: "pickTime:Lumora Health:-", slot: "Mon, Nov 9, 2:30 pm" });
+    expect(state.picked).toEqual({ "pickTime:Lumora Health:-": "Mon, Nov 9, 2:30 pm" });
+    // A second confirm of the same action changes nothing, so the first time stays.
+    state = demoReducer(state, { type: "markDone", id: "pickTime:Lumora Health:-", slot: "Tue, Nov 10, 10:00 am" });
+    expect(state.picked["pickTime:Lumora Health:-"]).toBe("Mon, Nov 9, 2:30 pm");
+    // An action with no slot adds no entry.
+    state = demoReducer(state, { type: "markDone", id: "x" });
+    expect(Object.keys(state.picked)).toEqual(["pickTime:Lumora Health:-"]);
+  });
+
   it("markDone is idempotent", () => {
     let state = demoReducer(initialDemoState(LIVE), { type: "markDone", id: "x" });
     state = demoReducer(state, { type: "markDone", id: "x" });
@@ -350,9 +361,9 @@ describe("demoReducer shortlist, intro request and done set", () => {
     const dirty = () => {
       let state = withKeys([matchKey(A)]);
       state = demoReducer(state, { type: "requestIntro", request: request([A]) });
-      return demoReducer(state, { type: "markDone", id: "x" });
+      return demoReducer(state, { type: "markDone", id: "x", slot: "10:00 am" });
     };
-    const cleared = { shortlist: [], introRequest: null, done: [] };
+    const cleared = { shortlist: [], introRequest: null, done: [], picked: {} };
     expect(demoReducer(dirty(), { type: "pickPerson", key: "dev" })).toMatchObject(cleared);
     expect(demoReducer(dirty(), { type: "reset" })).toMatchObject(cleared);
     const building = { ...dirty(), step: "building" as const, buildId: 3 };
