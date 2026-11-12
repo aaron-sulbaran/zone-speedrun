@@ -317,7 +317,7 @@
 - Consumes:
   - `rivalsFor`, `FINISHED_SAMPLE`, `step`;
   - `state.introRequest` (read on every render, never copied into desk state; Review Focus 2);
-  - PR 6's `ActionSheet` modal mechanics: a Portal to `document.body`, the scroll lock and the focus trap. Import the hook if PR 6 factored one out; if they're inline in `ActionSheet.tsx`, extract them to `components/speedrun/act2/useSheet.ts` in this task, and point `ActionSheet` at it with no behaviour change.
+  - the repo's modal pattern: a native `<dialog>` opened with `showModal()`, as `components/speedrun/act2/Egg.tsx` does. That gives the top layer, the focus trap, Escape, an inert page and focus returned on close. Add a body scroll lock while it's open, as PR 6's `ActionSheet` does. If `ActionSheet` has landed on this branch's base with a shared hook for this, use it; otherwise follow `Egg.tsx` directly, and don't edit `ActionSheet`.
 - Produces the data hooks `data-desk-panel="{mode}"`, `data-founder-panel`, `data-one-pager`, `data-intro-draft` and `data-finished-sample`.
 
 **DeskPanel** is a non-modal drawer at the board's right edge from md, about 420 px wide, and full width below md. It moves focus to its heading on open, closes on Escape (`closePanel`), and scrolls inside itself.
