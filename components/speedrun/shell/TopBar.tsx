@@ -8,8 +8,10 @@ type TopBarProps = { name: string | null; onStartOver: () => void; onReplayTop: 
 
 // Logo, wordmark and the account button on one row. The concept badge shares it from sm up; below sm it takes
 // its own line underneath at full length, because the disclaimer must never be cut. No backdrop blur.
-// From lg the badge stacks under the brand until xl, so the tabs keep one line. From lg the header dissolves into the shell grid: brand left, the tablist in the middle, the switch slot
+// From lg the header dissolves into the shell grid: brand left, the tablist in the middle, the switch slot
 // and the avatar at the right edge. The slot is PR 7's mount for a recruiter view's team switch; it renders nothing.
+// From lg to below xl the badge stacks under the logo and wordmark, so the tabs keep one line.
+// From xl the badge sits inline beside the wordmark.
 export function TopBar({ name, onStartOver, onReplayTop }: TopBarProps) {
   return (
     <header className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 [grid-area:top] sm:px-6 lg:contents">

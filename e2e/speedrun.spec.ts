@@ -754,23 +754,27 @@ for (const width of [1024, 1100, 1280, 1440]) {
         return new Set(Array.from(range.getClientRects()).map((r) => Math.round(r.top))).size;
       });
     const box = (selector: string) => page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
-    const slot = await box("[data-shell-switch-slot]");
-    const avatar = await accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const avatarBox = () => accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
     const overlaps = (a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
     for (const id of ["matches", "board", "brief", "decisions"] as const) {
       const selector = `#sr-tab-${id}`;
       // Catches: a tab label wrapping to two or three lines and overflowing the header.
       expect(await lineCount(selector), `${id} lines`).toBe(1);
       const tab = await box(selector);
-      // Catches: a tab sitting over the empty switch slot, or over the avatar, so a click lands on them.
+      // Read inside the loop so a switch that mounts late is never measured as zero-sized.
+      const slot = await box("[data-shell-switch-slot]");
+      const avatar = await avatarBox();
+      // Catches: a tab sitting over the switch slot, so a click lands on the slot (skipped only while the slot has no area).
       if (slot.right > slot.left && slot.bottom > slot.top) expect(overlaps(tab, slot), `${id} over the slot`).toBe(false);
+      // Catches: a tab sitting over the avatar, so a click opens the account menu instead of the tab.
       expect(overlaps(tab, avatar), `${id} over the avatar`).toBe(false);
       // Catches: a tab whose centre is covered by another element, so a mouse click misses it.
       const hit = await page.evaluate(({ x, y, sel }) => !!document.elementFromPoint(x, y)?.closest(sel), { x: (tab.left + tab.right) / 2, y: (tab.top + tab.bottom) / 2, sel: selector });
       expect(hit, `${id} hit target`).toBe(true);
     }
-    // Catches: the concept badge hidden or wrapped when the header is made to fit; the disclaimer must stay whole.
+    // Catches: the concept badge hidden when the header is made to fit (it is the disclaimer).
     await expect(page.locator("[data-concept-badge]")).toBeVisible();
+    // Catches: the concept badge wrapped onto two lines or cut, so the disclaimer is not whole.
     expect(await lineCount("[data-concept-badge]")).toBe(1);
   });
 }
