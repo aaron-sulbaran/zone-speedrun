@@ -8,6 +8,7 @@ import { BOARD_FILTERS, filterRows, sortRows, type BoardFilter, type SortKey } f
 import { rowKey } from "@/lib/speedrun/keys";
 import type { AppRow } from "@/lib/speedrun/types";
 import { BoardTableRow } from "./BoardTableRow";
+import { TableScroller } from "./TableScroller";
 
 const DEFAULT_ROWS = 8;
 const COLUMNS: SortKey[] = ["company", "role", "stage", "applied", "lastUpdate", "next"];
@@ -50,7 +51,7 @@ export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor,
           </button>
         ))}
       </div>
-      <div data-table-scroll="" className="overflow-x-auto rounded-2xl border border-sr-soft bg-sr-surface">
+      <TableScroller>
         <table className="w-full min-w-[58rem] border-collapse text-sm lg:min-w-0 lg:table-fixed">
           {/* From lg the columns share the card's width and nothing scrolls sideways; below it the table keeps its own width and scrolls. */}
           <colgroup>
@@ -90,7 +91,7 @@ export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor,
             )}
           </tbody>
         </table>
-      </div>
+      </TableScroller>
       {ordered.length > DEFAULT_ROWS && (
         <button
           type="button"

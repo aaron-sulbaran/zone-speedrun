@@ -17,7 +17,7 @@ export function Close() {
           {copy.eyebrow}
         </h2>
         <p className="mt-4 max-w-xl text-lg leading-relaxed">{copy.body}</p>
-        <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3">
+        <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-1">
           {LINKS.map((link) => {
             const external = link.href.startsWith("http");
             return (
@@ -25,7 +25,7 @@ export function Close() {
                 <a
                   href={link.href}
                   {...(external ? { target: "_blank", rel: "noopener noreferrer", "aria-describedby": NEW_TAB_NOTE_ID } : {})}
-                  className="inline-flex items-center gap-1 font-srcond uppercase tracking-widest underline underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sr-surface"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1 font-srcond uppercase tracking-widest underline underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sr-surface"
                 >
                   {link.label}
                   {external && <ArrowUpRight aria-hidden="true" size={14} />}

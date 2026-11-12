@@ -71,7 +71,7 @@ export function AccountMenu({ name, onStartOver, onReplayTop }: AccountMenuProps
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-sr-ink font-srcond text-sm uppercase text-sr-surface transition-transform duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+        className="flex h-11 w-11 items-center justify-center rounded-full bg-sr-ink font-srcond text-sm uppercase text-sr-surface transition-transform duration-200 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0"
       >
         {initial || <User aria-hidden="true" size={18} />}
       </button>

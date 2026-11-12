@@ -931,3 +931,65 @@ test("board lower sections: on a phone every control is 44 px and the page never
   // Catches: the new sections pushing the page, or the tab's own scroll area, wider than the phone.
   expect(await page.evaluate(() => { const panel = document.querySelector('[role="tabpanel"]:not([hidden])'); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && !!panel && panel.scrollWidth <= panel.clientWidth; })).toBe(true);
 });
+
+// ---- Task 8: phones (Review Focus 5, Ruling 68) ----
+
+const PHONE_TABS = [speedrunCopy.network.tabs.matches, speedrunCopy.network.tabs.board, speedrunCopy.network.tabs.brief, speedrunCopy.network.tabs.decisions];
+
+for (const width of [375, 390]) {
+  test(`phones: on Sam's board at ${width} nothing scrolls the page sideways, the sheet fits, and the last section clears the dock`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await joinAs(page, "sam", true);
+    // Catches: any board element wider than the phone, which would give the document its own sideways scroll.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+    // Catches: a table with no scroll container of its own, which would push the page wider than the phone.
+    await expect(page.locator("[data-table-scroll]")).toHaveCSS("overflow-x", "auto");
+    const fade = page.locator("[data-table-fade]");
+    const box = page.locator("[data-table-scroll]");
+    await box.evaluate((el) => { el.scrollLeft = 0; });
+    // Catches: a table that scrolls sideways with nothing at its right edge saying more columns wait there.
+    await expect(fade).toHaveCSS("opacity", "1");
+    // Catches: the fade catching taps meant for the last column's controls.
+    await expect(fade).toHaveCSS("pointer-events", "none");
+    await box.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+    // Catches: the fade staying on after the last column is reached, hiding its text for good.
+    await expect(fade).toHaveCSS("opacity", "0");
+    await needs(page).first().getByRole("button").first().click();
+    await expect(sheet(page)).toBeVisible();
+    // Catches: an action sheet narrower than the phone's content width (343 at 375), leaving a strip of page showing beside it.
+    expect((await sheet(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
+    await sheet(page).locator("[data-sheet-close]").first().click();
+    await expect(sheet(page)).toBeHidden();
+    const panel = page.locator('[role="tabpanel"]:not([hidden])');
+    await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    const gap = await page.evaluate(() => {
+      const sections = document.querySelectorAll("[data-board-section]");
+      const last = sections[sections.length - 1].getBoundingClientRect();
+      return document.querySelector('[role="tablist"]')!.getBoundingClientRect().top - last.bottom;
+    });
+    // Catches: the last board section ending under the dock, so its final controls can never be reached.
+    expect(gap).toBeGreaterThanOrEqual(0);
+  });
+}
+
+test("phones: every link, button, tab and summary in the shell is a 44 px target on all four tabs at 390", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await joinAs(page, "sam", true);
+  for (const label of PHONE_TABS) {
+    await openTab(page, label);
+    const sizes = await page.locator("[data-shell]").evaluate((shell) => {
+      const found = [...shell.querySelectorAll<HTMLElement>("a, button, [role=tab], summary")].filter((el) => {
+        const box = el.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]");
+      });
+      return found.map((el) => ({ label: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }));
+    });
+    // Catches: the selector matching almost nothing on a tab, so the size loop below checks no controls at all.
+    expect(sizes.length, `${label} controls`).toBeGreaterThan(5);
+    for (const { label: name, width, height } of sizes) {
+      // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 28 px Show all, 36 px channel pills, the 40 px account button).
+      expect(width, `${label}: ${name} width`).toBeGreaterThanOrEqual(43.95);
+      expect(height, `${label}: ${name} height`).toBeGreaterThanOrEqual(43.95);
+    }
+  }
+});
