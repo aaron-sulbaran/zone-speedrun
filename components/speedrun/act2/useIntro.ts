@@ -1,7 +1,7 @@
 import { useMemo, type Dispatch } from "react";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { createRequest, swapRequest, type IntroRequest } from "@/lib/speedrun/introRequest";
-import { introSlot } from "@/lib/speedrun/introSlot";
+import { introSlot, slotLocked } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
 import { matchKey } from "@/lib/speedrun/matchList";
 import { visitorFirstName } from "../visitorName";
@@ -31,6 +31,12 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onDoo
     return at < 0 ? null : at + 1;
   };
 
+  /** Whether a row's bookmark is locked, by the same rule as the detail's Bring forward. */
+  const lockedOf = (key: string) => {
+    const match = (state.result?.matches ?? []).find((candidate) => matchKey(candidate) === key);
+    return !!match && slotLocked(introSlot(match, shortlist, introRequest, state.passed));
+  };
+
   /** What one match's detail needs. */
   const forMatch = (match: Match): MatchIntro => {
     const key = matchKey(match);
@@ -50,5 +56,5 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onDoo
       },
     };
   };
-  return { forMatch, rankOf, bring };
+  return { forMatch, rankOf, lockedOf, bring };
 }

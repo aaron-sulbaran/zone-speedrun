@@ -40,7 +40,7 @@ export function BringForwardToggle({ rank, onChange, filled, locked = false }: T
 type RowToggleProps = ToggleProps & { company: string };
 
 /** The list row's own toggle: a sibling of the row button, never inside it. */
-export function RowBringForward({ company, rank, onChange }: RowToggleProps) {
+export function RowBringForward({ company, rank, locked = false, onChange }: RowToggleProps & { locked?: boolean }) {
   const on = rank !== null;
   return (
     <button
@@ -48,8 +48,9 @@ export function RowBringForward({ company, rank, onChange }: RowToggleProps) {
       data-row-bring-forward=""
       aria-pressed={on}
       aria-label={copy.bringRow(company)}
-      onClick={() => onChange(!on)}
-      className="absolute bottom-1 right-1 flex h-11 w-11 items-center justify-center rounded-full text-sr-ink2 transition-colors duration-200 hover:bg-sr-bg hover:text-sr-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-pressed:text-sr-ink motion-reduce:transition-none"
+      aria-disabled={locked || undefined}
+      onClick={() => !locked && onChange(!on)}
+      className={`absolute bottom-1 right-1 flex h-11 w-11 items-center justify-center rounded-full text-sr-ink2 transition-colors duration-200 hover:bg-sr-bg hover:text-sr-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-pressed:text-sr-ink motion-reduce:transition-none ${locked ? "cursor-not-allowed opacity-50" : ""}`}
     >
       <Bookmark aria-hidden="true" size={16} className={on ? "fill-current" : ""} />
     </button>

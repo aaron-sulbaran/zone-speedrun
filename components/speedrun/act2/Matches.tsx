@@ -131,6 +131,7 @@ export function Matches({ result, state, dispatch, name, mentionedFounding = fal
         onMove={move}
         registerRow={registerRow}
         rankOf={intro.rankOf}
+        lockedOf={intro.lockedOf}
         onBring={intro.bring}
         inert={!wide && detailOpen}
         nextLabel={nextLabel}

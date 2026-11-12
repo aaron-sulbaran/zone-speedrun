@@ -133,7 +133,7 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
             </div>
           );
         })}
-        {side === "team" && <Desk state={state} dispatch={dispatch} desk={desk} step={step} onSide={deskOnSide} />}
+        {side === "team" && <Desk state={state} desk={desk} step={step} onSide={deskOnSide} />}
       </AppShell>
     </div>
   );

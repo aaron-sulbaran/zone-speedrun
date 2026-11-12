@@ -6,6 +6,9 @@ import { matchKey } from "./matchList";
 
 export type DeskStage = "requested" | "withFounder" | "connected" | "tracking" | "outcome";
 
+/** The columns left to right. */
+export const STAGE_ORDER: DeskStage[] = ["requested", "withFounder", "connected", "tracking", "outcome"];
+
 export type SampleCard = { id: string; firstName: string; company: string; role: string; stage: DeskStage; pill: string };
 
 export const DESK_SAMPLES: SampleCard[] = [

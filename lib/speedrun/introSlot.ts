@@ -12,6 +12,9 @@ export type IntroSlot =
   | { kind: "noPath" }
   | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | null };
 
+/** The bookmark cannot change: the desk has the request past requested (the reducer refuses the withdrawal), or the match was passed and never returns to the shortlist. */
+export const slotLocked = (slot: IntroSlot): boolean => (slot.kind === "here" && slot.stage !== "requested") || slot.kind === "passed";
+
 export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, passed: { key: string; by: PassedBy }[]): IntroSlot {
   const key = matchKey(match);
   const gone = passed.find((entry) => entry.key === key);

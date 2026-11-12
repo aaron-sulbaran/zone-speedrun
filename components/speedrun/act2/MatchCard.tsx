@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
-import type { IntroSlot } from "@/lib/speedrun/introSlot";
+import { slotLocked, type IntroSlot } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
 import { BringForwardToggle, FILLED, IntroButton, IntroNote, SECONDARY } from "./IntroControls";
 
@@ -122,7 +122,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
             {copy.connect.follow}
           </button>
         )}
-        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={(intro.slot.kind === "here" && intro.slot.stage !== "requested") || intro.slot.kind === "passed"} />
+        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={slotLocked(intro.slot)} />
       </div>
       <IntroNote slot={intro.slot} onDoor={intro.onDoor} />
       <div id={sheetId}>

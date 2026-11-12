@@ -3,12 +3,11 @@
 import { useLayoutEffect, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { DeskCard as Card } from "@/lib/speedrun/desk";
-import type { DeskStage } from "@/lib/speedrun/deskSamples";
+import { STAGE_ORDER, type DeskStage } from "@/lib/speedrun/deskSamples";
 import { SECONDARY } from "../act2/IntroControls";
 import { DeskCard } from "./DeskCard";
 
 const copy = speedrunCopy.team;
-export const STAGE_ORDER: DeskStage[] = ["requested", "withFounder", "connected", "tracking", "outcome"];
 
 type Props = {
   columns: Record<DeskStage, Card[]>;

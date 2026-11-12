@@ -14,9 +14,9 @@ type AppShellProps = {
   children: ReactNode;
 };
 
-// One viewport tall; the page never scrolls, each panel does. Below lg the tablist is the bottom row; from lg
-// On the team side the tablist is not rendered at all. From lg
-// the shell is one centered column (clear of the fixed site logo on both sides) and the tablist shares the top bar's row. On a short landscape screen the height cap lifts and the page scrolls instead.
+// One viewport tall; the page never scrolls, each panel does. Below lg the tablist is the bottom row. From lg the shell is
+// one centered column (clear of the fixed site logo on both sides) and the tablist shares the top bar's row. On the team
+// side the tablist is not rendered at all. On a short landscape screen the height cap lifts and the page scrolls instead.
 export function AppShell({ name, tab, side, onSide, onTab, onStartOver, onReplayTop, children }: AppShellProps) {
   return (
     <div

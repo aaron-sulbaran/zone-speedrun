@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { deskColumns, stageOf, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
-import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import type { DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import type { NetworkTab, Side } from "@/lib/speedrun/phase";
 import { deskFirstName, narrationLine } from "@/lib/speedrun/deskNarration";
@@ -24,7 +24,6 @@ const copy = speedrunCopy.team;
 
 type Props = {
   state: DemoState;
-  dispatch: Dispatch<DemoAction>;
   desk: DeskState;
   step: (action: DeskAction) => void;
   onSide: (side: Side, tab?: NetworkTab) => void;

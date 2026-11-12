@@ -766,6 +766,11 @@ test("earned door: after Not now the passed match shows the founder's line and n
   await bring.click({ force: true });
   await expect(bring).toHaveAttribute("aria-pressed", "false");
   await expect(matchDetail(page).locator("[data-shortlist-rank]")).toHaveCount(0);
+  // Catches: the row's own bookmark staying live on a passed match while the detail's is locked.
+  const rowBookmark = page.locator("[data-match-row][aria-current='true'] + [data-row-bring-forward]");
+  await expect(rowBookmark).toHaveAttribute("aria-disabled", "true");
+  await rowBookmark.click({ force: true });
+  await expect(rowBookmark).toHaveAttribute("aria-pressed", "false");
 });
 
 test("earned door: after Send on the desk the line names With founder and the request can no longer be withdrawn", async ({ page }) => {
@@ -785,6 +790,11 @@ test("earned door: after Send on the desk the line names With founder and the re
   await expect(bring).toHaveAttribute("aria-disabled", "true");
   await bring.click({ force: true });
   await expect(bring).toHaveAttribute("aria-pressed", "true");
+  // Catches: the row's bookmark staying live once the desk has the request past requested.
+  const rowBookmark = page.locator("[data-match-row][aria-current='true'] + [data-row-bring-forward]");
+  await expect(rowBookmark).toHaveAttribute("aria-disabled", "true");
+  await rowBookmark.click({ force: true });
+  await expect(rowBookmark).toHaveAttribute("aria-pressed", "true");
 });
 
 test("founder panel: the visible Close button closes it without answering and hands focus to the visitor's card", async ({ page }) => {
