@@ -129,13 +129,26 @@ for (const width of [640, 768]) {
 }
 
 for (const width of [1024, 1280, 1440]) {
-  test(`switch: at ${width} the tablist ends before the switch slot`, async ({ page }) => {
+  test(`switch: at ${width} no tab is covered by the switch`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await toNetwork(page);
-    const tabs = await box(page, '[role="tablist"]');
-    const slot = await box(page, "[data-shell-switch-slot]");
-    // Catches: the tabs running under the switch.
-    expect(tabs.right).toBeLessThanOrEqual(slot.left);
+    const probe = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+      const hit = tabs.map((tab) => {
+        const r = tab.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!top && tab.contains(top);
+      });
+      const last = tabs[tabs.length - 1].getBoundingClientRect();
+      const group = document.querySelector("[data-side-switch]")!.getBoundingClientRect();
+      // On its own row the switch cannot touch the tabs; only a shared row needs horizontal clearance.
+      const sharedRow = group.top < last.bottom && group.bottom > last.top;
+      return { hit, gap: sharedRow ? group.left - last.right : Infinity };
+    });
+    // Catches: the switch covering a tab (the tablist's own box can look clear while its buttons overflow it).
+    expect(probe.hit).toEqual([true, true, true, true]);
+    // Catches: the last tab ending under or against the switch.
+    expect(probe.gap).toBeGreaterThanOrEqual(8);
   });
 }
 

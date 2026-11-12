@@ -11,9 +11,9 @@ type TopBarProps = { name: string | null; side: Side; onSide: (side: Side) => vo
 // Logo, wordmark and the account button on one row. The concept badge shares it from sm up; below sm it takes
 // its own line underneath at full length, because the disclaimer must never be cut. No backdrop blur.
 // From lg the header dissolves into the shell grid: brand left, the tablist in the middle, the switch slot
-// and the avatar at the right edge. The Candidate / Talent team switch takes its own row under the bar below lg (right-aligned
-// from sm, two equal halves below it); from lg it sits left of the avatar in the slot. Below lg the right-hand wrapper is `contents`, so the switch and
-// the avatar are plain items of the header row.
+// and the avatar at the right edge. The Candidate / Talent team switch takes its own row under the bar below xl
+// (right-aligned from sm, two equal halves below it); from xl it sits left of the avatar in the slot. Below xl the
+// right-hand wrapper is `contents`, so the switch and the avatar are plain items of the header row (at lg, grid items).
 // From lg to below xl the badge stacks under the logo and wordmark, so the tabs keep one line.
 // From xl the badge sits inline beside the wordmark.
 export function TopBar({ name, side, onSide, onStartOver, onReplayTop }: TopBarProps) {
@@ -30,11 +30,11 @@ export function TopBar({ name, side, onSide, onStartOver, onReplayTop }: TopBarP
           </span>
         </div>
       </div>
-      <div className="contents lg:relative lg:z-20 lg:flex lg:items-center lg:gap-3 lg:px-2 lg:[grid-area:acct]">
-        <div data-shell-switch-slot="" className="order-last min-w-0 basis-full sm:flex sm:justify-end lg:order-none lg:block lg:basis-auto lg:shrink-0">
+      <div className="contents xl:relative xl:z-20 xl:flex xl:items-center xl:gap-3 xl:px-2 xl:[grid-area:acct]">
+        <div data-shell-switch-slot="" className="order-last min-w-0 basis-full sm:flex sm:justify-end lg:px-2 lg:[grid-area:sw] xl:order-none xl:block xl:basis-auto xl:shrink-0 xl:px-0">
           <SideSwitch side={side} onSide={onSide} />
         </div>
-        <div className="relative z-20 ml-auto shrink-0 lg:ml-0">
+        <div className="relative z-20 ml-auto shrink-0 lg:ml-0 lg:self-center lg:justify-self-end lg:px-2 lg:[grid-area:acct] xl:px-0">
           <AccountMenu name={name} onStartOver={onStartOver} onReplayTop={onReplayTop} />
         </div>
       </div>

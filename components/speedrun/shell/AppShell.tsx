@@ -21,7 +21,7 @@ export function AppShell({ name, tab, side, onSide, onTab, onStartOver, onReplay
   return (
     <div
       data-shell=""
-      className="grid h-[100dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] gap-y-1 pt-20 [grid-template-areas:'top'_'main'_'tabs'] short-landscape:h-auto lg:mx-auto lg:w-[min(66rem,calc(100%-10rem))] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-y-3 lg:pt-4 lg:[grid-template-areas:'brand_tabs_acct'_'main_main_main']"
+      className="grid h-[100dvh] grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)_auto] gap-y-1 pt-20 [grid-template-areas:'top'_'main'_'tabs'] short-landscape:h-auto lg:mx-auto lg:w-[min(66rem,calc(100%-10rem))] lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:grid-rows-[auto_auto_minmax(0,1fr)] lg:gap-y-3 lg:pt-4 lg:[grid-template-areas:'brand_tabs_acct'_'sw_sw_sw'_'main_main_main'] xl:grid-rows-[auto_minmax(0,1fr)] xl:[grid-template-areas:'brand_tabs_acct'_'main_main_main']"
     >
       <TopBar name={name} side={side} onSide={onSide} onStartOver={onStartOver} onReplayTop={onReplayTop} />
       <div data-shell-main="" className="relative z-10 min-h-0 [grid-area:main]">
