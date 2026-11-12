@@ -1,7 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type Dispatch } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
+import { deskStep, INITIAL_DESK, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { nextTab, NETWORK_TABS, type NetworkTab, type Side } from "@/lib/speedrun/phase";
@@ -12,7 +13,7 @@ import { Decisions } from "../act2/Decisions";
 import { Matches } from "../act2/Matches";
 import { NEXT_LINK, NextArrow, panelId, tabId } from "../act2/NetworkTabs";
 import { AppShell } from "../shell/AppShell";
-import { DeskPlaceholder } from "../team/DeskPlaceholder";
+import { Desk } from "../team/Desk";
 import { visitorFirstName, visitorName } from "../visitorName";
 import { usePhaseEntrance } from "./usePhaseEntrance";
 
@@ -22,7 +23,7 @@ type NetworkPhaseProps = {
   tab: NetworkTab;
   side: Side;
   onTab: (tab: NetworkTab) => void;
-  onSide: (side: Side) => void;
+  onSide: (side: Side, tab?: NetworkTab) => void;
   onStartOver: () => void;
   onReplayTop: () => void;
 };
@@ -34,6 +35,27 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
   const frameRef = useRef<HTMLDivElement>(null);
   const panels = useRef<Partial<Record<NetworkTab, HTMLDivElement | null>>>({});
   const shownTab = useRef(tab);
+  // The desk's walk lives here, not in Desk, so it survives a switch flip and resets with the phase (Start over).
+  const [desk, setDesk] = useState<DeskState>(INITIAL_DESK);
+  const deskRef = useRef(desk);
+  const requestRef = useRef(state.introRequest);
+  // Written after commit; only event handlers and the arrival effect (which ignores the request) call `step`.
+  useLayoutEffect(() => {
+    requestRef.current = state.introRequest;
+  }, [state.introRequest]);
+  const step = useCallback(
+    (action: DeskAction) => {
+      const result = deskStep(deskRef.current, requestRef.current, action);
+      deskRef.current = result.desk;
+      setDesk(result.desk);
+      const { effect } = result;
+      if (!effect) return;
+      if (effect.type === "advance") dispatch({ type: "advanceIntro", to: effect.to });
+      else if (effect.type === "sendIntro") dispatch({ type: "sendIntro" });
+      else dispatch({ type: "passIntro", by: effect.by });
+    },
+    [dispatch],
+  );
   usePhaseEntrance(frameRef);
   // A panel mounts on its first selection and stays, so its arrival motion plays in view, once.
   const [visited, setVisited] = useState<ReadonlySet<NetworkTab>>(() => new Set([tab]));
@@ -87,7 +109,7 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
             </div>
           );
         })}
-        {side === "team" && <DeskPlaceholder />}
+        {side === "team" && <Desk state={state} dispatch={dispatch} desk={desk} step={step} onSide={onSide} />}
       </AppShell>
     </div>
   );

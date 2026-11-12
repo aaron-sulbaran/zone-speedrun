@@ -1,7 +1,7 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
+import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
 const SWITCH = speedrunCopy.team.switch;
@@ -158,4 +158,106 @@ test("switch: at 375 the two buttons are equal halves", async ({ page }) => {
   const widths = await page.locator("[data-side-switch] button").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
   // Catches: unequal halves on the phone row.
   expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
+});
+
+const TEAM = speedrunCopy.team;
+const STAGES = ["requested", "withFounder", "connected", "tracking", "outcome"];
+
+async function toDesk(page: Page, spend: boolean) {
+  await toNetwork(page);
+  if (spend) await spendIntro(page);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+}
+
+const docFits = (page: Page) => page.evaluate(() => ({ doc: document.documentElement.scrollHeight, view: window.innerHeight, wide: document.documentElement.scrollWidth, width: window.innerWidth }));
+
+test("desk board: at 1440 five columns share a row, counts sum to ten, and the visitor's card leads Requested", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, true);
+  const columns = page.locator("[data-desk-column]");
+  await expect(columns).toHaveCount(5);
+  const probe = await columns.evaluateAll((nodes) => nodes.map((node) => ({ stage: node.getAttribute("data-desk-column"), count: Number(node.getAttribute("data-count")), top: Math.round(node.getBoundingClientRect().top), cards: node.querySelectorAll("[data-desk-card]").length })));
+  // Catches: columns stacked or wrapped instead of one row.
+  expect(new Set(probe.map((p) => p.top)).size).toBe(1);
+  expect(probe.map((p) => p.stage)).toEqual(STAGES);
+  // Catches: the data-count drifting from the cards shown, or the visitor's card missing from the total.
+  for (const p of probe) expect(p.count).toBe(p.cards);
+  expect(probe.reduce((sum, p) => sum + p.count, 0)).toBe(10);
+  // Catches: the visitor's card missing, or out of place.
+  const first = page.locator('[data-desk-column="requested"] [data-desk-card]').first();
+  await expect(first).toHaveAttribute("data-mine", "true");
+  await expect(first).toContainText(TEAM.yours);
+  await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(1);
+  const fit = await docFits(page);
+  // Catches: the desk scrolling the document.
+  expect(fit.doc).toBe(fit.view);
+  expect(fit.wide).toBe(fit.width);
+});
+
+test("desk board: at 390 one column shows under a five-button stage strip, and the document does not scroll", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toDesk(page, true);
+  // Catches: five squeezed columns on a phone.
+  await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
+  const strip = page.locator("[data-desk] [aria-pressed]").filter({ has: page.locator("[data-stage-count]") });
+  await expect(strip).toHaveCount(5);
+  await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
+  await strip.nth(3).click();
+  await expect(page.locator('[data-desk-column="tracking"]')).toBeVisible();
+  await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
+  for (const button of await strip.all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const fit = await docFits(page);
+  // Catches: the desk scrolling the document, or a sideways scroll on the phone.
+  expect(fit.doc).toBe(fit.view);
+  expect(fit.wide).toBe(fit.width);
+});
+
+test("desk board: with no request spent the nudge shows, there is no Review, and Matches leads back to the candidate side", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, false);
+  // Catches: the desk showing a request nobody made.
+  await expect(page.locator("[data-desk-nudge]")).toBeVisible();
+  await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(0);
+  await expect(desk(page).getByRole("button", { name: TEAM.review, exact: true })).toHaveCount(0);
+  await expect(page.locator("[data-narration]")).toHaveText(TEAM.beats.empty);
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.nudgeButton }).click();
+  // Catches: the nudge's button leaving the switch on Talent team (Review Focus 3).
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  await expect(candidateButton(page)).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("desk board: the narration is a polite status, the visitor's card carries Review, and the full version lists twelve steps", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, true);
+  const narration = page.locator("[data-narration]");
+  // Catches: a live region that is silent, or a narration that does not read the beat.
+  await expect(narration).toHaveAttribute("role", "status");
+  await expect(narration).toHaveAttribute("aria-live", "polite");
+  await expect(narration).toHaveText(TEAM.beats.arrive);
+  await expect(page.locator("[data-acting-as]")).toHaveText(TEAM.actingAs.team);
+  const mine = page.locator("[data-desk-card][data-mine]");
+  await expect(mine.getByRole("button", { name: TEAM.review, exact: true })).toBeVisible();
+  await expect(page.locator("[data-learned]")).toContainText(TEAM.learnedHeading);
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+  const full = page.locator("[data-full-version]");
+  await full.locator("summary").click();
+  // Catches: the loop visual dropped, or a step lost.
+  await expect(full.locator("ol li")).toHaveCount(12);
+  await expect(full.locator("ul li")).toHaveCount(6);
+});
+
+test("desk board: Two weeks later from the nudge adds the sample's line to the learned strip, and the desk survives a flip", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, false);
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks }).click();
+  // Catches: the way out doing nothing, or the sample's tag line never joining the strip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+  await expect(page.locator("[data-narration]")).toHaveText(TEAM.beats.twoWeeks);
+  await candidateButton(page).click();
+  await teamButton(page).click();
+  // Catches: desk state lost on a switch flip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
 });

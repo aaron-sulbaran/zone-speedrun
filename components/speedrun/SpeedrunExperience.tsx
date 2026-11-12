@@ -104,7 +104,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
           <div data-demo="" data-step={state.step}>
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
             {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}
-            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} side={side} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onSide={(next) => dispatchPhase({ type: "side", side: next })} onStartOver={startOver} onReplayTop={replayTop} />}
+            {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} side={side} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onSide={(next, nextTab) => dispatchPhase({ type: "side", side: next, tab: nextTab })} onStartOver={startOver} onReplayTop={replayTop} />}
             {EGG_ENABLED && <Egg />}
           </div>
           {phase !== "network" && <PinnedAffiliation />}
