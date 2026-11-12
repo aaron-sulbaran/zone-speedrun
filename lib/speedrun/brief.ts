@@ -34,7 +34,7 @@ export type BriefInput = {
   roles: BriefRole[];
   /** ISO date of the morning the brief goes out. */
   today: string;
-  /** Founders who wrote back, most recent first. */
+  /** Introductions of any status, in any order; only the newest per company is read, as the intro cards do. */
   intros?: { company: string; date: string }[];
   /** What is pinned about each company; an intro is worded by its status here (a reply, gone quiet, or nothing to say). */
   details?: Record<string, CompanyDetail>;
@@ -117,7 +117,13 @@ export function composeBrief(input: BriefInput): Brief {
 
   // The newest intro with something to say: a founder who wrote back, or one that has gone quiet. A new, unanswered one has no line.
   const lineKind = (entry: { company: string; date: string }) => introLineKind(input.details, entry.company, entry.date, today);
-  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until && lineKind(entry) !== null);
+  const newestPerCompany = new Map<string, { company: string; date: string }>();
+  for (const entry of input.intros ?? []) {
+    if (Date.parse(entry.date) >= until) continue;
+    const seenEntry = newestPerCompany.get(entry.company);
+    if (!seenEntry || entry.date > seenEntry.date) newestPerCompany.set(entry.company, entry);
+  }
+  const intro = [...newestPerCompany.values()].sort((a, b) => b.date.localeCompare(a.date)).find((entry) => lineKind(entry) !== null);
   const introKind = intro ? lineKind(intro) : null;
   if (intro && introKind === "replied" && moved(intro.date)) {
     add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null, company: intro.company, actionKey: intro.date });

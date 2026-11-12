@@ -322,3 +322,20 @@ describe("briefAction", () => {
     expect(briefAction(line, pipeline, details, INBOX_TODAY)?.sheet.done).toBe("Added");
   });
 });
+
+describe("every sheet", () => {
+  // Catches: a kind that loses its confirm and renders a nameless button.
+  it("has a confirm, except Pick a time, which has slots to tap", () => {
+    const kinds = Object.keys(speedrunCopy.actions.sheets) as (keyof typeof speedrunCopy.actions.sheets)[];
+    expect(kinds.length).toBeGreaterThan(8);
+    for (const kind of kinds) {
+      const sheet = speedrunCopy.actions.sheets[kind] as { confirm?: string };
+      if (kind === "pickTime") expect(sheet.confirm, kind).toBeUndefined();
+      else expect(sheet.confirm?.trim().length, kind).toBeGreaterThan(0);
+    }
+    const { pipeline, details } = inboxOf("sam");
+    const pick = needsYou(pipeline, details, INBOX_TODAY).find((action) => action.kind === "pickTime");
+    expect(pick?.sheet.slots?.length).toBe(3);
+    expect(pick?.sheet.pickSlot).toBe(true);
+  });
+});

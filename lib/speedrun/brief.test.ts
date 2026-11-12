@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content/speedrun";
 import { parsePasted, todayEvents } from "./board";
 import { composeBrief, renderBriefEmail, type BriefRole } from "./brief";
-import { briefAction } from "./actions";
+import { briefAction, introCards } from "./actions";
 import { briefEvents, rolesFromIds, sampleBrief } from "./briefSample";
 import { DETAILS } from "./details";
 import { rowKey } from "./keys";
 import { buildPipeline } from "./pipeline";
+import type { InboxEvent } from "./types";
 import { classifyEmail } from "./classify";
 import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
@@ -216,6 +217,22 @@ describe("every brief line is something to do", () => {
     expect(old.map((item) => item.text)).toEqual([copy.items.introFollowUp("Quiet Co")]);
     const fresh = composeBrief({ ...base, details, intros: [{ company: "Quiet Co", date: OVERNIGHT_AT }] }).items;
     expect(fresh).toEqual([]);
+  });
+});
+
+describe("two intros from one company", () => {
+  const intro = (daysAgo: number): InboxEvent => ({ emailId: `i${daysAgo}`, company: "Quiet Co", role: null, kind: "intro", date: new Date(Date.parse(`${INBOX_TODAY}T12:00:00.000Z`) - daysAgo * 86_400_000).toISOString(), lane: "jobs" });
+  const details = { "Quiet Co": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Quiet Co" } } };
+
+  // Catches: the brief using an older intro the card has moved past (Ruling 58: one company, one intro, everywhere).
+  it("reads the newest one in the brief and on the card, whatever order they arrive in", () => {
+    const events = [intro(1), intro(7)];
+    const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "Quiet Co");
+    expect(card?.action, "the newest intro is a day old, so nothing is due").toBeNull();
+    for (const order of [events, [...events].reverse()]) {
+      const brief = composeBrief({ ...base, details, intros: order.map((event) => ({ company: event.company, date: event.date })) });
+      expect(brief.items).toEqual([]);
+    }
   });
 });
 

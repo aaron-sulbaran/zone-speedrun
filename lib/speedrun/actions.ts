@@ -5,7 +5,7 @@ import type { IntroRequest } from "./introRequest";
 import { daysFrom, detailFor, introStatusOf, QUIET_INTRO_DAYS } from "./intros";
 import { rowKey } from "./keys";
 import { STAGES } from "./pipeline";
-import { dayLabel, whenLabel } from "./when";
+import { clockLabel, dayLabel, whenLabel } from "./when";
 import type { AppRow, InboxEvent, Pipeline, Stage } from "./types";
 
 export type ActionKind =
@@ -82,7 +82,8 @@ const MAX_NEEDS = 4;
 const QUIET_APPLICATION_DAYS = 7;
 /** "This week" is the next six days after today. */
 const WEEK_DAYS = 6;
-const SLOT_TIMES = ["10:00 am", "2:30 pm", "11:00 am"];
+// Minutes after midnight, so a slot is worded by the same `clockLabel` as a booked call.
+const SLOT_MINUTES = [10 * 60, 14 * 60 + 30, 11 * 60];
 // Quiet rows rank last, after a screen.
 const STAGE_RANK: Record<Stage, number> = { offer: 0, interview: 1, assessment: 2, screen: 3, applied: 4 };
 const QUIET_RANK = 4;
@@ -95,12 +96,12 @@ const idOf = (kind: ActionKind, company: string, role: string | null) => `${kind
 const defaultContact = (company: string): Contact => ({ name: "Aaron Sulbaran", title: copy.founderTitle(company) });
 
 /** The next three weekdays after today, one time each, so a reply always has real choices. */
-function slotsFor(today: string): string[] {
+export function slotsFor(today: string): string[] {
   const slots: string[] = [];
-  for (let offset = 1; slots.length < SLOT_TIMES.length; offset += 1) {
+  for (let offset = 1; slots.length < SLOT_MINUTES.length; offset += 1) {
     const date = new Date((dayOf(today) + offset) * DAY_MS);
     if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue;
-    slots.push(`${dayLabel(date)}, ${SLOT_TIMES[slots.length]}`);
+    slots.push(`${dayLabel(date)}, ${clockLabel(new Date(date.getTime() + SLOT_MINUTES[slots.length] * 60_000))}`);
   }
   return slots;
 }
