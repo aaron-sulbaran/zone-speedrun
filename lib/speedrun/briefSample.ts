@@ -1,6 +1,7 @@
 import { introEvents } from "./board";
 import { composeBrief, type Brief, type BriefRole } from "./brief";
 import { classifyEmail } from "./classify";
+import { DETAILS } from "./details";
 import { generateInbox, INBOX_TODAY } from "./inbox";
 import { matchCompanyName, rankMatches, type MatchResult } from "./match";
 import { PEOPLE } from "./people";
@@ -47,6 +48,7 @@ export function sampleBrief(key: PersonKey, options: Options = {}): Brief {
     pipeline: buildPipeline(events, INBOX_TODAY),
     roles: rolesFromIds(roleIds),
     intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
+    details: DETAILS[key],
   });
 }
 

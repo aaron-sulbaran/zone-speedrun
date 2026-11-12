@@ -2,6 +2,7 @@ import { siteContent, speedrunCopy } from "@/lib/content";
 import type { BriefItem } from "./brief";
 import type { CompanyDetail, Contact } from "./details";
 import type { IntroRequest } from "./introRequest";
+import { daysFrom, detailFor, introStatusOf, QUIET_INTRO_DAYS } from "./intros";
 import { rowKey } from "./keys";
 import { STAGES } from "./pipeline";
 import { dayLabel, whenLabel } from "./when";
@@ -75,7 +76,6 @@ const sheetCopy: Record<ActionKind, SheetCopy> = copy.sheets;
 const DAY_MS = 86_400_000;
 const MAX_NEEDS = 4;
 const QUIET_APPLICATION_DAYS = 7;
-const QUIET_INTRO_DAYS = 5;
 /** "This week" is the next six days after today. */
 const WEEK_DAYS = 6;
 const SLOT_TIMES = ["10:00 am", "2:30 pm", "11:00 am"];
@@ -85,7 +85,6 @@ const QUIET_RANK = 4;
 const LINKEDIN = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
 
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
-const daysFrom = (iso: string, today: string) => Math.max(0, dayOf(today) - dayOf(iso));
 const daysUntil = (iso: string, today: string) => dayOf(iso) - dayOf(today);
 const httpsOnly = (href: string | null | undefined) => (href && /^https:\/\//i.test(href) ? href : null);
 const idOf = (kind: ActionKind, company: string, role: string | null) => `${kind}:${company}:${role ?? "-"}`;
@@ -144,12 +143,6 @@ function build(kind: ActionKind, company: string, role: string | null, detail: C
 }
 
 /** A booked call is joined on the day and prepared for in the days before it. */
-/** A detail about one role applies to that role only; one with no role covers the company or the intro. */
-function detailFor(details: Details, company: string, role: string | null): CompanyDetail | undefined {
-  const detail = details?.[company];
-  return detail && (!detail.role || detail.role === role) ? detail : undefined;
-}
-
 function meetingKind(detail: CompanyDetail | undefined, today: string): "joinMeeting" | "prepare" | null {
   if (!detail?.meeting) return null;
   const away = daysUntil(detail.meeting.at, today);
@@ -256,10 +249,6 @@ function introActionAt(company: string, date: string, details: Details, today: s
   const detail = detailFor(details, company, null);
   const who = detail?.contact ?? defaultContact(company);
   return introAction(company, detail, introStatusOf(detail), daysFrom(date, today), today, who);
-}
-
-function introStatusOf(detail: CompanyDetail | undefined): "replied" | "scheduled" | "waiting" {
-  return detail?.introStatus === "replied" || detail?.introStatus === "scheduled" ? detail.introStatus : "waiting";
 }
 
 export function introCards(events: InboxEvent[], request: IntroRequest | null, details: Details, today: string): IntroCard[] {

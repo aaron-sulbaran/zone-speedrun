@@ -1,4 +1,6 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
+import type { CompanyDetail } from "./details";
+import { introLineKind } from "./intros";
 import { roleMatchKey, rowKey } from "./keys";
 import type { SnapshotRole } from "./snapshot";
 import type { AppRow, Person, PersonKey, Pipeline } from "./types";
@@ -34,6 +36,8 @@ export type BriefInput = {
   today: string;
   /** Founders who wrote back, most recent first. */
   intros?: { company: string; date: string }[];
+  /** What is pinned about each company; an intro is worded by its status here (a reply, gone quiet, or nothing to say). */
+  details?: Record<string, CompanyDetail>;
   personKey?: PersonKey | "you";
 };
 
@@ -111,8 +115,13 @@ export function composeBrief(input: BriefInput): Brief {
   };
   const moved = (iso: string) => Date.parse(iso) >= since && Date.parse(iso) < until;
 
-  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until);
-  if (intro && moved(intro.date)) add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null, company: intro.company, actionKey: intro.date });
+  // The newest intro with something to say: a founder who wrote back, or one that has gone quiet. A new, unanswered one has no line.
+  const lineKind = (entry: { company: string; date: string }) => introLineKind(input.details, entry.company, entry.date, today);
+  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until && lineKind(entry) !== null);
+  const introKind = intro ? lineKind(intro) : null;
+  if (intro && introKind === "replied" && moved(intro.date)) {
+    add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null, company: intro.company, actionKey: intro.date });
+  }
 
   // A rejection is a reply too: someone wrote back, and it is better heard in the morning than found later.
   const fresh = pipeline.rows
@@ -127,7 +136,8 @@ export function composeBrief(input: BriefInput): Brief {
   // What is still open, for people who asked to hear every morning: a recent intro, a role, a deadline.
   if (cadence !== "on-change") {
     if (intro && !moved(intro.date) && Date.parse(intro.date) >= until - STANDING_INTRO_MS) {
-      add(intro.company, { kind: "intro", text: copy.items.introStanding(intro.company), href: null, standing: true, company: intro.company, actionKey: intro.date });
+      const text = introKind === "quiet" ? copy.items.introFollowUp(intro.company) : copy.items.introStanding(intro.company);
+      add(intro.company, { kind: "intro", text, href: null, standing: true, company: intro.company, actionKey: intro.date });
     }
     if (role?.item.standing) add(role.company, role.item);
     const [assessment] = pipeline.rows

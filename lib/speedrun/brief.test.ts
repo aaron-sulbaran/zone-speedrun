@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content/speedrun";
 import { parsePasted, todayEvents } from "./board";
 import { composeBrief, renderBriefEmail, type BriefRole } from "./brief";
-import { rolesFromIds, sampleBrief } from "./briefSample";
+import { briefAction } from "./actions";
+import { briefEvents, rolesFromIds, sampleBrief } from "./briefSample";
+import { DETAILS } from "./details";
+import { rowKey } from "./keys";
+import { buildPipeline } from "./pipeline";
 import { classifyEmail } from "./classify";
 import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
@@ -22,7 +26,9 @@ const row = (company: string, furthest: AppRow["furthest"], exit: AppRow["exit"]
 });
 const assessment = (company: string) => row(company, "assessment", "open", "2026-11-01T12:00:00.000Z", { role: "Intern" });
 const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, intros: 0, offers: 0 } });
-const base = { firstName: "Sam", cadence: "daily" as const, today: INBOX_TODAY, pipeline: NO_ROWS, roles: [] as BriefRole[] };
+// Cobalt Meadow's founder has written back, so an intro there is a reply.
+const REPLIED = { "Cobalt Meadow": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Cobalt Meadow" }, introStatus: "replied" as const } };
+const base = { firstName: "Sam", cadence: "daily" as const, today: INBOX_TODAY, pipeline: NO_ROWS, roles: [] as BriefRole[], details: REPLIED };
 const OVERNIGHT_AT = "2026-11-07T03:00:00.000Z";
 const OLD_INTRO = { company: "Cobalt Meadow", date: "2026-10-03T12:00:00.000Z" };
 const RECENT_INTRO = { company: "Cobalt Meadow", date: "2026-11-01T12:00:00.000Z" };
@@ -183,6 +189,33 @@ describe("brief line identity", () => {
       const company = companies.find((c) => c.slug === entry.companySlug && c.slug !== "speedrun");
       expect(matchCompanyName(entry, companies)).toBe(company?.name ?? entry.company);
     }
+  });
+});
+
+describe("every brief line is something to do", () => {
+  for (const key of PERSON_KEYS) {
+    // Catches: a line that says "pick a time" and carries Follow up, or an intro line with no button at all.
+    it(`${key}: every line but a pass has an action, and an intro's words match it`, () => {
+      const pipeline = buildPipeline(briefEvents(key, true), INBOX_TODAY);
+      for (const item of sampleBrief(key).items) {
+        const action = briefAction(item, pipeline, DETAILS[key], INBOX_TODAY);
+        const row = pipeline.rows.find((entry) => entry.company === item.company && rowKey(entry) === item.actionKey);
+        const pass = item.kind === "reply" && row?.exit === "rejected";
+        if (!pass) expect(action, `${key}: ${item.text}`).not.toBeNull();
+        if (item.kind !== "intro") continue;
+        const words = action?.kind === "pickTime" ? [copy.items.intro(item.company!), copy.items.introStanding(item.company!)] : action?.kind === "followUp" ? [copy.items.introFollowUp(item.company!)] : [];
+        expect(words, `${key}: ${item.text}`).toContain(item.text);
+      }
+    });
+  }
+
+  // Catches: an overnight intro nobody answered being called a reply.
+  it("says nothing about an intro that is waiting and new, and follows up one that is waiting and quiet", () => {
+    const details = { "Quiet Co": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Quiet Co" } } };
+    const old = composeBrief({ ...base, details, intros: [{ company: "Quiet Co", date: "2026-11-01T12:00:00.000Z" }] }).items;
+    expect(old.map((item) => item.text)).toEqual([copy.items.introFollowUp("Quiet Co")]);
+    const fresh = composeBrief({ ...base, details, intros: [{ company: "Quiet Co", date: OVERNIGHT_AT }] }).items;
+    expect(fresh).toEqual([]);
   });
 });
 

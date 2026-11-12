@@ -555,6 +555,7 @@ export const speedrunCopy = {
       newThisWeek: (title: string, company: string) => `${title} at ${company} is new this week and fits you.`,
       openRole: (title: string, company: string) => `${title} at ${company} is open and fits you.`,
       introStanding: (company: string) => `Pick a time with the founder at ${company}.`,
+      introFollowUp: (company: string) => `Your intro at ${company} has gone quiet. A short follow-up keeps it moving.`,
     },
     dueWhat: "The assessment",
     dueWhen: "this week",
