@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { DeskAction } from "@/lib/speedrun/desk";
-import { candidateName, deskFit } from "@/lib/speedrun/deskNarration";
+import { candidateName, capitalizeFirst, deskFit } from "@/lib/speedrun/deskNarration";
 import type { IntroRequest } from "@/lib/speedrun/introRequest";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
 import { useModalDialog } from "../act2/useModalDialog";
@@ -67,7 +67,7 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
       </h2>
       <article data-one-pager="" className="mt-4 space-y-4 rounded-2xl border border-sr-soft p-4">
         <header>
-          <p className="break-words text-xl font-semibold">{name}</p>
+          <p className="break-words text-xl font-semibold">{capitalizeFirst(name)}</p>
           {request.candidate.headline && <p className="break-words text-sm text-sr-ink2">{request.candidate.headline}</p>}
         </header>
         {project && (

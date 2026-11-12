@@ -302,8 +302,8 @@ test("desk board: the narration is a polite status, the visitor's card carries R
   // Catches: a live region that is silent, or a narration that does not read the beat.
   await expect(narration).toHaveAttribute("role", "status");
   await expect(narration).toHaveAttribute("aria-live", "polite");
-  // Catches: the ">" prompt inside the live region, which a screen reader reads out with every line (toHaveText is exact, so a prompt in the status element fails it).
-  await expect(narration).toHaveText(TEAM.beats.arrive);
+  // Catches: the ">" prompt inside the live region, which a screen reader reads out with every line. The aria snapshot includes ::before content and matches exactly, so a CSS prompt on the status element fails it.
+  await expect(narration).toMatchAriaSnapshot(`- status: ${TEAM.beats.arrive}`);
   await expect(page.locator("[data-acting-as]")).toHaveText(TEAM.actingAs.team);
   const mine = page.locator("[data-desk-card][data-mine]");
   await expect(mine.getByRole("button", { name: TEAM.review, exact: true })).toBeVisible();
@@ -341,6 +341,12 @@ const founderPanel = (page: Page) => page.locator("[data-founder-panel]");
 const draft = (page: Page) => page.locator("[data-intro-draft]");
 const mineCompany = (page: Page) => mineCard(page).locator("[data-card-company]").innerText();
 
+/** The fit line the desk shows for Sam's live request, built from the copy so a reworded draft does not break the pins. A match with no role names the company. */
+async function samFitLine(page: Page) {
+  const hasRole = (await mineCard(page).locator("p").nth(2).locator("span").count()) > 1;
+  return TEAM.fit.whyThem("Sam", PEOPLE.sam.profile.shipped[0], hasRole ? null : await mineCompany(page));
+}
+
 /** Sam with her two intro-eligible matches brought forward (she has no third), the request on #1, on the talent team's desk. */
 async function deskWithTwo(page: Page) {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -368,6 +374,7 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   // Catches: a silent step.
   await expect(narration(page)).toHaveText(BEATS.review);
   const name = (await mineCard(page).locator("p").nth(1).innerText()).trim();
+  const fitLine = await samFitLine(page);
   await compare(page).getByRole("button", { name: TEAM.compare.send(name), exact: true }).click();
   await expect(founderPanel(page)).toBeVisible();
   // Catches: the view shift not said (the founder's page under the team's chip).
@@ -378,7 +385,7 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   await expect(founderPanel(page).locator("[data-one-pager]")).toBeVisible();
   // Catches: the one-pager's fit list reading to the candidate ("You asked for...") instead of about them to the founder.
   const whyItems = founderPanel(page).locator("[data-one-pager] section").filter({ hasText: TEAM.founder.why }).locator("li");
-  await expect(whyItems.first()).toContainText("spent their one intro request on this role");
+  await expect(whyItems.first()).toContainText(fitLine);
   const whyTexts = await whyItems.allInnerTexts();
   expect(whyTexts.length).toBeGreaterThan(0);
   for (const text of whyTexts) expect(text).not.toMatch(/^You(r)?\b/);
@@ -389,7 +396,7 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   await expect(draft(page)).toBeVisible();
   // Catches: the founder's email repeating the candidate-facing line ("You asked for...") or leaving a double space.
   const emailBody = (await draft(page).locator("p").innerText()).trim();
-  expect(emailBody).toContain("spent their one intro request on this role");
+  expect(emailBody).toContain(fitLine);
   expect(emailBody).not.toMatch(/\bYou asked/);
   expect(emailBody).not.toMatch(/ {2}/);
   // Catches: the panel's focus resolver returning the card's button while the drawer holds the intro draft (focus lands behind it).
@@ -691,6 +698,24 @@ test("earned door at 390: a request that lands after Two weeks later puts the li
   await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
   await expect(page.locator('[data-desk-column="outcome"]')).toBeHidden();
   await expect(mineCard(page)).toBeVisible();
+});
+
+test("earned door at 390: taking the door selects the live card's column on its own", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  await strip(page).nth(4).click();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeVisible();
+  await candidateButton(page).click();
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  // Catches: the door opening the desk on the stage the phone was left on (Outcome), when no settle runs to correct it (the door's own stage selection is dropped).
+  // The read is one tick, so a later correction cannot hide the miss.
+  const shown = await page.evaluate(() => {
+    const visible = (el: Element | null) => !!el && (el as HTMLElement).getClientRects().length > 0;
+    return { requested: visible(document.querySelector('[data-desk-column="requested"]')), mine: visible(document.querySelector("[data-desk-card][data-mine]")) };
+  });
+  expect(shown).toEqual({ requested: true, mine: true });
 });
 
 const EARNED = TEAM.earned;

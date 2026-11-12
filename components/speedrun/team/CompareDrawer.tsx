@@ -1,6 +1,6 @@
 import { speedrunCopy } from "@/lib/content";
 import type { DeskAction } from "@/lib/speedrun/desk";
-import { candidateName, deskFit } from "@/lib/speedrun/deskNarration";
+import { candidateName, capitalizeFirst, deskFit } from "@/lib/speedrun/deskNarration";
 import { rivalsFor } from "@/lib/speedrun/deskSamples";
 import type { IntroRequest } from "@/lib/speedrun/introRequest";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
@@ -40,7 +40,7 @@ function PersonCard({ person, kind, labelId, children }: { person: Person; kind:
 // The visitor beside the two others who spent their pick on this role (Ruling 74). Splits suggests the visitor.
 export function CompareDrawer({ request, step }: { request: IntroRequest; step: (action: DeskAction) => void }) {
   const name = candidateName(request);
-  const mine: Person = { name, headline: request.candidate.headline, ...deskFit(request), project: request.candidate.shipped[0] ?? "" };
+  const mine: Person = { name: capitalizeFirst(name), headline: request.candidate.headline, ...deskFit(request), project: request.candidate.shipped[0] ?? "" };
   return (
     <div className="space-y-3">
       <PersonCard person={mine} kind="mine" labelId="sr-compare-mine">

@@ -1,4 +1,5 @@
 import { DESK_SAMPLES, rivalsFor, type DeskStage, type SampleCard } from "./deskSamples";
+import { capitalizeFirst } from "./deskNarration";
 import type { IntroRequest, PassedBy } from "./introRequest";
 
 export type Beat = "arrive" | "review" | "sent" | "sentInstead" | "interested" | "notNow" | "introSent" | "twoWeeks";
@@ -104,7 +105,7 @@ export function deskColumns(request: IntroRequest | null, firstName: string): Re
   if (request && stage) {
     columns[stage].push({
       id: "mine",
-      firstName,
+      firstName: capitalizeFirst(firstName),
       company: request.match.company.name,
       role: request.match.role?.title ?? "",
       stage,

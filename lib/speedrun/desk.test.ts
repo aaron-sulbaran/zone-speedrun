@@ -191,6 +191,11 @@ describe("deskColumns", () => {
     expect(cols.withFounder[0]).toMatchObject({ mine: true, firstName: "Alex", company: "Halcyon Works", role: "Product Engineer", stage: "withFounder", pill: "", id: "mine" });
     expect(cols.withFounder.filter((c) => c.mine)).toHaveLength(1);
   });
+  // Catches: the visitor's own card titled in lowercase when the no-name fallback is the title.
+  it("titles the visitor's card with a capital when the name is the no-name fallback", () => {
+    const cols = deskColumns(req("withFounder"), "this candidate");
+    expect(cols.withFounder[0].firstName).toBe("This candidate");
+  });
   it("adds no visitor card for null or passed", () => {
     for (const r of [null, req("passed")]) {
       const all = Object.values(deskColumns(r, "Alex")).flat();

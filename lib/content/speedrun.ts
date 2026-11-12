@@ -213,7 +213,11 @@ export const speedrunCopy = {
     // The fit brief the desk shows for the visitor, in the third person (drafts for Aaron). The desk never shows the match
     // reasons, which are written to the candidate.
     fit: {
-      whyThem: (name: string, project: string) => (project ? `${name} shipped ${project} and spent their one intro request on this role.` : `${name} spent their one intro request on this role.`),
+      // `company` is passed only for a match with no role, so the line never names a role that is not there.
+      whyThem: (name: string, project: string, company: string | null) => {
+        const target = company ?? "this role";
+        return project ? `${name} shipped ${project} and spent their one intro request on ${target}.` : `${name} spent their one intro request on ${target}.`;
+      },
       inTheirWords: (why: string) => `In their words: "${why}"`,
     },
     closePanel: "Close",

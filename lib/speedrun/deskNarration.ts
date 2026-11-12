@@ -15,6 +15,9 @@ export const candidateName = (request: IntroRequest): string => deskFirstName(re
 // candidate side), the desk reads as untouched; the other beats are results of the walk and stand on their own.
 const NEEDS: Partial<Record<Beat, DeskStage>> = { review: "requested", sent: "withFounder", interested: "connected", introSent: "connected" };
 
+/** Where the visitor's name opens a sentence or a heading, "this candidate" reads "This candidate". Mid-sentence it stays as typed. */
+export const capitalizeFirst = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
 /** The narration for a beat; with no live request, the untouched desk reads as the empty queue. */
 export function narrationLine(shown: Beat, live: DeskStage | null, name: string, rival = ""): string {
   const needs = NEEDS[shown];
@@ -34,7 +37,7 @@ export function narrationLine(shown: Beat, live: DeskStage | null, name: string,
 export function deskFit(request: IntroRequest): { whyThem: string; whyRole: string } {
   const why = request.fit.whyRole.trim();
   return {
-    whyThem: fit.whyThem(candidateName(request), request.candidate.shipped[0]?.trim() ?? ""),
+    whyThem: fit.whyThem(capitalizeFirst(candidateName(request)), request.candidate.shipped[0]?.trim() ?? "", request.match.role ? null : request.match.company.name),
     whyRole: why ? fit.inTheirWords(why) : "",
   };
 }
