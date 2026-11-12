@@ -385,6 +385,30 @@ export const speedrunCopy = {
   actions: {
     founderTitle: (company: string) => `Founder, ${company}`,
     linkedin: (name: string) => `${name} on LinkedIn`,
+    siteLink: (company: string) => `${company}'s site`,
+    postingLink: "See the posting",
+    // The short words on a brief line's button; the sheet it opens says the rest.
+    briefButtons: {
+      decideOffer: "Decide",
+      pickTime: "Pick a time",
+      replyTimes: "Reply with times",
+      confirmInterview: "Confirm",
+      prepare: "Prepare",
+      finishAssessment: "Open assessment",
+      finishApplication: "Finish",
+      followUp: "Follow up",
+      joinMeeting: "Join",
+      bringForward: "Bring forward",
+      apply: "Apply",
+    },
+    sheetUi: {
+      drafted: "Splits drafted this",
+      slots: "Times I'm offering",
+      prep: "Prep",
+      meeting: "The call",
+      meetingLink: "Link (an example, not a real call)",
+      close: "Not now",
+    },
     defaultPrep: [
       "Read their site and their latest post",
       "Write down two questions to ask them",
@@ -400,11 +424,12 @@ export const speedrunCopy = {
       finishApplication: (company: string) => `Finish your application to ${company}`,
       followUp: (company: string) => `Follow up with ${company}`,
       joinMeeting: (company: string) => `Join the call with ${company}`,
-      bringForward: (company: string) => `Ask ${company} to move faster`,
+      bringForward: () => "Bring forward",
       apply: (company: string) => `Apply to ${company}`,
     },
     sheets: {
       decideOffer: {
+        done: "Done",
         title: (company: string, role: string | null) => (role ? `Your ${role} offer from ${company}` : `Your offer from ${company}`),
         draft: (_company: string, role: string | null) =>
           `Thank you for the offer${role ? ` for the ${role} role` : ""}. I'm excited about it. I have one or two questions before I answer, and I'll reply before the deadline. Do you have 15 minutes this week?`,
@@ -412,18 +437,21 @@ export const speedrunCopy = {
         note: "This demo sends nothing. The real version would open this draft in Gmail.",
       },
       pickTime: {
+        done: "Sent",
         title: (company: string) => `Reply to the founder at ${company}`,
         draft: () => "Thanks for writing back. I'd love to talk. Any of the times below works for me, so pick whichever suits you.",
         confirm: "Send these times",
         note: "This demo sends nothing. The real version would open this reply in Gmail and add the call to your calendar.",
       },
       replyTimes: {
+        done: "Sent",
         title: (company: string, role: string | null) => (role ? `Reply to ${company} about ${role}` : `Reply to ${company}`),
         draft: () => "Thanks for reaching out. I'm happy to do a quick call. These times work for me, and I can move things around if none suit you.",
         confirm: "Send these times",
         note: "This demo sends nothing. The real version would open this reply in Gmail.",
       },
       confirmInterview: {
+        done: "Sent",
         title: (company: string, role: string | null) => (role ? `Confirm the ${company} interview for ${role}` : `Confirm the ${company} interview`),
         draft: (_company: string, role: string | null) =>
           `Thanks for the invitation. I can make the interview${role ? ` for ${role}` : ""}. Please send the calendar invite and tell me who I'll be speaking with.`,
@@ -431,21 +459,25 @@ export const speedrunCopy = {
         note: "This demo sends nothing. The real version would open this reply in Gmail and add the interview to your calendar.",
       },
       prepare: {
+        done: "Done",
         title: (company: string) => `Get ready for ${company}`,
         confirm: "Mark as prepared",
         note: "These notes stay in this tab. This demo sends nothing; the real version would put a reminder on your calendar.",
       },
       finishAssessment: {
+        done: "Done",
         title: (company: string, role: string | null) => (role ? `The ${company} assessment for ${role}` : `The ${company} assessment`),
         confirm: "Mark as submitted",
         note: "This demo sends nothing. The real version would open their assessment page in a new tab.",
       },
       finishApplication: {
+        done: "Done",
         title: (company: string, role: string | null) => (role ? `Your ${company} application for ${role}` : `Your ${company} application`),
         confirm: "Mark as submitted",
         note: "This demo sends nothing. The real version would open their application page in a new tab.",
       },
       followUp: {
+        done: "Sent",
         title: (company: string) => `Follow up with ${company}`,
         draft: (_company: string, role: string | null) =>
           role
@@ -455,18 +487,20 @@ export const speedrunCopy = {
         note: "This demo sends nothing. The real version would open this draft in Gmail.",
       },
       joinMeeting: {
+        done: "Done",
         title: (company: string) => `Your call with ${company}`,
         confirm: "Mark as joined",
         note: "This demo sends nothing. When it's live, the real version opens Meet or Zoom at the time of the call.",
       },
       bringForward: {
-        title: (company: string) => `Ask ${company} to move faster`,
-        draft: (company: string) =>
-          `I have an offer with a deadline, and ${company} is high on my list. Is there any way to move the next step up? Thanks for considering it.`,
-        confirm: "Send the request",
-        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+        done: "Added",
+        title: (company: string) => `Bring ${company} forward`,
+        summary: (company: string) => `This adds the role at ${company} to your shortlist. Your board keeps it there, and you can ask for an intro from it.`,
+        confirm: "Add to my shortlist",
+        note: "This demo sends nothing. Adding it only changes your shortlist, which stays in this tab.",
       },
       apply: {
+        done: "Done",
         title: (company: string, role: string | null) => (role ? `Apply to ${company} for ${role}` : `Apply to ${company}`),
         confirm: "Mark as applied",
         note: "This demo sends nothing. The real version would open the role's page in a new tab.",
@@ -495,6 +529,7 @@ export const speedrunCopy = {
       agent: "Your own agent (MCP)",
     },
     channelNote: "Only email works in this demo. Text and agents use the same brief.",
+    cadenceLabel: "When it reaches you",
     cadence: {
       "on-change": "Only when something moves",
       daily: "Every morning",

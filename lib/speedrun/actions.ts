@@ -1,4 +1,5 @@
 import { siteContent, speedrunCopy } from "@/lib/content";
+import type { BriefItem } from "./brief";
 import type { CompanyDetail, Contact } from "./details";
 import type { IntroRequest } from "./introRequest";
 import { STAGES } from "./pipeline";
@@ -25,7 +26,11 @@ export type SheetContent = {
   /** Shown as plain text; never an href. */
   meeting?: { at: string; link: string };
   links?: { label: string; href: string }[];
+  /** Plain words under the title, for a sheet that drafts nothing. */
+  summary?: string;
   confirm: string;
+  /** What the confirmed line says, plainly. */
+  done: string;
   note: string;
 };
 
@@ -40,6 +45,8 @@ export type Action = {
   quietDays: number | null;
   label: string;
   sheet: SheetContent;
+  /** The match this action brings forward; confirming it also adds it to the shortlist. */
+  matchKey?: string;
 };
 
 export type IntroCard = {
@@ -53,7 +60,9 @@ type Details = Record<string, CompanyDetail> | undefined;
 type SheetCopy = {
   title: (company: string, role: string | null) => string;
   draft?: (company: string, role: string | null) => string;
+  summary?: (company: string, role: string | null) => string;
   confirm: string;
+  done: string;
   note: string;
 };
 
@@ -74,6 +83,9 @@ const LINKEDIN = siteContent.menu.socials.find((social) => social.key === "linke
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
 const daysFrom = (iso: string, today: string) => Math.max(0, dayOf(today) - dayOf(iso));
 const daysUntil = (iso: string, today: string) => dayOf(iso) - dayOf(today);
+/** A row's identity inside a brief line's `actionKey`. */
+export const rowKey = (row: Pick<AppRow, "company" | "role">) => `${row.company}:${row.role ?? "-"}`;
+const httpsOnly = (href: string | null | undefined) => (href && /^https:\/\//i.test(href) ? href : null);
 const idOf = (kind: ActionKind, company: string, role: string | null) => `${kind}:${company}:${role ?? "-"}`;
 const defaultContact = (company: string): Contact => ({ name: "Aaron Sulbaran", title: copy.founderTitle(company) });
 
@@ -90,23 +102,33 @@ function slotsFor(today: string): string[] {
   return slots;
 }
 
-function sheetFor(kind: ActionKind, company: string, role: string | null, who: Contact | null, detail: CompanyDetail | undefined, today: string): SheetContent {
+type Extras = { posting?: string | null; matchKey?: string; id?: string };
+
+function sheetFor(kind: ActionKind, company: string, role: string | null, who: Contact | null, detail: CompanyDetail | undefined, today: string, postingUrl?: string | null): SheetContent {
   const text = sheetCopy[kind];
-  const sheet: SheetContent = { title: text.title(company, role), confirm: text.confirm, note: text.note };
+  const sheet: SheetContent = { title: text.title(company, role), confirm: text.confirm, done: text.done, note: text.note };
   if (text.draft) sheet.draft = text.draft(company, role);
+  if (text.summary) sheet.summary = text.summary(company, role);
   if (kind === "pickTime" || kind === "replyTimes") sheet.slots = slotsFor(today);
-  // Prep notes belong to someone with a pinned detail; a generic row gets none.
-  if ((kind === "prepare" || kind === "joinMeeting") && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
+  // Prep notes belong to someone with a pinned detail; a generic row gets none. The interview line is a confirmation plus prep.
+  const preps = kind === "prepare" || kind === "joinMeeting" || kind === "confirmInterview";
+  if (preps && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
   if (detail?.meeting) sheet.meeting = detail.meeting;
-  if (who && LINKEDIN) sheet.links = [{ label: copy.linkedin(who.name), href: LINKEDIN }];
+  const links: { label: string; href: string }[] = [];
+  if (who && LINKEDIN) links.push({ label: copy.linkedin(who.name), href: LINKEDIN });
+  const site = preps ? httpsOnly(detail?.site) : null;
+  if (site) links.push({ label: copy.siteLink(company), href: site });
+  const posting = httpsOnly(postingUrl);
+  if (posting) links.push({ label: copy.postingLink, href: posting });
+  if (links.length > 0) sheet.links = links;
   return sheet;
 }
 
-function build(kind: ActionKind, company: string, role: string | null, detail: CompanyDetail | undefined, quietDays: number, today: string, who = detail?.contact ?? null): Action {
+function build(kind: ActionKind, company: string, role: string | null, detail: CompanyDetail | undefined, quietDays: number, today: string, who = detail?.contact ?? null, extras: Extras = {}): Action {
   const meetingDue = kind === "prepare" || kind === "joinMeeting" ? detail?.meeting?.at : undefined;
   const due = detail?.due ?? meetingDue ?? null;
-  return {
-    id: idOf(kind, company, role),
+  const action: Action = {
+    id: extras.id ?? idOf(kind, company, role),
     kind,
     company,
     role,
@@ -114,8 +136,10 @@ function build(kind: ActionKind, company: string, role: string | null, detail: C
     due,
     quietDays: due ? null : quietDays,
     label: copy.labels[kind](company),
-    sheet: sheetFor(kind, company, role, who, detail, today),
+    sheet: sheetFor(kind, company, role, who, detail, today, extras.posting),
   };
+  if (extras.matchKey) action.matchKey = extras.matchKey;
+  return action;
 }
 
 /** A booked call is joined on the day and prepared for in the days before it. */
@@ -178,7 +202,7 @@ export function needsYou(pipeline: Pipeline, details: Details, today: string): A
   // A founder who wrote back on an intro has no row of its own: its detail carries the state.
   for (const [company, detail] of Object.entries(details ?? {})) {
     if (detail.introStatus !== "replied" || detail.role || companies.has(company)) continue;
-    ranked.push({ action: build("pickTime", company, null, detail, 0, today), rank: STAGE_RANK.interview, last: `${today}T00:00:00.000Z` });
+    ranked.push({ action: pickTimeAction(company, details, today), rank: STAGE_RANK.interview, last: `${today}T00:00:00.000Z` });
   }
   const seen = new Set<string>();
   return ranked
@@ -253,4 +277,29 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
     cards.push({ company: event.company, who, status, action: introAction(event.company, detail, status, daysFrom(event.date, today), today, who) });
   }
   return cards;
+}
+
+/** A founder who wrote back on an intro: the one pickTime the board and the brief both build. */
+function pickTimeAction(company: string, details: Details, today: string): Action {
+  const detail = detailFor(details, company, null);
+  return build("pickTime", company, null, detail, 0, today, detail?.contact ?? defaultContact(company));
+}
+
+/** A new role that fits: Bring forward adds its match to the shortlist. The id ends in the role's id, which the match key ends in. */
+function bringForwardAction(company: string, matchKey: string, posting: string | null, today: string): Action {
+  const roleId = matchKey.startsWith(`${company}-`) ? matchKey.slice(company.length + 1) : matchKey;
+  return build("bringForward", company, null, undefined, 0, today, null, { matchKey, posting, id: idOf("bringForward", company, roleId) });
+}
+
+/**
+ * The one action a brief line opens, from what the line is about (its kind, company and key) and the pipeline,
+ * never from its words. A reply or a due line reads its row, so it has the very id the board gives that row.
+ * A pass, or a line with no identity, has none. A new role's second choice, Apply, is the posting link itself.
+ */
+export function briefAction(item: BriefItem, pipeline: Pipeline, details: Details, today: string): Action | null {
+  if (!item.company) return null;
+  if (item.kind === "intro") return pickTimeAction(item.company, details, today);
+  if (item.kind === "new-role") return item.actionKey ? bringForwardAction(item.company, item.actionKey, item.href, today) : null;
+  const row = pipeline.rows.find((entry) => entry.company === item.company && rowKey(entry) === item.actionKey);
+  return row ? rowAction(row, details, today) : null;
 }

@@ -1,15 +1,19 @@
 import { speedrunCopy } from "../lib/content";
 import { renderBriefEmail } from "../lib/speedrun/brief";
 import { sampleBrief } from "../lib/speedrun/briefSample";
+import { getSnapshot } from "../lib/speedrun/snapshot";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 import { answerOnboarding, openTab, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.brief;
+const ACTIONS = speedrunCopy.actions;
+const PHONE = { width: 375, height: 812 };
+const DESKTOP = { width: 1440, height: 900 };
 
-async function joinAs(page: Page, key: "sam" | "maya") {
+async function joinAs(page: Page, key: "sam" | "maya", connectGmail = true) {
   await page.goto("/speedrun");
-  await answerOnboarding(page, { name: key === "sam" ? "Sam" : "Maya", person: key, connectGmail: true });
+  await answerOnboarding(page, { name: key === "sam" ? "Sam" : "Maya", person: key, connectGmail });
   await skipBuildLog(page);
   await openTab(page, speedrunCopy.network.tabs.brief);
   await expect(page.locator("[data-brief]")).toBeVisible({ timeout: 20_000 });
@@ -22,7 +26,8 @@ test("the brief previews as an email with the first name in its subject", async 
   await expect(subject).toHaveText(renderBriefEmail(sampleBrief("sam"), "Sam").subject);
   const items = sampleBrief("sam").items;
   await expect(page.locator("#sr-brief-heading")).toHaveText(COPY.heading);
-  await expect(page.locator("[data-brief-item]")).toHaveText(items.map((item) => item.text));
+  // Catches: a line's words lost or changed once its button sits beside them.
+  await expect(page.locator("[data-brief-item] [data-brief-text]")).toHaveText(items.map((item) => item.text));
   await expect(page.locator("[data-brief-item]").first()).toHaveAttribute("data-brief-item", items[0].kind);
 });
 
@@ -37,4 +42,171 @@ test("with email off the page shows the off line and no address field", async ({
   await expect(page.locator("[data-brief-off]")).toHaveText(COPY.send.off);
   await expect(page.locator("[data-brief] input")).toHaveCount(0);
   await expect(page.locator("[data-brief-send]")).toHaveCount(0);
+});
+
+const sheet = (page: Page) => page.locator("dialog[data-action-sheet]");
+const lines = (page: Page) => page.locator("[data-brief-item]");
+
+test("brief action: every one of Sam's lines has its one-tap button", async ({ page }) => {
+  await joinAs(page, "sam");
+  const buttons = ACTIONS.briefButtons;
+  await expect(lines(page)).toHaveCount(3);
+  // Catches: a dead brief line, one that says what to do and gives no way to do it.
+  for (let i = 0; i < 3; i++) await expect(lines(page).nth(i).locator("[data-brief-action]")).toHaveCount(1);
+  // Catches: a button that names a different action from the line it sits on (read off the wrong row).
+  await expect(lines(page).locator("[data-brief-action]")).toHaveText([buttons.pickTime, buttons.replyTimes, buttons.confirmInterview]);
+});
+
+test("brief action: confirming Pick a time sends, dims the line and keeps it in place", async ({ page }) => {
+  await joinAs(page, "sam");
+  const first = lines(page).first();
+  const words = await first.locator("[data-brief-text]").innerText();
+  await first.locator("[data-brief-action]").click();
+  // Catches: a button that opens nothing.
+  await expect(sheet(page)).toBeVisible();
+  // Catches: Splits' draft shown with no label saying who wrote it.
+  await expect(sheet(page)).toContainText(ACTIONS.sheetUi.drafted);
+  // Catches: an empty draft, a sheet that is not already filled in.
+  await expect(sheet(page)).toContainText(ACTIONS.sheets.pickTime.draft());
+  // Catches: Pick a time showing fewer than the three one-tap slots.
+  await expect(sheet(page).locator("[data-sheet-slot]")).toHaveCount(3);
+  // Catches: a sheet that lets the visitor think something was really sent.
+  await expect(sheet(page).locator("[data-sheet-note]")).toContainText("This demo sends nothing");
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: the sheet staying open after the one decision is made.
+  await expect(sheet(page)).toBeHidden();
+  // Catches: a confirmed line not marked done.
+  await expect(first).toHaveAttribute("data-done", "true");
+  // Catches: the line saying nothing plain about what happened.
+  await expect(first.locator("[data-brief-done]")).toHaveText(ACTIONS.sheets.pickTime.done);
+  // Catches: a done line removed, or reworded, instead of dimmed in place.
+  await expect(lines(page)).toHaveCount(3);
+  await expect(lines(page).first().locator("[data-brief-text]")).toHaveText(words);
+  // Catches: a confirmed line keeping a live button, which could send the same reply twice.
+  await expect(first.locator("[data-brief-action]")).toHaveCount(0);
+  // Catches: a done line that does not look quiet.
+  await expect(first).toHaveCSS("opacity", "0.7");
+  // Catches: the other lines marked done along with it.
+  await expect(lines(page).nth(1)).toHaveAttribute("data-done", "false");
+});
+
+test("brief action: the sheet traps Tab, locks the page, closes on Escape and returns focus to its opener", async ({ page }) => {
+  await joinAs(page, "sam");
+  const opener = lines(page).nth(1).locator("[data-brief-action]");
+  const overflow = () => page.evaluate(() => getComputedStyle(document.body).overflow);
+  // The lock only means something if the page was not already unscrollable.
+  const unlocked = await overflow();
+  expect(unlocked).not.toBe("hidden");
+  await opener.click();
+  await expect(sheet(page)).toBeVisible();
+  const inside = () => page.evaluate(() => !!document.activeElement?.closest("dialog[data-action-sheet]"));
+  // Catches: focus left on the page behind the sheet.
+  expect(await inside()).toBe(true);
+  // Catches: the page scrolling behind an open sheet.
+  expect(await overflow()).toBe("hidden");
+  // Catches: Tab leaving the sheet for the page behind it, forward and back.
+  for (let i = 0; i < 7; i++) {
+    await page.keyboard.press("Tab");
+    expect(await inside(), `Tab ${i + 1}`).toBe(true);
+  }
+  for (let i = 0; i < 7; i++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await inside(), `Shift+Tab ${i + 1}`).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  // Catches: Escape leaving the sheet open.
+  await expect(sheet(page)).toBeHidden();
+  // Catches: focus lost to the page top once the sheet closes.
+  await expect(opener).toBeFocused();
+  // Catches: Escape marking the line done, which would send without a decision.
+  await expect(lines(page).nth(1)).toHaveAttribute("data-done", "false");
+  // Catches: the scroll lock outliving the sheet.
+  await expect.poll(overflow).toBe(unlocked);
+});
+
+test("brief action: Bring forward adds the role to the shortlist, and Apply is the real posting link", async ({ page }) => {
+  await joinAs(page, "sam", false);
+  const line = lines(page).first();
+  await expect(line).toHaveAttribute("data-brief-item", "new-role");
+  const apply = line.locator("[data-brief-apply]");
+  const href = await apply.getAttribute("href");
+  // Catches: Apply drawn as a button that goes nowhere.
+  expect(getSnapshot().roles.some((role) => role.url === href), `${href}`).toBe(true);
+  // Catches: a posting link that leaves this tab behind or leaks the opener.
+  await expect(apply).toHaveAttribute("target", "_blank");
+  await expect(apply).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(apply).toHaveText(ACTIONS.briefButtons.apply);
+  await line.locator("[data-brief-action]").click();
+  // Catches: Bring forward drafting a note to the company, which sends nothing and is not what it does.
+  await expect(sheet(page).locator("[data-sheet-draft]")).toHaveCount(0);
+  await expect(sheet(page)).toContainText(/shortlist/i);
+  await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveText("Add to my shortlist");
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  await expect(line).toHaveAttribute("data-done", "true");
+  // Catches: a confirmation that says Sent for something only added.
+  await expect(line.locator("[data-brief-done]")).toHaveText("Added");
+  // Catches: Added on the brief with nothing on the shortlist: the Matches tab never hears of it.
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await expect(page.locator('[data-row-bring-forward][aria-pressed="true"]')).toHaveCount(1);
+});
+
+test("brief action: Every morning is a labelled setting, and the channel pills are tall enough to tap", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await joinAs(page, "sam");
+  const label = page.locator("[data-brief-cadence-label]");
+  // Catches: the orphan line, a setting value with no label.
+  await expect(label).toHaveText(COPY.cadenceLabel);
+  await expect(page.locator("[data-brief-cadence]")).toHaveText(COPY.cadence.daily);
+  // Catches: the label sitting below its value instead of naming it.
+  const [labelBox, valueBox] = await Promise.all([label.boundingBox(), page.locator("[data-brief-cadence]").boundingBox()]);
+  expect(labelBox!.y).toBeLessThan(valueBox!.y);
+  // Catches: channel pills under the 44 px touch size (Ruling 68).
+  for (const box of await page.locator("[data-channel]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))) expect(box).toBeGreaterThanOrEqual(44);
+});
+
+test("brief action: at 1440 the email keeps a readable measure on the shared left edge", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await joinAs(page, "sam");
+  const [email, heading] = await Promise.all([page.locator("[data-brief-email]").boundingBox(), page.locator("#sr-brief-heading").boundingBox()]);
+  // Catches: the brief email filling the whole 66rem column, about 110 characters a line.
+  expect(email!.width).toBeLessThanOrEqual(768);
+  // Catches: the capped email centred or indented away from the heading's left edge.
+  expect(Math.abs(email!.x - heading!.x)).toBeLessThanOrEqual(1);
+});
+
+test("brief action: on a phone the sheet is full width, every control is 44 px and nothing hides under the dock", async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await joinAs(page, "sam");
+  const opener = lines(page).first().locator("[data-brief-action]");
+  expect((await opener.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await opener.click();
+  await expect(sheet(page)).toBeVisible();
+  const box = (await sheet(page).boundingBox())!;
+  // Catches: a sheet narrower than 343 px at a 375 viewport.
+  expect(box.width).toBeGreaterThanOrEqual(343);
+  // Catches: a sheet taller than the screen, whose confirm button is out of reach.
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
+  // Catches: a control under the 44 px touch size in either direction.
+  const sizes = await sheet(page).locator("button, a").evaluateAll((els) => els.map((el) => [el.getBoundingClientRect().width, el.getBoundingClientRect().height]));
+  expect(sizes.length).toBeGreaterThanOrEqual(2);
+  for (const [width, height] of sizes) {
+    expect(width).toBeGreaterThanOrEqual(44);
+    expect(height).toBeGreaterThanOrEqual(44);
+  }
+  // Catches: the bottom dock drawn over the sheet's lower edge.
+  const bottomHit = await page.evaluate(({ x, y }) => !!document.elementFromPoint(x, y)?.closest("dialog[data-action-sheet]"), { x: box.x + box.width / 2, y: box.y + box.height - 3 });
+  expect(bottomHit).toBe(true);
+  // Catches: the confirm button scrolled out of the sheet's own view.
+  await sheet(page).locator("[data-sheet-confirm]").scrollIntoViewIfNeeded();
+  await expect(sheet(page).locator("[data-sheet-confirm]")).toBeInViewport();
+});
+
+test("brief action: under reduced motion the sheet opens with no animation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await joinAs(page, "sam");
+  await lines(page).first().locator("[data-brief-action]").click();
+  await expect(sheet(page)).toBeVisible();
+  // Catches: the sheet animating in for someone who asked for less motion.
+  expect(await sheet(page).evaluate((el) => el.getAnimations().length)).toBe(0);
 });

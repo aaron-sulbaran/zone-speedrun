@@ -8,6 +8,8 @@ import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
+import { rankMatches } from "./match";
+import { matchKey } from "./matchList";
 import { PERSON_KEYS, type AppRow } from "./types";
 
 const copy = speedrunCopy.brief;
@@ -120,7 +122,7 @@ describe("composeBrief", () => {
 
   it("never lets a standing intro hide a moved reply from the same company", () => {
     const brief = composeBrief({ ...base, intros: [RECENT_INTRO], pipeline: rows([row("Cobalt Meadow", "interview", "open", OVERNIGHT_AT)]) });
-    expect(brief.items).toEqual([{ kind: "reply", text: "Cobalt Meadow wants to interview you for Engineer.", href: null }]);
+    expect(brief.items).toEqual([{ kind: "reply", text: "Cobalt Meadow wants to interview you for Engineer.", href: null, company: "Cobalt Meadow", actionKey: "Cobalt Meadow:Engineer" }]);
   });
 
   it("agrees with its own body when only standing items remain", () => {
@@ -128,6 +130,36 @@ describe("composeBrief", () => {
     expect(renderBriefEmail(one, "Sam").subject).toBe("Sam, nothing new overnight. one role worth a look.");
     expect(renderBriefEmail(one, "").subject).toBe("Nothing new overnight. one role worth a look.");
     expect(Object.keys(copy.stillOpen)).not.toContain("reply");
+  });
+});
+
+describe("brief line identity", () => {
+  // Catches: lines with no company or key, so no button can find its action.
+  it("carries the company and an action key on every line", () => {
+    const overnight = composeBrief({ ...base, roles: [role(OVERNIGHT_AT)], intros: [{ company: "Cobalt Meadow", date: OVERNIGHT_AT }], pipeline: rows([row("Zephyr Row", "interview", "open", OVERNIGHT_AT, { role: "Intern" })]) });
+    expect(overnight.items.map((item) => [item.kind, item.company, item.actionKey])).toEqual([
+      ["intro", "Cobalt Meadow", null],
+      ["reply", "Zephyr Row", "Zephyr Row:Intern"],
+      ["new-role", "Quillmark", "Quillmark-r1"],
+    ]);
+  });
+
+  // Catches: a due line whose key cannot find its assessment row.
+  it("keys a due line by its row", () => {
+    const due = composeBrief({ ...base, pipeline: rows([assessment("Vantablue")]) }).items.find((item) => item.kind === "due");
+    expect(due?.company).toBe("Vantablue");
+    expect(due?.actionKey).toBe("Vantablue:Intern");
+  });
+
+  // Catches: a Bring forward that adds a key the Matches tab never uses, so the shortlist shows nothing.
+  it("keys a role line exactly as the Matches tab keys the same match", () => {
+    for (const key of PERSON_KEYS) {
+      const person = PEOPLE[key];
+      const keys = rankMatches(person.profile, person.intake, getSnapshot()).matches.map(matchKey);
+      for (const item of sampleBrief(key).items.filter((entry) => entry.kind === "new-role")) {
+        expect(keys, `${key}: ${item.actionKey}`).toContain(item.actionKey);
+      }
+    }
   });
 });
 
@@ -188,7 +220,7 @@ describe("each sample person's brief", () => {
     const intro = (OVERNIGHT.sam ?? []).find((move) => move.kind === "intro");
     expect(intro).toBeDefined();
     const brief = sampleBrief("sam");
-    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null });
+    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null, company: intro?.company, actionKey: null });
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "reply"]);
   });
 
@@ -235,7 +267,7 @@ describe("renderBriefEmail", () => {
 
   it("escapes markup in any name or company", () => {
     const out = renderBriefEmail(
-      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "reply", text: "<b>x</b> replied.", href: null }] },
+      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "reply", text: "<b>x</b> replied.", href: null, company: null, actionKey: null }] },
       "<i>Ada</i>",
     );
     expect(out.html).not.toContain("<b>x");
@@ -244,7 +276,7 @@ describe("renderBriefEmail", () => {
 
   it("only links to https addresses", () => {
     const out = renderBriefEmail(
-      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "new-role", text: "Role.", href: "javascript:alert(1)" }] },
+      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "new-role", text: "Role.", href: "javascript:alert(1)", company: null, actionKey: null }] },
       "Ada",
     );
     expect(out.html).not.toContain("javascript:");

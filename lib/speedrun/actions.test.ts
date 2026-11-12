@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content";
-import { introCards, needsYou, rowAction, todayActions, type Action } from "./actions";
+import { briefAction, introCards, needsYou, rowAction, todayActions, type Action } from "./actions";
+import type { BriefItem } from "./brief";
+import { sampleBrief } from "./briefSample";
+import type { CompanyDetail } from "./details";
 import { classifyEmail } from "./classify";
 import { DETAILS } from "./details";
 import { INBOX_TODAY, generateInbox } from "./inbox";
@@ -222,5 +225,80 @@ describe("introCards", () => {
     for (const action of needsYou(pipeline, details, INBOX_TODAY)) {
       for (const link of action.sheet.links ?? []) expect(link.href).toMatch(/^https:\/\/www\.linkedin\.com\/in\/aaron-sulbaran\/?$/);
     }
+  });
+});
+
+describe("briefAction", () => {
+  const sam = () => inboxOf("sam");
+  const item = (patch: Partial<BriefItem>): BriefItem => ({ kind: "reply", text: "x", href: null, company: null, actionKey: null, ...patch });
+
+  // Catches: a brief line whose button opens a different action from the board's, so "done" in one never shows in the other.
+  it("gives Sam's brief lines the very ids the board and Today use", () => {
+    const { pipeline, details } = sam();
+    const ids = sampleBrief("sam").items.map((line) => briefAction(line, pipeline, details, INBOX_TODAY)?.id);
+    expect(ids).toEqual(["pickTime:Lumora Health:-", "replyTimes:Tarnmoor Robotics:Founding Engineer", "confirmInterview:Cindermoor Cloud:Software Engineer, New Grad"]);
+    const board = needsYou(pipeline, details, INBOX_TODAY).map((action) => action.id);
+    expect(board).toContain(ids[0]);
+    expect(board).toContain(ids[2]);
+  });
+
+  // Catches: an action read off the line's words, which a rewritten line would break.
+  it("reads the row, never the text", () => {
+    const { pipeline, details } = sam();
+    const line = sampleBrief("sam").items[2];
+    const reworded = briefAction({ ...line, text: "Some other words entirely." }, pipeline, details, INBOX_TODAY);
+    expect(reworded?.id).toBe(briefAction(line, pipeline, details, INBOX_TODAY)?.id);
+    expect(reworded?.kind).toBe("confirmInterview");
+  });
+
+  // Catches: a pass or a pastless line getting a button that does nothing.
+  it("has no action for a pass or for a line with no identity", () => {
+    const { pipeline, details } = sam();
+    const rejected = pipeline.rows.find((row) => row.exit === "rejected");
+    expect(rejected).toBeDefined();
+    const line = item({ company: rejected?.company ?? null, actionKey: `${rejected?.company}:${rejected?.role ?? "-"}` });
+    expect(briefAction(line, pipeline, details, INBOX_TODAY)).toBeNull();
+    expect(briefAction(item({}), pipeline, details, INBOX_TODAY)).toBeNull();
+  });
+
+  // Catches: Bring forward turning into a note to the company, or losing the match it adds.
+  it("turns a new-role line into Bring forward with the match key, a shortlist sheet and the real posting", () => {
+    const line = item({ kind: "new-role", company: "Quillmark", actionKey: "Quillmark-r1", href: "https://example.com/r" });
+    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY);
+    expect(action?.kind).toBe("bringForward");
+    expect(action?.matchKey).toBe("Quillmark-r1");
+    expect(action?.id).toBe("bringForward:Quillmark:r1");
+    expect(action?.label).toBe("Bring forward");
+    expect(action?.sheet.confirm).toBe("Add to my shortlist");
+    expect(action?.sheet.draft).toBeUndefined();
+    expect(action?.sheet.summary).toMatch(/shortlist/i);
+    expect(action?.sheet.links).toEqual([{ label: copy.postingLink, href: "https://example.com/r" }]);
+    expect(`${action?.label} ${action?.sheet.title} ${action?.sheet.summary}`).not.toMatch(/faster|move/i);
+  });
+
+  // Catches: a posting link that is not a real https address reaching a sheet.
+  it("drops a posting that is not https", () => {
+    const line = item({ kind: "new-role", company: "Quillmark", actionKey: "Quillmark-r1", href: "javascript:alert(1)" });
+    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY);
+    expect(action?.sheet.links ?? []).toEqual([]);
+  });
+
+  // Catches: CompanyDetail.site never read, so the prep sheet links nothing.
+  it("links the company's real site on a prep sheet, and the interview carries the prep", () => {
+    const { pipeline, details } = sam();
+    const withSite: Record<string, CompanyDetail> = { ...details, "Cindermoor Cloud": { ...details!["Cindermoor Cloud"], site: "https://cindermoor.example.com" } };
+    const line = sampleBrief("sam").items[2];
+    const action = briefAction(line, pipeline, withSite, INBOX_TODAY);
+    expect(action?.sheet.links).toContainEqual({ label: copy.siteLink("Cindermoor Cloud"), href: "https://cindermoor.example.com" });
+    expect(action?.sheet.prep?.length).toBeGreaterThan(0);
+  });
+
+  // Catches: a send-style sheet with no word for what happened, or a bring-forward that claims it sent something.
+  it("says Sent for a reply and Added for Bring forward", () => {
+    const { pipeline, details } = sam();
+    const [intro] = sampleBrief("sam").items;
+    expect(briefAction(intro, pipeline, details, INBOX_TODAY)?.sheet.done).toBe("Sent");
+    const line = item({ kind: "new-role", company: "Quillmark", actionKey: "Quillmark-r1" });
+    expect(briefAction(line, pipeline, details, INBOX_TODAY)?.sheet.done).toBe("Added");
   });
 });

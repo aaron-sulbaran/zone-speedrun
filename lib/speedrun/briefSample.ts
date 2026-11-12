@@ -24,13 +24,19 @@ export function roleIdsOf(result: MatchResult): string[] {
   return result.matches.flatMap((match) => (match.role ? [match.role.id] : [])).slice(0, MAX_ROLE_IDS);
 }
 
+/** The events a brief reads: nothing without an inbox, otherwise the sample person's made-up inbox (if any) plus what was pasted. */
+export function briefEvents(key: PersonKey | null, connected: boolean, pasted: InboxEvent[] = []): InboxEvent[] {
+  if (!connected) return [];
+  return key ? [...generateInbox(PEOPLE[key]).map(classifyEmail), ...pasted] : pasted;
+}
+
 type Options = { connected?: boolean; extraEvents?: InboxEvent[]; roleIds?: string[] };
 
 /** A sample person's brief from their made-up inbox. Without `roleIds` it ranks with the person's own intake (tests only). */
 export function sampleBrief(key: PersonKey, options: Options = {}): Brief {
   const person = PEOPLE[key];
   const connected = options.connected ?? true;
-  const events = connected ? [...generateInbox(person).map(classifyEmail), ...(options.extraEvents ?? [])] : [];
+  const events = briefEvents(key, connected, options.extraEvents);
   const roleIds = options.roleIds ?? roleIdsOf(rankMatches(person.profile, person.intake, getSnapshot()));
   return composeBrief({
     personKey: key,
