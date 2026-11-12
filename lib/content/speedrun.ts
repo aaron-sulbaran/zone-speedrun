@@ -244,6 +244,7 @@ export const speedrunCopy = {
       candidateSays: "The candidate",
       founderSays: "The founder",
       fitHit: "Fit hit: both sides called it the match",
+      learned: "What Splits learned",
       end: "That's the loop.",
       back: "Back to the candidate view",
     },

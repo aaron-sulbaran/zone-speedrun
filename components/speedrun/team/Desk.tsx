@@ -62,11 +62,7 @@ export function Desk({ state, desk, step, onSide }: Props) {
   const compareFits = live === "requested";
   const introFits = live === "connected";
   const founderFits = live === "withFounder";
-  const stale = (desk.panel === "compare" && !compareFits) || (desk.panel === "intro" && !introFits) || (desk.founderOpen && !founderFits);
-  useEffect(() => {
-    if (stale) step({ type: "settle" });
-  }, [stale, step]);
-
+  // NetworkPhase settles a panel whose request left; these guards only keep one from rendering in the frame before it does.
   // Whatever closes a panel (Escape, the close button, a refused move) hands focus back to the visitor's card.
   const isOpen = desk.panel !== null || desk.founderOpen;
   const wasOpen = useRef(isOpen);
@@ -111,17 +107,17 @@ export function Desk({ state, desk, step, onSide }: Props) {
         </div>
       </section>
       {desk.panel === "compare" && compareFits && request && (
-        <DeskPanel mode="compare" heading={copy.compare.heading} about={copy.compare.about(request.match.company.name, request.match.role?.title ?? "")} onClose={closePanel}>
+        <DeskPanel mode="compare" heading={copy.compare.heading} about={copy.compare.about(request.match.company.name, request.match.role?.title ?? "")} line={line} onClose={closePanel}>
           <CompareDrawer request={request} step={step} />
         </DeskPanel>
       )}
       {desk.panel === "intro" && introFits && request && (
-        <DeskPanel mode="intro" heading={copy.introDraft.heading} onClose={closePanel}>
+        <DeskPanel mode="intro" heading={copy.introDraft.heading} line={line} onClose={closePanel}>
           <IntroDraft request={request} step={step} />
         </DeskPanel>
       )}
       {desk.panel === "sample" && (
-        <DeskPanel mode="sample" heading={copy.sample.heading} onClose={closePanel}>
+        <DeskPanel mode="sample" heading={copy.sample.heading} line={line} onClose={closePanel}>
           <FinishedSample
             onBack={() => {
               closePanel();
@@ -130,7 +126,7 @@ export function Desk({ state, desk, step, onSide }: Props) {
           />
         </DeskPanel>
       )}
-      {desk.founderOpen && founderFits && request && <FounderPanel request={request} step={step} />}
+      {desk.founderOpen && founderFits && request && <FounderPanel request={request} line={line} step={step} />}
     </div>
   );
 }

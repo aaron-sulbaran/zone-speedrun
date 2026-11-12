@@ -5,14 +5,15 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { SECONDARY } from "../act2/IntroControls";
+import { NARRATION_LOOK } from "./Narration";
 
 const copy = speedrunCopy.team;
 
-type Props = { mode: "compare" | "intro" | "sample"; heading: string; about?: string; onClose: () => void; children: ReactNode };
+type Props = { mode: "compare" | "intro" | "sample"; line: string; heading: string; about?: string; onClose: () => void; children: ReactNode };
 
 // A non-modal drawer at the board's right edge (the whole width on a phone). The desk behind it stays live; focus
 // goes to the heading when it opens, and Escape closes it. It scrolls inside itself.
-export function DeskPanel({ mode, heading, about, onClose, children }: Props) {
+export function DeskPanel({ mode, line, heading, about, onClose, children }: Props) {
   const root = useRef<HTMLElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const id = useId();
@@ -42,6 +43,9 @@ export function DeskPanel({ mode, heading, about, onClose, children }: Props) {
       aria-labelledby={id}
       className="absolute inset-y-0 right-0 z-20 flex w-full flex-col overflow-y-auto overscroll-contain border-sr-soft bg-sr-surface px-4 pb-6 pt-4 shadow-[0_0_40px_var(--sr-soft)] md:w-[420px] md:border-l"
     >
+      <p data-panel-narration="" aria-hidden="true" className={`mb-4 ${NARRATION_LOOK}`}>
+        {line}
+      </p>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 id={id} ref={title} tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">

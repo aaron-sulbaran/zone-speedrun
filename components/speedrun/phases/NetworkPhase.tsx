@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { deskStep, INITIAL_DESK, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
+import { deskStep, INITIAL_DESK, stageOf, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { nextTab, NETWORK_TABS, type NetworkTab, type Side } from "@/lib/speedrun/phase";
@@ -39,10 +39,6 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
   const [desk, setDesk] = useState<DeskState>(INITIAL_DESK);
   const deskRef = useRef(desk);
   const requestRef = useRef(state.introRequest);
-  // Written after commit; only event handlers and the arrival effect (which ignores the request) call `step`.
-  useLayoutEffect(() => {
-    requestRef.current = state.introRequest;
-  }, [state.introRequest]);
   const step = useCallback(
     (action: DeskAction) => {
       const result = deskStep(deskRef.current, requestRef.current, action);
@@ -56,6 +52,14 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
     },
     [dispatch],
   );
+  // Written after commit. This layout effect lives here, not in Desk, because Desk only mounts on the team side: a request
+  // that leaves or changes under an open panel while the visitor is on the candidate side must still settle the desk.
+  useLayoutEffect(() => {
+    requestRef.current = state.introRequest;
+    const live = stageOf(state.introRequest);
+    const d = deskRef.current;
+    if ((d.panel === "compare" && live !== "requested") || (d.panel === "intro" && live !== "connected") || (d.founderOpen && live !== "withFounder")) step({ type: "settle" });
+  }, [state.introRequest, step]);
   usePhaseEntrance(frameRef);
   // A panel mounts on its first selection and stays, so its arrival motion plays in view, once.
   const [visited, setVisited] = useState<ReadonlySet<NetworkTab>>(() => new Set([tab]));

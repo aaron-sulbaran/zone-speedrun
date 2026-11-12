@@ -1,7 +1,7 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { RIVALS } from "../lib/speedrun/deskSamples";
+import { LEARNED_FROM_SAMPLE, RIVALS } from "../lib/speedrun/deskSamples";
 import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver, tabKey } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
@@ -376,6 +376,8 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.surveyQuestion);
   await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.fitHit);
   await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.end);
+  // Catches: the learned line hidden under the drawer (the strip behind it is covered at 1440).
+  await expect(page.locator("[data-finished-sample] [data-sample-learned]")).toContainText(LEARNED_FROM_SAMPLE);
   await expect(narration(page)).toHaveText(BEATS.twoWeeks);
   await expect(page.locator("[data-learned] li")).toHaveCount(4);
 });
@@ -542,4 +544,54 @@ test("desk walk: taking the request off the shortlist while the drawer is open c
   // Catches: a stale drawer, or a stale review line, reappearing on the next request.
   await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
   await expect(narration(page)).toHaveText(BEATS.arrive);
+});
+
+test("desk walk: removing the request and re-requesting without visiting the team side leaves no stale drawer", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  const pickRank = async (wanted: string) => {
+    for (let i = 0; i < total; i++) {
+      await rows.nth(i).click();
+      if ((await rank.count()) > 0 && (await rank.innerText()) === wanted) return;
+    }
+  };
+  await pickRank("#1");
+  await page.locator("[data-match-detail] [data-bring-forward]").click();
+  await pickRank("#1");
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: the drawer, closed only when the team side was mounted, reopening over the new arrival.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+});
+
+test("desk walk: at 390 every panel carries the narration line and the phone walk reaches the finished sample", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  const panelLine = page.locator("[data-desk-panel] [data-panel-narration]");
+  // Catches: the drawer covering the narration with nothing in its place.
+  await expect(panelLine).toHaveText(BEATS.review);
+  await expect(panelLine).toBeInViewport();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  // Catches: the founder's modal dimming the value statement at the moment it matters (Aaron's line, verbatim).
+  await expect(founderPanel(page).locator("[data-panel-narration]")).toHaveText("Splits then puts together a one-page profile so the founder can see the candidate's experience.");
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(panelLine).toHaveText(BEATS.interested);
+  await draft(page).getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  const twoWeeks = page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true });
+  // Catches: a phone walk that dead-ends because Two weeks later sits on the card under the drawer.
+  await expect(twoWeeks).toBeInViewport();
+  await twoWeeks.click();
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+  await expect(page.locator("[data-desk-panel] [data-panel-narration]")).toHaveText(BEATS.twoWeeks);
 });

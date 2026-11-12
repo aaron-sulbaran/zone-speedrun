@@ -1,5 +1,5 @@
 import { speedrunCopy } from "@/lib/content";
-import { FINISHED_SAMPLE } from "@/lib/speedrun/deskSamples";
+import { FINISHED_SAMPLE, LEARNED_FROM_SAMPLE } from "@/lib/speedrun/deskSamples";
 import { FILLED } from "../act2/IntroControls";
 
 const copy = speedrunCopy.team;
@@ -39,6 +39,10 @@ export function FinishedSample({ onBack }: { onBack: () => void }) {
           </div>
         </dl>
         <p className="mt-3 inline-block rounded-full bg-sr-hud px-3 py-1 font-srcond text-[11px] uppercase tracking-widest text-sr-ink">{copy.sample.fitHit}</p>
+      </section>
+      <section data-sample-learned="">
+        <p className="font-srcond text-[11px] uppercase tracking-widest text-sr-ink2">{copy.sample.learned}</p>
+        <p className="mt-1 break-words text-sm leading-relaxed text-sr-ink">{LEARNED_FROM_SAMPLE}</p>
       </section>
       <p className="text-sm font-semibold text-sr-ink">{copy.sample.end}</p>
       <button type="button" onClick={onBack} className={FILLED}>

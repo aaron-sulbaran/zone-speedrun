@@ -8,6 +8,7 @@ import type { IntroRequest } from "@/lib/speedrun/introRequest";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
 import { ActingAs } from "./ActingAs";
+import { NARRATION_LOOK } from "./Narration";
 
 const copy = speedrunCopy.team;
 const CHIP = "inline-flex min-h-11 items-center rounded-full border border-dashed border-sr-soft px-3 font-srcond text-[11px] uppercase tracking-widest text-sr-ink2";
@@ -23,7 +24,7 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 
 // The visitor plays the founder (Ruling 76): the one-pager Splits built, and the one question. A native modal dialog
 // gives the focus trap, Escape, the inert desk behind it and the dim; the page stops scrolling while it is open.
-export function FounderPanel({ request, step }: { request: IntroRequest; step: (action: DeskAction) => void }) {
+export function FounderPanel({ request, line, step }: { request: IntroRequest; line: string; step: (action: DeskAction) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const id = useId();
@@ -76,6 +77,9 @@ export function FounderPanel({ request, step }: { request: IntroRequest; step: (
       }}
       className="m-auto max-h-[92dvh] w-[min(94vw,36rem)] overflow-y-auto overscroll-contain rounded-3xl border border-sr-soft bg-sr-surface p-5 text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-[color-mix(in_srgb,var(--sr-ink)_40%,transparent)] sm:p-6"
     >
+      <p data-panel-narration="" aria-hidden="true" className={`mb-3 ${NARRATION_LOOK}`}>
+        {line}
+      </p>
       <ActingAs who="founder" />
       <h2 id={id} ref={title} tabIndex={-1} className="mt-3 text-lg font-medium leading-snug focus:outline-none">
         {copy.founder.heading(request.match.company.name)}
