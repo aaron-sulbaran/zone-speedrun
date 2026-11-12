@@ -728,6 +728,33 @@ async function openMatch(page: Page, company: string) {
   await page.locator("[data-match-row]").filter({ hasText: company }).first().click();
 }
 
+test("earned door: lifting the other pick above the live request on the Board leaves the door and the status chip on the requested match", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await openTab(page, speedrunCopy.network.tabs.board);
+  const items = page.locator("[data-shortlist-item]");
+  await expect(items).toHaveCount(2);
+  const requestedItem = items.filter({ has: page.locator("[data-shortlist-status]") });
+  const otherItem = items.filter({ hasNot: page.locator("[data-shortlist-status]") });
+  await expect(requestedItem).toHaveCount(1);
+  await expect(otherItem).toHaveCount(1);
+  const requested = (await requestedItem.locator("[data-shortlist-company]").innerText()).trim();
+  const other = (await otherItem.locator("[data-shortlist-company]").innerText()).trim();
+  expect(other).not.toBe(requested);
+  const up = otherItem.locator("[data-shortlist-up]");
+  for (let i = 0; i < 2 && (await up.isEnabled()); i++) await up.click();
+  // Catches: the earned door (or the Shortlist's status chip) following shortlist #1 instead of the request's own match key.
+  await expect(items.first().locator("[data-shortlist-company]")).toHaveText(other);
+  await expect(items.filter({ hasText: requested }).locator("[data-shortlist-status]")).toHaveCount(1);
+  await expect(items.filter({ hasText: other }).locator("[data-shortlist-status]")).toHaveCount(0);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await openMatch(page, requested);
+  await expect(door(page)).toContainText(EARNED.line);
+  await openMatch(page, other);
+  await expect(door(page)).toHaveCount(0);
+});
+
 test("earned door: the spent request shows the line and a door to the desk, with the visitor's card first and focus on the heading", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await toNetwork(page);
