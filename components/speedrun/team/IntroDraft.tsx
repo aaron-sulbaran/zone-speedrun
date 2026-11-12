@@ -1,6 +1,6 @@
 import { speedrunCopy } from "@/lib/content";
 import type { DeskAction } from "@/lib/speedrun/desk";
-import { candidateName } from "@/lib/speedrun/deskNarration";
+import { candidateName, deskFit } from "@/lib/speedrun/deskNarration";
 import type { IntroRequest } from "@/lib/speedrun/introRequest";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
 
@@ -26,7 +26,7 @@ export function IntroDraft({ request, step }: { request: IntroRequest; step: (ac
           <dd>{copy.introDraft.copiedTeam}</dd>
         </div>
       </dl>
-      <p className="break-words rounded-xl bg-sr-bg p-3 text-sm leading-relaxed text-sr-ink">{copy.introDraft.body(name, company, request.match.role?.title ?? "", request.fit.whyThem)}</p>
+      <p className="break-words rounded-xl bg-sr-bg p-3 text-sm leading-relaxed text-sr-ink">{copy.introDraft.body(name, company, request.match.role?.title ?? "", deskFit(request).whyThem)}</p>
       <div className="flex flex-wrap gap-2">
         <button type="button" aria-disabled={sent} onClick={() => !sent && step({ type: "sendIntro" })} className={`${sent ? SECONDARY : FILLED} aria-disabled:cursor-default`}>
           {sent ? copy.introDraft.sent : copy.introDraft.send}

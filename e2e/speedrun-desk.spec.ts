@@ -279,6 +279,20 @@ test("desk board: with no request spent the nudge shows, there is no Review, and
   await expect(candidateButton(page)).toHaveAttribute("aria-pressed", "true");
   // Catches: the button dropping its tab, so the flip lands on whichever tab was last open (the test starts on Board).
   await expect(page.getByRole("tab", { name: TAB.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+  // Catches: focus dropping to the body when the desk unmounts under the pressed button.
+  await expect(page.getByRole("tab", { name: TAB.matches, exact: true })).toBeFocused();
+});
+
+test("desk board: the sample's Back to the candidate view puts focus on the current tab", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await openTab(page, TAB.board);
+  await teamButton(page).click();
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks }).click();
+  await page.locator("[data-finished-sample]").getByRole("button", { name: TEAM.sample.back, exact: true }).click();
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  // Catches: focus dropping to the body when the desk unmounts under the sample's Back button.
+  await expect(page.getByRole("tab", { name: TAB.board, exact: true })).toBeFocused();
 });
 
 test("desk board: the narration is a polite status, the visitor's card carries Review, and the full version lists twelve steps", async ({ page }) => {
@@ -288,6 +302,7 @@ test("desk board: the narration is a polite status, the visitor's card carries R
   // Catches: a live region that is silent, or a narration that does not read the beat.
   await expect(narration).toHaveAttribute("role", "status");
   await expect(narration).toHaveAttribute("aria-live", "polite");
+  // Catches: the ">" prompt inside the live region, which a screen reader reads out with every line (toHaveText is exact, so a prompt in the status element fails it).
   await expect(narration).toHaveText(TEAM.beats.arrive);
   await expect(page.locator("[data-acting-as]")).toHaveText(TEAM.actingAs.team);
   const mine = page.locator("[data-desk-card][data-mine]");
@@ -361,11 +376,22 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   await expect(narration(page)).toHaveText(BEATS.sent);
   await expect(mineIn(page, "withFounder")).toHaveCount(1);
   await expect(founderPanel(page).locator("[data-one-pager]")).toBeVisible();
+  // Catches: the one-pager's fit list reading to the candidate ("You asked for...") instead of about them to the founder.
+  const whyItems = founderPanel(page).locator("[data-one-pager] section").filter({ hasText: TEAM.founder.why }).locator("li");
+  await expect(whyItems.first()).toContainText("spent their one intro request on this role");
+  const whyTexts = await whyItems.allInnerTexts();
+  expect(whyTexts.length).toBeGreaterThan(0);
+  for (const text of whyTexts) expect(text).not.toMatch(/^You(r)?\b/);
   await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
   await expect(founderPanel(page)).toHaveCount(0);
   // Catches: the card staying in With founder after a Yes.
   await expect(mineIn(page, "connected")).toHaveCount(1);
   await expect(draft(page)).toBeVisible();
+  // Catches: the founder's email repeating the candidate-facing line ("You asked for...") or leaving a double space.
+  const emailBody = (await draft(page).locator("p").innerText()).trim();
+  expect(emailBody).toContain("spent their one intro request on this role");
+  expect(emailBody).not.toMatch(/\bYou asked/);
+  expect(emailBody).not.toMatch(/ {2}/);
   // Catches: the panel's focus resolver returning the card's button while the drawer holds the intro draft (focus lands behind it).
   // The hand-back runs on the next frame, so the read waits two frames and then happens in one tick.
   const heading = await page.evaluate(
@@ -395,7 +421,7 @@ test("desk walk: Not now passes the request, and the candidate's next match goes
   await toFounderPanel(page);
   await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
   await expect(founderPanel(page)).toHaveCount(0);
-  await expect(narration(page)).toContainText("frees Sam's pick");
+  await expect(narration(page)).toHaveText(BEATS.notNow("Sam"));
   // Catches: the next match never going live, or the old card staying.
   await expect(mineIn(page, "requested")).toHaveCount(1);
   const second = await mineCompany(page);
@@ -465,7 +491,7 @@ test("desk walk: Send instead sends the rival on, and the rival never becomes a 
   await compare(page).getByRole("button", { name: TEAM.compare.sendInstead, exact: true }).first().click();
   await expect(compare(page)).toHaveCount(0);
   await expect(founderPanel(page)).toHaveCount(0);
-  await expect(narration(page)).toContainText(`${rivalNames[0].trim()}'s one-pager goes to the founder instead`);
+  await expect(narration(page)).toHaveText(BEATS.sentInstead(rivalNames[0].trim(), "Sam"));
   // Catches: the visitor's card moving on, or the old match staying live.
   await expect(mineIn(page, "requested")).toHaveCount(1);
   expect(await mineCompany(page)).not.toBe(first);
@@ -652,6 +678,21 @@ test("desk walk: at 390 every panel carries the narration line and the phone wal
 
 // ---- The earned door, the survey's Why card, and the phones (Ruling 72, section 7) ----
 
+test("earned door at 390: a request that lands after Two weeks later puts the live card's column on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await teamButton(page).click();
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeVisible();
+  await candidateButton(page).click();
+  await spendIntro(page, 1);
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  // Catches: the phone left on the Outcome column while the narration talks about a card in Requested.
+  await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeHidden();
+  await expect(mineCard(page)).toBeVisible();
+});
+
 const EARNED = TEAM.earned;
 const door = (page: Page) => page.locator("[data-match-detail] [data-earned-door]");
 const matchDetail = (page: Page) => page.locator("[data-match-detail]");
@@ -701,7 +742,7 @@ test("why card: the Why tab lists the survey's decision", async ({ page }) => {
   await toNetwork(page);
   await openTab(page, TAB.decisions);
   // Catches: the survey's decision missing from the Why tab.
-  await expect(page.locator("[data-decision-card]").filter({ hasText: "Every intro teaches the matching." })).toBeVisible();
+  await expect(page.locator("[data-decision-card]").filter({ hasText: speedrunCopy.decisions.cards.at(-1)!.title })).toBeVisible();
 });
 
 test("earned door: after Not now the passed match shows the founder's line and no way to request it again", async ({ page }) => {

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content";
 import { rivalById } from "./deskSamples";
-import { deskFirstName, narrationLine } from "./deskNarration";
+import { deskFirstName, deskFit, narrationLine } from "./deskNarration";
+import type { IntroRequest } from "./introRequest";
+import type { Match } from "./match";
+import { matchKey } from "./matchList";
 
 describe("desk narration", () => {
   it("names a nameless visitor as the candidate, not as you", () => {
@@ -48,5 +51,38 @@ describe("desk narration", () => {
     expect(narrationLine("sentInstead", null, "Sam", "Jonah")).toBe(speedrunCopy.team.beats.sentInsteadFree("Jonah", "Sam"));
     expect(narrationLine("sentInstead", "requested", "Sam", "Jonah")).toBe(speedrunCopy.team.beats.sentInstead("Jonah", "Sam"));
     expect(narrationLine("twoWeeks", "connected", "Sam")).toBe(speedrunCopy.team.beats.twoWeeks);
+  });
+});
+
+describe("desk fit brief", () => {
+  const match: Match = { company: { name: "Halcyon Works", slug: "halcyon", logo: null, cohort: null, stage: null, blurb: "blurb" }, role: null, score: 1, reasons: [], connect: ["intro"] };
+  const request = (candidate: Partial<IntroRequest["candidate"]>, whyRole: string): IntroRequest => ({
+    candidate: { firstName: "Sam", headline: "", shipped: [], kind: "visitor", ...candidate },
+    match,
+    matchKey: matchKey(match),
+    ranked: [matchKey(match)],
+    // The candidate-facing line is second person on purpose; the desk must never show it.
+    fit: { whyThem: "You asked for product, and they are hiring a Product Manager.", whyRole },
+    status: "requested",
+    introSent: false,
+    passedBy: null,
+  });
+  // Catches: a desk fit line that reads to the candidate ("You asked for...") instead of about them.
+  it("never speaks to the visitor, with or without a project and a why", () => {
+    for (const r of [request({ shipped: ["a hiring tracker"] }, "I want to build tools for founders"), request({ firstName: "" }, "")]) {
+      for (const line of Object.values(deskFit(r))) {
+        expect(line).not.toMatch(/^You/);
+        expect(line).not.toMatch(/\byou(r)?\b/i);
+      }
+    }
+  });
+  it("names the project when there is one and the intro request when there is not", () => {
+    expect(deskFit(request({ shipped: [" a hiring tracker "] }, "")).whyThem).toBe(speedrunCopy.team.fit.whyThem("Sam", "a hiring tracker"));
+    expect(deskFit(request({}, "")).whyThem).toBe("Sam spent their one intro request on this role.");
+    expect(deskFit(request({ firstName: "" }, "")).whyThem).toContain(speedrunCopy.team.noName);
+  });
+  it("quotes the why in their words, and is empty when they gave none", () => {
+    expect(deskFit(request({}, " build tools ")).whyRole).toBe('In their words: "build tools"');
+    expect(deskFit(request({}, "   ")).whyRole).toBe("");
   });
 });

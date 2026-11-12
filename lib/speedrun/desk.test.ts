@@ -235,4 +235,11 @@ describe("settle", () => {
     expect(out.desk).toMatchObject({ panel: null, founderOpen: false, beat: "arrive", stage: "withFounder", sampleSeen: true });
     expect(out.effect).toBeNull();
   });
+  // Catches: a phone left on a stale column when a request lands (the narration talks about a card that is off screen).
+  it("selects the live request's stage, and keeps the stage with no request", () => {
+    const d = desk({ stage: "outcome", beat: "twoWeeks" });
+    expect(deskStep(d, req("requested"), { type: "settle" }).desk.stage).toBe("requested");
+    expect(deskStep(d, req("connected"), { type: "settle" }).desk.stage).toBe("connected");
+    expect(deskStep(d, null, { type: "settle" }).desk.stage).toBe("outcome");
+  });
 });

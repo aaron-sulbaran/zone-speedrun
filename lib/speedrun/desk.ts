@@ -85,7 +85,7 @@ export function deskStep(
         : refuse;
     // A panel whose request left from under it (a candidate-side removal or pass): close it and read as untouched again.
     case "settle":
-      return { desk: { ...desk, panel: null, founderOpen: false, beat: "arrive" }, effect: null };
+      return { desk: { ...desk, panel: null, founderOpen: false, beat: "arrive", stage: stageOf(request) ?? desk.stage }, effect: null };
     case "closePanel":
       return { desk: { ...desk, panel: null, founderOpen: false }, effect: null };
     case "selectStage":

@@ -77,9 +77,18 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
   };
 
   // The earned door: across to the talent team's side, with focus on the desk's heading once it has mounted.
+  // It selects the live request's stage too, so on a phone the shown column holds the card.
   const openDesk = () => {
+    const live = stageOf(state.introRequest);
+    if (live) step({ type: "selectStage", stage: live });
     onSide("team");
     requestAnimationFrame(() => frameRef.current?.querySelector<HTMLElement>("[data-desk-heading]")?.focus({ preventScroll: true }));
+  };
+
+  // The desk unmounts with the button that was pressed, so the way back puts focus on the tab, as goTo does.
+  const deskOnSide = (next: Side, nextTab?: NetworkTab) => {
+    onSide(next, nextTab);
+    if (next === "candidate") requestAnimationFrame(() => document.getElementById(tabId(nextTab ?? tab))?.focus({ preventScroll: true }));
   };
 
   // Play the step enter when the tab changes.
@@ -124,7 +133,7 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
             </div>
           );
         })}
-        {side === "team" && <Desk state={state} dispatch={dispatch} desk={desk} step={step} onSide={onSide} />}
+        {side === "team" && <Desk state={state} dispatch={dispatch} desk={desk} step={step} onSide={deskOnSide} />}
       </AppShell>
     </div>
   );

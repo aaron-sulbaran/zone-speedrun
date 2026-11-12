@@ -3,7 +3,7 @@ import type { Beat } from "./desk";
 import type { DeskStage } from "./deskSamples";
 import type { IntroRequest } from "./introRequest";
 
-const { beats, noName } = speedrunCopy.team;
+const { beats, noName, fit } = speedrunCopy.team;
 
 /** A visitor who typed no name and picked no sample reads as "this candidate", never as "you". */
 export const deskFirstName = (firstName: string | null): string => firstName || noName;
@@ -28,4 +28,13 @@ export function narrationLine(shown: Beat, live: DeskStage | null, name: string,
     default:
       return beats[beat];
   }
+}
+
+/** The visitor's fit brief for the desk, in the third person. Built from structured fields, never from the match reasons (those are written to the candidate). */
+export function deskFit(request: IntroRequest): { whyThem: string; whyRole: string } {
+  const why = request.fit.whyRole.trim();
+  return {
+    whyThem: fit.whyThem(candidateName(request), request.candidate.shipped[0]?.trim() ?? ""),
+    whyRole: why ? fit.inTheirWords(why) : "",
+  };
 }

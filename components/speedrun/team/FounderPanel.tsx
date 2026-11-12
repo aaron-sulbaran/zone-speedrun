@@ -3,12 +3,12 @@
 import { useEffect, useId, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { DeskAction } from "@/lib/speedrun/desk";
-import { candidateName } from "@/lib/speedrun/deskNarration";
+import { candidateName, deskFit } from "@/lib/speedrun/deskNarration";
 import type { IntroRequest } from "@/lib/speedrun/introRequest";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
 import { useModalDialog } from "../act2/useModalDialog";
 import { ActingAs } from "./ActingAs";
-import { NARRATION_LOOK } from "./Narration";
+import { NARRATION_LOOK, PANEL_PROMPT } from "./Narration";
 
 const copy = speedrunCopy.team;
 const CHIP = "inline-flex min-h-11 items-center rounded-full border border-dashed border-sr-soft px-3 font-srcond text-[11px] uppercase tracking-widest text-sr-ink2";
@@ -29,7 +29,8 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
   const id = useId();
   const name = candidateName(request);
   const [project, ...rest] = request.candidate.shipped;
-  const why = [request.fit.whyThem, ...request.match.reasons.map((reason) => reason.text)].filter((text, i, all) => text.trim() && all.indexOf(text) === i);
+  const { whyThem, whyRole } = deskFit(request);
+  const why = [whyThem, whyRole].filter((text) => text.trim());
   const close = () => step({ type: "closePanel" });
   // Close hands focus back to the visitor's card, unless the answer opened a drawer that already took it.
   const dialog = useModalDialog(close, () => {
@@ -52,7 +53,7 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
       }}
       className="m-auto max-h-[92dvh] w-[min(calc(100vw-2rem),36rem)] max-w-none overflow-y-auto overscroll-contain rounded-3xl border border-sr-soft bg-sr-surface p-5 text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-[color-mix(in_srgb,var(--sr-ink)_40%,transparent)] sm:p-6"
     >
-      <p data-panel-narration="" aria-hidden="true" className={`mb-3 ${NARRATION_LOOK}`}>
+      <p data-panel-narration="" aria-hidden="true" className={`mb-3 ${NARRATION_LOOK} ${PANEL_PROMPT}`}>
         {line}
       </p>
       <div className="flex flex-wrap items-center gap-2">

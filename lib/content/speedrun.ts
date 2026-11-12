@@ -210,6 +210,12 @@ export const speedrunCopy = {
       twoWeeks: "Splits keeps tracking: the first chat, the interviews, the offer.",
     },
     // Drafts for the walk (Rulings 74 to 78), for Aaron to edit.
+    // The fit brief the desk shows for the visitor, in the third person (drafts for Aaron). The desk never shows the match
+    // reasons, which are written to the candidate.
+    fit: {
+      whyThem: (name: string, project: string) => (project ? `${name} shipped ${project} and spent their one intro request on this role.` : `${name} spent their one intro request on this role.`),
+      inTheirWords: (why: string) => `In their words: "${why}"`,
+    },
     closePanel: "Close",
     openIntro: "Open the intro draft",
     compare: {
@@ -242,7 +248,7 @@ export const speedrunCopy = {
       toFounder: (company: string) => `the founder at ${company}`,
       copied: "Copied",
       copiedTeam: "the talent team",
-      body: (name: string, company: string, role: string, whyThem: string) => `Hi, I'd like to introduce ${name}, who looks like a strong fit for ${role ? `the ${role} role at ${company}` : company}. ${whyThem} I think you two should talk.`,
+      body: (name: string, company: string, role: string, whyThem: string) => `Hi, I'd like to introduce ${name}, who looks like a strong fit for ${role ? `the ${role} role at ${company}` : company}. ${whyThem ? `${whyThem} ` : ""}I think you two should talk.`,
       send: "Send the intro",
       sent: "Sent",
     },

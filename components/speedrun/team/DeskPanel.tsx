@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { SECONDARY } from "../act2/IntroControls";
-import { NARRATION_LOOK } from "./Narration";
+import { NARRATION_LOOK, PANEL_PROMPT } from "./Narration";
 
 const copy = speedrunCopy.team;
 
@@ -43,7 +43,7 @@ export function DeskPanel({ mode, line, heading, about, onClose, children }: Pro
       aria-labelledby={id}
       className="absolute inset-y-0 right-0 z-20 flex w-full flex-col overflow-y-auto overscroll-contain border-sr-soft bg-sr-surface px-4 pb-6 pt-4 shadow-[0_0_40px_var(--sr-soft)] md:w-[420px] md:border-l"
     >
-      <p data-panel-narration="" aria-hidden="true" className={`mb-4 ${NARRATION_LOOK}`}>
+      <p data-panel-narration="" aria-hidden="true" className={`mb-4 ${NARRATION_LOOK} ${PANEL_PROMPT}`}>
         {line}
       </p>
       <div className="flex items-start justify-between gap-3">
