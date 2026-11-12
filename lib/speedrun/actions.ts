@@ -2,7 +2,9 @@ import { siteContent, speedrunCopy } from "@/lib/content";
 import type { BriefItem } from "./brief";
 import type { CompanyDetail, Contact } from "./details";
 import type { IntroRequest } from "./introRequest";
+import { rowKey } from "./keys";
 import { STAGES } from "./pipeline";
+import { dayLabel, whenLabel } from "./when";
 import type { AppRow, InboxEvent, Pipeline, Stage } from "./types";
 
 export type ActionKind =
@@ -23,8 +25,10 @@ export type SheetContent = {
   draft?: string;
   slots?: string[];
   prep?: string[];
-  /** Shown as plain text; never an href. */
-  meeting?: { at: string; link: string };
+  /** Shown as plain text; never an href. `when` is `whenLabel(at)`, the format the slots use. */
+  meeting?: { at: string; link: string; when: string };
+  /** Each slot is its own confirm: tapping one sends that time, and there is no send-all button. */
+  pickSlot?: boolean;
   links?: { label: string; href: string }[];
   /** Plain words under the title, for a sheet that drafts nothing. */
   summary?: string;
@@ -83,13 +87,9 @@ const LINKEDIN = siteContent.menu.socials.find((social) => social.key === "linke
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
 const daysFrom = (iso: string, today: string) => Math.max(0, dayOf(today) - dayOf(iso));
 const daysUntil = (iso: string, today: string) => dayOf(iso) - dayOf(today);
-/** A row's identity inside a brief line's `actionKey`. */
-export const rowKey = (row: Pick<AppRow, "company" | "role">) => `${row.company}:${row.role ?? "-"}`;
 const httpsOnly = (href: string | null | undefined) => (href && /^https:\/\//i.test(href) ? href : null);
 const idOf = (kind: ActionKind, company: string, role: string | null) => `${kind}:${company}:${role ?? "-"}`;
 const defaultContact = (company: string): Contact => ({ name: "Aaron Sulbaran", title: copy.founderTitle(company) });
-
-const SLOT_DAY = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
 /** The next three weekdays after today, one time each, so a reply always has real choices. */
 function slotsFor(today: string): string[] {
@@ -97,7 +97,7 @@ function slotsFor(today: string): string[] {
   for (let offset = 1; slots.length < SLOT_TIMES.length; offset += 1) {
     const date = new Date((dayOf(today) + offset) * DAY_MS);
     if (date.getUTCDay() === 0 || date.getUTCDay() === 6) continue;
-    slots.push(`${SLOT_DAY.format(date)}, ${SLOT_TIMES[slots.length]}`);
+    slots.push(`${dayLabel(date)}, ${SLOT_TIMES[slots.length]}`);
   }
   return slots;
 }
@@ -113,7 +113,8 @@ function sheetFor(kind: ActionKind, company: string, role: string | null, who: C
   // Prep notes belong to someone with a pinned detail; a generic row gets none. The interview line is a confirmation plus prep.
   const preps = kind === "prepare" || kind === "joinMeeting" || kind === "confirmInterview";
   if (preps && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
-  if (detail?.meeting) sheet.meeting = detail.meeting;
+  if (detail?.meeting) sheet.meeting = { ...detail.meeting, when: whenLabel(detail.meeting.at) };
+  if (kind === "pickTime") sheet.pickSlot = true;
   const links: { label: string; href: string }[] = [];
   if (who && LINKEDIN) links.push({ label: copy.linkedin(who.name), href: LINKEDIN });
   const site = preps ? httpsOnly(detail?.site) : null;
@@ -247,9 +248,14 @@ function introAction(company: string, detail: CompanyDetail | undefined, status:
 
 /** Today and the intro cards read an intro the same way, so one company never has two different actions. */
 function introActionFor(event: InboxEvent, details: Details, today: string): Action | null {
-  const detail = detailFor(details, event.company, null);
-  const who = detail?.contact ?? defaultContact(event.company);
-  return introAction(event.company, detail, introStatusOf(detail), daysFrom(event.date, today), today, who);
+  return introActionAt(event.company, event.date, details, today);
+}
+
+/** The brief's intro line carries the intro's date, so it reads the same status and quiet days as Today and the cards. */
+function introActionAt(company: string, date: string, details: Details, today: string): Action | null {
+  const detail = detailFor(details, company, null);
+  const who = detail?.contact ?? defaultContact(company);
+  return introAction(company, detail, introStatusOf(detail), daysFrom(date, today), today, who);
 }
 
 function introStatusOf(detail: CompanyDetail | undefined): "replied" | "scheduled" | "waiting" {
@@ -285,10 +291,9 @@ function pickTimeAction(company: string, details: Details, today: string): Actio
   return build("pickTime", company, null, detail, 0, today, detail?.contact ?? defaultContact(company));
 }
 
-/** A new role that fits: Bring forward adds its match to the shortlist. The id ends in the role's id, which the match key ends in. */
+/** A new role that fits: Bring forward adds its match to the shortlist. It has no role title, so the id's last part is the match key. */
 function bringForwardAction(company: string, matchKey: string, posting: string | null, today: string): Action {
-  const roleId = matchKey.startsWith(`${company}-`) ? matchKey.slice(company.length + 1) : matchKey;
-  return build("bringForward", company, null, undefined, 0, today, null, { matchKey, posting, id: idOf("bringForward", company, roleId) });
+  return build("bringForward", company, null, undefined, 0, today, null, { matchKey, posting, id: idOf("bringForward", company, matchKey) });
 }
 
 /**
@@ -298,7 +303,7 @@ function bringForwardAction(company: string, matchKey: string, posting: string |
  */
 export function briefAction(item: BriefItem, pipeline: Pipeline, details: Details, today: string): Action | null {
   if (!item.company) return null;
-  if (item.kind === "intro") return pickTimeAction(item.company, details, today);
+  if (item.kind === "intro") return introActionAt(item.company, item.actionKey ?? today, details, today);
   if (item.kind === "new-role") return item.actionKey ? bringForwardAction(item.company, item.actionKey, item.href, today) : null;
   const row = pipeline.rows.find((entry) => entry.company === item.company && rowKey(entry) === item.actionKey);
   return row ? rowAction(row, details, today) : null;

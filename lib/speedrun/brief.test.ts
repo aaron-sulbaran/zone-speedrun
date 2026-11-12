@@ -8,7 +8,7 @@ import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
-import { rankMatches } from "./match";
+import { matchCompanyName, rankMatches } from "./match";
 import { matchKey } from "./matchList";
 import { PERSON_KEYS, type AppRow } from "./types";
 
@@ -138,7 +138,7 @@ describe("brief line identity", () => {
   it("carries the company and an action key on every line", () => {
     const overnight = composeBrief({ ...base, roles: [role(OVERNIGHT_AT)], intros: [{ company: "Cobalt Meadow", date: OVERNIGHT_AT }], pipeline: rows([row("Zephyr Row", "interview", "open", OVERNIGHT_AT, { role: "Intern" })]) });
     expect(overnight.items.map((item) => [item.kind, item.company, item.actionKey])).toEqual([
-      ["intro", "Cobalt Meadow", null],
+      ["intro", "Cobalt Meadow", OVERNIGHT_AT],
       ["reply", "Zephyr Row", "Zephyr Row:Intern"],
       ["new-role", "Quillmark", "Quillmark-r1"],
     ]);
@@ -151,14 +151,37 @@ describe("brief line identity", () => {
     expect(due?.actionKey).toBe("Vantablue:Intern");
   });
 
-  // Catches: a Bring forward that adds a key the Matches tab never uses, so the shortlist shows nothing.
-  it("keys a role line exactly as the Matches tab keys the same match", () => {
+  // Catches: a Bring forward that adds a key the Matches tab never uses, so the shortlist shows nothing. 54 speedrun roles
+  // shown under a different company name than the role's own (for example "Runware (Picfinder)" under "Runware") broke it.
+  it("keys every speedrun-tier role exactly as the Matches tab keys the match it builds", () => {
+    const snapshot = getSnapshot();
+    const seen = new Map<string, string>();
     for (const key of PERSON_KEYS) {
       const person = PEOPLE[key];
-      const keys = rankMatches(person.profile, person.intake, getSnapshot()).matches.map(matchKey);
-      for (const item of sampleBrief(key).items.filter((entry) => entry.kind === "new-role")) {
-        expect(keys, `${key}: ${item.actionKey}`).toContain(item.actionKey);
+      for (const match of rankMatches(person.profile, person.intake, snapshot, 5000).matches) {
+        if (match.role && match.role.tier === "speedrun") seen.set(match.role.id, matchKey(match));
       }
+    }
+    expect(seen.size).toBeGreaterThan(30);
+    for (const [id, expected] of seen) {
+      const found = snapshot.roles.find((entry) => entry.id === id)!;
+      const [line] = composeBrief({ ...base, roles: rolesFromIds([id]), cadence: "daily" }).items;
+      // A role not posted overnight still gets its standing line, so the key can be read off any of them.
+      expect(line?.actionKey, `${found.company} / ${id}`).toBe(expected);
+    }
+    const differing = [...seen.keys()].filter((id) => {
+      const role = snapshot.roles.find((entry) => entry.id === id)!;
+      return matchCompanyName(role, snapshot.companies) !== role.company;
+    });
+    expect(differing.length, "the cases where the two names differ are in the sample").toBeGreaterThan(0);
+  });
+
+  // Catches: the brief and the matcher resolving a company's name by different rules.
+  it("names a company as the matcher does, for every role", () => {
+    const { roles, companies } = getSnapshot();
+    for (const entry of roles) {
+      const company = companies.find((c) => c.slug === entry.companySlug && c.slug !== "speedrun");
+      expect(matchCompanyName(entry, companies)).toBe(company?.name ?? entry.company);
     }
   });
 });
@@ -220,7 +243,7 @@ describe("each sample person's brief", () => {
     const intro = (OVERNIGHT.sam ?? []).find((move) => move.kind === "intro");
     expect(intro).toBeDefined();
     const brief = sampleBrief("sam");
-    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null, company: intro?.company, actionKey: null });
+    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null, company: intro?.company, actionKey: expect.any(String) });
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "reply"]);
   });
 

@@ -192,7 +192,7 @@ describe("introCards", () => {
   it("carries the meeting on the sheet and dates a prepare by it", () => {
     const { pipeline, events, details } = inboxOf("sam");
     const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "min/Max");
-    expect(card?.action?.sheet.meeting).toEqual(DETAILS.sam?.["min/Max"].meeting);
+    expect(card?.action?.sheet.meeting).toMatchObject(DETAILS.sam?.["min/Max"].meeting ?? {});
     expect(card?.action?.due).toBe("2026-11-10T15:00:00.000Z");
     const cinder = needsYou(pipeline, details, INBOX_TODAY).find((action) => action.company === "Cindermoor Cloud");
     expect(cinder?.sheet.meeting?.at).toBe("2026-11-16T15:00:00.000Z");
@@ -267,13 +267,31 @@ describe("briefAction", () => {
     const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY);
     expect(action?.kind).toBe("bringForward");
     expect(action?.matchKey).toBe("Quillmark-r1");
-    expect(action?.id).toBe("bringForward:Quillmark:r1");
+    expect(action?.id).toBe("bringForward:Quillmark:Quillmark-r1");
     expect(action?.label).toBe("Bring forward");
     expect(action?.sheet.confirm).toBe("Add to my shortlist");
     expect(action?.sheet.draft).toBeUndefined();
     expect(action?.sheet.summary).toMatch(/shortlist/i);
     expect(action?.sheet.links).toEqual([{ label: copy.postingLink, href: "https://example.com/r" }]);
     expect(`${action?.label} ${action?.sheet.title} ${action?.sheet.summary}`).not.toMatch(/faster|move/i);
+  });
+
+  // Catches: the brief's intro line skipping the status logic Today and the intro cards use (a waiting intro is no "pick a time").
+  it("reads an intro line's status like the intro cards do", () => {
+    const { pipeline, details, events } = { ...sam(), events: inboxOf("sam").events };
+    const lumora = sampleBrief("sam").items[0];
+    expect(briefAction(lumora, pipeline, details, INBOX_TODAY)?.id).toBe(introCards(events, null, details, INBOX_TODAY).find((card) => card.company === "Lumora Health")?.action?.id);
+    const waiting = item({ kind: "intro", company: "Nobody Yet", actionKey: `${INBOX_TODAY}T01:00:00.000Z` });
+    expect(briefAction(waiting, pipeline, details, INBOX_TODAY)).toBeNull();
+  });
+
+  // Catches: Pick a time showing a send-all button, or a meeting time in a different format from the slots.
+  it("lets Pick a time pick a slot, and words a booked call like a slot", () => {
+    const { pipeline, details } = sam();
+    const [intro, , cinder] = sampleBrief("sam").items;
+    expect(briefAction(intro, pipeline, details, INBOX_TODAY)?.sheet.pickSlot).toBe(true);
+    expect(briefAction(cinder, pipeline, details, INBOX_TODAY)?.sheet.meeting?.when).toBe("Mon, Nov 16, 3:00 pm");
+    expect(briefAction(cinder, pipeline, details, INBOX_TODAY)?.sheet.pickSlot).toBeUndefined();
   });
 
   // Catches: a posting link that is not a real https address reaching a sheet.
