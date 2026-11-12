@@ -96,9 +96,9 @@ for (const width of [320, 390, 640, 1024, 1440]) {
     expect(probe.cut).toEqual([false, false]);
     expect(probe.page).toBe(width);
     for (const size of probe.sizes) {
-      // Catches: a tap target under 44 by 44, or a button pushed off the edge.
-      expect(size.w).toBeGreaterThanOrEqual(44);
-      expect(size.h).toBeGreaterThanOrEqual(44);
+      // Catches: a tap target under 44 by 44 (sizes rounded to two decimals, so subpixel layout noise like 43.99999 passes), or a button pushed off the edge.
+      expect(Math.round(size.w * 100) / 100).toBeGreaterThanOrEqual(44);
+      expect(Math.round(size.h * 100) / 100).toBeGreaterThanOrEqual(44);
       expect(size.inside).toBe(true);
     }
   });
