@@ -23,8 +23,8 @@ export function BringForwardToggle({ rank, onChange, filled, locked = false }: T
   const on = rank !== null;
   return (
     <>
-      {/* Locked once the desk has the request: the reducer refuses the withdrawal, so the button says so instead of doing nothing. */}
-      <button type="button" data-bring-forward="" aria-pressed={on} aria-disabled={locked || undefined} onClick={() => !locked && onChange(!on)} className={`${filled && !on ? FILLED : SECONDARY} ${locked ? "cursor-not-allowed opacity-50" : ""}`}>
+      {/* Locked once the desk has the request (the reducer refuses the withdrawal) or has passed the match (it never returns to the shortlist): the button says so instead of doing nothing. */}
+      <button type="button" data-bring-forward="" data-weight={filled && !on ? "filled" : "secondary"} aria-pressed={on} aria-disabled={locked || undefined} onClick={() => !locked && onChange(!on)} className={`${filled && !on ? FILLED : SECONDARY} ${locked ? "cursor-not-allowed opacity-50" : ""}`}>
         <Bookmark aria-hidden="true" size={14} className={on ? "fill-current" : ""} />
         {copy.bring}
       </button>
@@ -62,7 +62,7 @@ type SlotProps = { slot: IntroSlot; onRequest: () => void; onSwap: () => void };
 export function IntroButton({ slot, onRequest, onSwap }: SlotProps) {
   if (slot.kind === "request") {
     return (
-      <button type="button" data-request-intro="" disabled={!slot.enabled} onClick={onRequest} aria-describedby={slot.hint ? "sr-intro-note" : undefined} className={`${slot.enabled ? FILLED : SECONDARY} disabled:cursor-not-allowed disabled:opacity-50`}>
+      <button type="button" data-request-intro="" data-weight={slot.enabled ? "filled" : "secondary"} disabled={!slot.enabled} onClick={onRequest} aria-describedby={slot.hint ? "sr-intro-note" : undefined} className={`${slot.enabled ? FILLED : SECONDARY} disabled:cursor-not-allowed disabled:opacity-50`}>
         {copy.request}
       </button>
     );
@@ -93,7 +93,7 @@ export function IntroNote({ slot, onDoor }: { slot: IntroSlot; onDoor: () => voi
         <p ref={hereRef} tabIndex={-1} data-intro-here="" className="text-sm text-sr-ink focus:outline-none">
           {slot.stage === "requested" ? earned.line : earned.status(stageLabels[slot.stage])}
         </p>
-        <button type="button" data-earned-door-button="" onClick={onDoor} className={`${FILLED} mt-3`}>
+        <button type="button" data-earned-door-button="" data-weight="filled" onClick={onDoor} className={`${FILLED} mt-3`}>
           {earned.button}
         </button>
       </div>

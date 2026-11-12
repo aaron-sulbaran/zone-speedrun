@@ -366,6 +366,12 @@ test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole
   // Catches: the card staying in With founder after a Yes.
   await expect(mineIn(page, "connected")).toHaveCount(1);
   await expect(draft(page)).toBeVisible();
+  // Catches: the panel's focus resolver returning the card's button while the drawer holds the intro draft (focus lands behind it).
+  // The hand-back runs on the next frame, so the read waits two frames and then happens in one tick.
+  const heading = await page.evaluate(
+    () => new Promise<boolean>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.activeElement?.tagName === "H3" && !!document.activeElement.closest("[data-desk-panel]"))))),
+  );
+  expect(heading).toBe(true);
   await expect(narration(page)).toHaveText(BEATS.interested);
   await page.locator("[data-intro-draft]").getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
   await expect(narration(page)).toHaveText(BEATS.introSent);
@@ -403,6 +409,50 @@ test("desk walk: Not now passes the request, and the candidate's next match goes
   await expect(page.locator("[data-match-detail] [data-shortlist-rank]")).toHaveText("#1");
 });
 
+test("desk walk: after a pass with one pick the pick is free, and another match can be brought forward and requested", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the free-pick line promising a next match that is not coming.
+  await expect(narration(page)).toHaveText(BEATS.notNowFree("Sam"));
+  expect(await narration(page).innerText()).not.toContain("goes live");
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const total = await rows.count();
+  let other = "";
+  for (let i = 0; i < total && !other; i++) {
+    await rows.nth(i).click();
+    const bring = matchDetail(page).locator("[data-bring-forward]");
+    if ((await matchDetail(page).locator("[data-request-intro]").count()) === 0 || (await bring.getAttribute("aria-disabled")) === "true") continue;
+    // Catches: the passed key still at #1 of the shortlist, so this match reads #2 and its request stays disabled for good.
+    await bring.click();
+    await expect(matchDetail(page).locator("[data-shortlist-rank]")).toHaveText("#1");
+    await expect(matchDetail(page).locator("[data-request-intro]")).toBeEnabled();
+    await matchDetail(page).locator("[data-request-intro]").click();
+    await expect(matchDetail(page).locator("[data-intro-here]")).toBeVisible();
+    other = await rows.nth(i).innerText();
+  }
+  expect(other).not.toBe("");
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  expect(other).not.toContain(first);
+  expect(await mineCompany(page)).not.toBe(first);
+});
+
+test("founder panel: Shift+Tab from the heading lands on Close", async ({ page }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  await expect(founderPanel(page).getByRole("heading", { level: 2 })).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  // Catches: a hand-rolled wrap sending Shift+Tab from the heading to the last button instead of the Close before it.
+  await expect(founderPanel(page).locator("[data-founder-close]")).toBeFocused();
+});
+
 test("desk walk: Send instead sends the rival on, and the rival never becomes a card at a real company", async ({ page }) => {
   await deskWithTwo(page);
   const first = await mineCompany(page);
@@ -433,7 +483,7 @@ test("desk walk: with one match brought forward, Not now leaves the nudge and Tw
   // Catches: a pass with nowhere to go leaving a ghost card, or no way forward.
   await expect(mineCard(page)).toHaveCount(0);
   await expect(page.locator("[data-desk-nudge]")).toBeVisible();
-  await expect(narration(page)).toHaveText(BEATS.notNow("Sam"));
+  await expect(narration(page)).toHaveText(BEATS.notNowFree("Sam"));
   await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
   await expect(page.locator("[data-finished-sample]")).toBeVisible();
 });
@@ -616,6 +666,9 @@ test("earned door: the spent request shows the line and a door to the desk, with
   // Catches: the earned moment missing, or the generic "reviews it next" line standing in for it.
   await expect(door(page)).toContainText(EARNED.line);
   await expect(door(page).getByRole("button", { name: EARNED.button, exact: true })).toBeVisible();
+  // Catches: Apply staying filled beside the door, so the pane shows two primary actions.
+  await expect(matchDetail(page).locator('[data-weight="filled"]')).toHaveCount(1);
+  await expect(matchDetail(page).locator('[data-weight="filled"]')).toHaveAttribute("data-earned-door-button", "");
   await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
   await expect(desk(page)).toBeVisible();
   await expect(mineIn(page, "requested")).toHaveCount(1);
@@ -661,6 +714,14 @@ test("earned door: after Not now the passed match shows the founder's line and n
   await expect(matchDetail(page).locator("[data-swap-intro]")).toHaveCount(0);
   await expect(matchDetail(page).getByRole("button", { name: speedrunCopy.matches.intro.swap })).toHaveCount(0);
   await expect(matchDetail(page).locator("[data-earned-door]")).toHaveCount(0);
+  // Catches: the "on its way" line showing for a match the founder passed.
+  await expect(matchDetail(page).locator("[data-intro-on]")).toHaveCount(0);
+  // Catches: a passed match going back on the shortlist, where it would hold the pick again.
+  const bring = matchDetail(page).locator("[data-bring-forward]");
+  await expect(bring).toHaveAttribute("aria-disabled", "true");
+  await bring.click({ force: true });
+  await expect(bring).toHaveAttribute("aria-pressed", "false");
+  await expect(matchDetail(page).locator("[data-shortlist-rank]")).toHaveCount(0);
 });
 
 test("earned door: after Send on the desk the line names With founder and the request can no longer be withdrawn", async ({ page }) => {
@@ -711,13 +772,29 @@ for (const width of [320, 390]) {
     await teamButton(page).click();
     await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
     await expect(compare(page)).toBeVisible();
-    // Catches: the drawer wider than the phone (Review Focus 5).
-    await expect.poll(async () => (await docFits(page)).wide).toBe(width);
+    // Catches: the drawer, off screen while it slides in, widening the page (read once, in the frame the drawer opens).
+    const drawerFit = await docFits(page);
+    expect(drawerFit.wide - drawerFit.width).toBe(0);
     expect((await compare(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
     await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
     await expect(founderPanel(page)).toBeVisible();
     // Catches: the one-pager wider than the phone, or pushing the page sideways.
-    await expect.poll(async () => (await docFits(page)).wide).toBe(width);
+    const panelFit = await docFits(page);
+    expect(panelFit.wide - panelFit.width).toBe(0);
     expect((await founderPanel(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
   });
 }
+
+test("founder panel: at 320 the chip stays on one line, as tall as at 1440, and Close wraps below it", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await toFounderPanel(page);
+  const chip = founderPanel(page).locator("[data-acting-as]");
+  const narrow = (await chip.boundingBox())!.height;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const wide = (await chip.boundingBox())!.height;
+  // Catches: the chip wrapping its own text inside the rounded pill beside Close on a 320 phone.
+  expect(Math.abs(narrow - wide)).toBeLessThanOrEqual(1);
+});

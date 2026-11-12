@@ -69,10 +69,11 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
     if (sheet === "follow") followRef.current?.focus({ preventScroll: true });
     setSheet(sheet === "follow" ? null : "follow");
   };
-  // The request is the pane's one filled action when it can be made; otherwise Apply is.
+  // The pane has one filled action: the request when it can be made, the door once the desk has it, otherwise Apply.
   const requestReady = intro.slot.kind === "request" && intro.slot.enabled;
   const applyAvailable = connect.includes("apply") && role !== null;
-  const applyClass = `${requestReady ? SECONDARY : FILLED} no-underline`;
+  const applyFilled = !requestReady && intro.slot.kind !== "here";
+  const applyClass = `${applyFilled ? FILLED : SECONDARY} no-underline`;
 
   return (
     <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
@@ -107,7 +108,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
         <IntroButton slot={intro.slot} onRequest={intro.onRequest} onSwap={intro.onSwap} />
         {connect.includes("apply") && role && (
           <>
-            <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} className={applyClass}>
+            <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} data-weight={applyFilled ? "filled" : "secondary"} className={applyClass}>
               {copy.connect.apply}
               <ArrowUpRight aria-hidden="true" size={13} />
             </a>
@@ -121,7 +122,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
             {copy.connect.follow}
           </button>
         )}
-        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={intro.slot.kind === "here" && intro.slot.stage !== "requested"} />
+        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={(intro.slot.kind === "here" && intro.slot.stage !== "requested") || intro.slot.kind === "passed"} />
       </div>
       <IntroNote slot={intro.slot} onDoor={intro.onDoor} />
       <div id={sheetId}>

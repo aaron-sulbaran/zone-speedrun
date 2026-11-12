@@ -37,14 +37,6 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
     if (active instanceof HTMLElement && active.closest("[data-desk-panel]")) return active;
     return document.querySelector<HTMLElement>("[data-desk-card][data-mine] button");
   });
-  // The hook wraps Tab at the last control; from the heading, Shift+Tab has no control before it, so it wraps here.
-  const wrapBack = (event: React.KeyboardEvent) => {
-    if (event.key !== "Tab" || !event.shiftKey || document.activeElement !== title.current) return;
-    event.preventDefault();
-    const buttons = dialog.current?.querySelectorAll<HTMLElement>("button");
-    buttons?.item(buttons.length - 1)?.focus();
-  };
-
   useEffect(() => {
     title.current?.focus({ preventScroll: true });
   }, []);
@@ -54,7 +46,6 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
       ref={dialog}
       data-founder-panel=""
       aria-labelledby={id}
-      onKeyDown={wrapBack}
       onCancel={(event) => {
         event.preventDefault();
         close();
@@ -64,9 +55,9 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
       <p data-panel-narration="" aria-hidden="true" className={`mb-3 ${NARRATION_LOOK}`}>
         {line}
       </p>
-      <div className="flex items-center justify-between gap-3">
-        <ActingAs who="founder" />
-        <button type="button" data-founder-close="" onClick={close} className={`${SECONDARY} shrink-0`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <ActingAs who="founder" nowrap />
+        <button type="button" data-founder-close="" onClick={close} className={`${SECONDARY} ml-auto shrink-0`}>
           {copy.closePanel}
         </button>
       </div>

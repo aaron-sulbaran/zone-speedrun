@@ -1,5 +1,5 @@
 import { DESK_SAMPLES, rivalsFor, type DeskStage, type SampleCard } from "./deskSamples";
-import type { IntroRequest } from "./introRequest";
+import type { IntroRequest, PassedBy } from "./introRequest";
 
 export type Beat = "arrive" | "review" | "sent" | "sentInstead" | "interested" | "notNow" | "introSent" | "twoWeeks";
 
@@ -40,7 +40,7 @@ export type DeskAction =
 export type IntroEffect =
   | { type: "advance"; to: "withFounder" | "connected" }
   | { type: "sendIntro" }
-  | { type: "pass"; by: "team" | "founder" };
+  | { type: "pass"; by: PassedBy };
 
 export function stageOf(request: IntroRequest | null): DeskStage | null {
   if (!request || request.status === "passed") return null;

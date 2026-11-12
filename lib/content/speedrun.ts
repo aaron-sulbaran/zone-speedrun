@@ -204,6 +204,8 @@ export const speedrunCopy = {
       sentInstead: (rival: string, name: string) => `${rival}'s one-pager goes to the founder instead. Splits frees ${name}'s pick, and their next match goes live.`,
       interested: "Splits now helps the talent team make the warm intro.",
       notNow: (name: string) => `Splits frees ${name}'s pick, and their next match goes live.`,
+      notNowFree: (name: string) => `Splits frees ${name}'s pick to spend on another match.`,
+      sentInsteadFree: (rival: string, name: string) => `${rival}'s one-pager goes to the founder instead. Splits frees ${name}'s pick to spend on another match.`,
       introSent: "Sent. Splits keeps tracking from here.",
       twoWeeks: "Splits keeps tracking: the first chat, the interviews, the offer.",
     },

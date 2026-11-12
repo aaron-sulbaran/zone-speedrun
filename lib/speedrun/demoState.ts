@@ -1,7 +1,7 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
-import { founderYes, isLive, markIntroSent, pass, resolveShortlist, sendToFounder, type IntroRequest } from "./introRequest";
+import { founderYes, isLive, markIntroSent, pass, resolveShortlist, sendToFounder, type IntroRequest, type PassedBy } from "./introRequest";
 import type { Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
@@ -27,7 +27,7 @@ export type DemoState = {
   shortlist: string[];
   introRequest: IntroRequest | null;
   /** Matches the team or the founder passed; a request never goes back to one. */
-  passed: { key: string; by: "team" | "founder" }[];
+  passed: { key: string; by: PassedBy }[];
   /** Ids of next steps marked done. */
   done: string[];
   /** The time tapped on a Pick a time sheet, by action id, so every done marker names the same one. */
@@ -55,13 +55,13 @@ export type DemoAction =
   | { type: "swapIntro"; request: IntroRequest }
   | { type: "advanceIntro"; to: "withFounder" | "connected" }
   | { type: "sendIntro" }
-  | { type: "passIntro"; by: "team" | "founder" }
+  | { type: "passIntro"; by: PassedBy }
   | { type: "markDone"; id: string; slot?: string }
   | { type: "reset" };
 
 export const MAX_PLACES = 8;
 
-const NO_PICKS = { shortlist: [] as string[], introRequest: null, passed: [] as { key: string; by: "team" | "founder" }[], done: [] as string[], picked: {} as Record<string, string> };
+const NO_PICKS = { shortlist: [] as string[], introRequest: null, passed: [] as { key: string; by: PassedBy }[], done: [] as string[], picked: {} as Record<string, string> };
 
 export function initialDemoState(live: Live): DemoState {
   return {
@@ -156,6 +156,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "bringForward": {
       const has = state.shortlist.includes(action.key);
       if (action.on === has) return state;
+      if (action.on && isPassed(state, action.key)) return state;
       if (action.on) return withShortlist(state, [...state.shortlist, action.key]);
       // Taking the requested match off the shortlist withdraws the request with it.
       const requestGone = state.introRequest?.matchKey === action.key;
@@ -195,8 +196,9 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       const passed = [...state.passed, { key: request.matchKey, by: action.by }];
       const open = state.shortlist.filter((key) => !passed.some((p) => p.key === key));
       const { live } = pass(request, action.by, resolveShortlist(state.result, open), state.intake);
-      if (!live) return { ...state, passed, introRequest: null };
-      return withShortlist({ ...state, passed, introRequest: live }, toFront(live.matchKey, state.shortlist));
+      // A passed key leaves the shortlist for good, so the pick is free to spend on another match.
+      if (!live) return withShortlist({ ...state, passed, introRequest: null }, open);
+      return withShortlist({ ...state, passed, introRequest: live }, toFront(live.matchKey, open));
     }
     case "markDone":
       if (state.done.includes(action.id)) return state;

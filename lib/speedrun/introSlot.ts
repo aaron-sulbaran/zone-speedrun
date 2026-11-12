@@ -1,4 +1,4 @@
-import { eligible, isLive, type IntroRequest, type IntroStatus } from "./introRequest";
+import { eligible, isLive, type IntroRequest, type IntroStatus, type PassedBy } from "./introRequest";
 import type { Match } from "./match";
 import { matchKey } from "./matchList";
 
@@ -6,13 +6,13 @@ import { matchKey } from "./matchList";
 export type IntroSlot =
   | { kind: "here"; stage: Exclude<IntroStatus, "passed"> }
   /** The team or the founder passed this match: no request, no swap, only the line. */
-  | { kind: "passed"; by: "team" | "founder" }
+  | { kind: "passed"; by: PassedBy }
   | { kind: "elsewhere"; company: string; canSwap: boolean }
   /** No intro path: no button, only the line. */
   | { kind: "noPath" }
   | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | null };
 
-export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, passed: { key: string; by: "team" | "founder" }[]): IntroSlot {
+export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, passed: { key: string; by: PassedBy }[]): IntroSlot {
   const key = matchKey(match);
   const gone = passed.find((entry) => entry.key === key);
   if (gone) return { kind: "passed", by: gone.by };

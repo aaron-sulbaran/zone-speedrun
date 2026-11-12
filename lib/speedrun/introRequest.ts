@@ -2,6 +2,8 @@ import type { Match, MatchResult } from "./match";
 import { matchKey } from "./matchList";
 import type { Intake } from "./types";
 
+export type PassedBy = "team" | "founder";
+
 export type IntroStatus = "requested" | "withFounder" | "connected" | "passed";
 
 export type IntroRequest = {
@@ -13,7 +15,7 @@ export type IntroRequest = {
   fit: { whyThem: string; whyRole: string };
   status: IntroStatus;
   introSent: boolean;
-  passedBy: "team" | "founder" | null;
+  passedBy: PassedBy | null;
 };
 
 /** At most one request is live; a passed one stays stored but blocks nothing. */
@@ -50,7 +52,7 @@ export function swapRequest(request: IntroRequest, to: Match, shortlist: Match[]
 /** A pass hands the request to the next eligible match after it in `ranked`, if any. */
 export function pass(
   request: IntroRequest,
-  by: "team" | "founder",
+  by: PassedBy,
   shortlist: Match[],
   intake: Intake,
 ): { passed: IntroRequest; live: IntroRequest | null } {

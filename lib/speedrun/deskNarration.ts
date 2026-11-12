@@ -22,9 +22,9 @@ export function narrationLine(shown: Beat, live: DeskStage | null, name: string,
   if (live === null && beat === "arrive") return beats.empty;
   switch (beat) {
     case "sentInstead":
-      return beats.sentInstead(rival, name);
+      return live === null ? beats.sentInsteadFree(rival, name) : beats.sentInstead(rival, name);
     case "notNow":
-      return beats.notNow(name);
+      return live === null ? beats.notNowFree(name) : beats.notNow(name);
     default:
       return beats[beat];
   }

@@ -43,7 +43,10 @@ describe("desk narration", () => {
     expect(narrationLine("interested", "connected", "Sam")).toBe(speedrunCopy.team.beats.interested);
     expect(narrationLine("introSent", null, "Sam")).toBe(speedrunCopy.team.beats.empty);
     // These beats are results of the walk, not claims about the live card.
-    expect(narrationLine("notNow", null, "Sam")).toBe(speedrunCopy.team.beats.notNow("Sam"));
+    expect(narrationLine("notNow", null, "Sam")).toBe(speedrunCopy.team.beats.notNowFree("Sam"));
+    expect(narrationLine("notNow", "requested", "Sam")).toBe(speedrunCopy.team.beats.notNow("Sam"));
+    expect(narrationLine("sentInstead", null, "Sam", "Jonah")).toBe(speedrunCopy.team.beats.sentInsteadFree("Jonah", "Sam"));
+    expect(narrationLine("sentInstead", "requested", "Sam", "Jonah")).toBe(speedrunCopy.team.beats.sentInstead("Jonah", "Sam"));
     expect(narrationLine("twoWeeks", "connected", "Sam")).toBe(speedrunCopy.team.beats.twoWeeks);
   });
 });
