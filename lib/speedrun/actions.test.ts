@@ -182,7 +182,7 @@ describe("settledAction", () => {
   const done = (...ids: (string | undefined)[]) => (action: Action) => ids.includes(action.id);
 
   it("is the action once it is done, the call once the call is, and nothing before", () => {
-    // Catches: a fixture with no call, so the call branch below proves nothing.
+    // Catches: fixture drift that leaves min/Max with no call, such as its intro status turning to replied (a pickTime card): the joined-call check below would compare undefined to undefined.
     expect(card.call).not.toBeNull();
     // Catches: a card that reads as settled before anything is done.
     expect(settledAction(card, done())).toBeNull();

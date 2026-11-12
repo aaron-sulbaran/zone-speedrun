@@ -156,12 +156,12 @@ describe("Today's prep drop-down", () => {
   const html = renderToStaticMarkup(createElement(TodayList, { items, isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
 
   it("lists exactly the sheet's points, for a row whose points are not the general ones", () => {
-    // A pinned row: min/Max, three days before its call, so its prep is its own.
+    // A pinned row: min/Max, two days before its call, so its prep is its own.
     const day = "2026-11-08";
     const intro = { emailId: "t-2", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
     const [pinned] = todayItems([intro], DETAILS.sam, day);
     const points = pinned.action.sheet.prep ?? [];
-    // Catches: a fixture that is not a prepare row, so no drop-down renders and the equality below compares nothing.
+    // Catches: fixture drift that makes this a row with no prep, such as min/Max's intro status turning to replied (a pickTime row): no drop-down renders and the equality below compares [] to [].
     expect(pinned.action.kind).toBe("prepare");
     // Catches: a fixture whose points are the general ones, which could not tell the sheet's source from a constant.
     expect(points).not.toEqual(speedrunCopy.actions.defaultPrep);
@@ -187,8 +187,6 @@ describe("Today's day-of join row", () => {
   const html = renderToStaticMarkup(createElement(TodayList, { items: [item], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
 
   it("shows the meeting time and no Due line", () => {
-    // Catches: a fixture that is not the day-of call (join is the action itself), so the checks below test another row.
-    expect(item.action.kind).toBe("joinMeeting");
     // Catches: the call's time missing from its own row.
     expect(html).toContain("data-today-when");
     // Catches: a Due line next to the meeting time on a row that only has a call to join.

@@ -756,7 +756,7 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(card.locator("[data-action-done]")).toBeFocused();
   await stat(page, "intros").click();
   const tileRow = page.locator('[data-tile-panel="intros"] [data-tile-item]').filter({ hasText: "min/Max" });
-  // Catches: the Intros tile's min/Max row missing, so the two checks below look at nothing.
+  // Catches: the min/Max tile row missing, under which the no-live-button check below would pass on nothing.
   await expect(tileRow).toHaveCount(1);
   // Catches: the open Intros tile keeping a done marker off a row whose card is settled (Ruling 58: one action model).
   await expect(tileRow.locator("[data-action-done]")).toHaveCount(1);

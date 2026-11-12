@@ -80,14 +80,14 @@ export function TilePanel({ tile, rows, actions, intros, ...shared }: Props) {
                 const settled = settledAction(card, shared.isDone);
                 const action = settled ?? card.action;
                 return (
-                <Item
-                  key={card.company}
-                  company={card.company}
-                  second={<p data-tile-who="" className="text-sm text-sr-ink2">{copy.needs.who(card.who.name, card.who.title)}</p>}
-                  status={copy.introStatus[card.status]}
-                  statusAttr="data-tile-status"
-                  action={action ? <ActionSlot action={action} slot="tile" label={copy.nextStep[action.kind]} done={!!settled} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} /> : null}
-                />
+                  <Item
+                    key={card.company}
+                    company={card.company}
+                    second={<p data-tile-who="" className="text-sm text-sr-ink2">{copy.needs.who(card.who.name, card.who.title)}</p>}
+                    status={copy.introStatus[card.status]}
+                    statusAttr="data-tile-status"
+                    action={action ? <ActionSlot action={action} slot="tile" label={copy.nextStep[action.kind]} done={!!settled} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} /> : null}
+                  />
                 );
               })
             : shown.map((row) => <RowItem key={rowKey(row)} row={row} action={actions.get(rowKey(row))} shared={shared} />)}

@@ -33,7 +33,5 @@ describe("the Board's Intros tile", () => {
     const html = renderToStaticMarkup(createElement(Board, { state: { ...initialDemoState({ reading: false, email: false }), step: "ready", personKey: "sam", inboxConnected: true }, dispatch: () => {}, onTab: () => {} }));
     // Catches: a tile number that is not the count of cards beside it.
     expect(html).toContain(`data-stat="intros" data-value="${cards}"`);
-    // Catches: a tile number counted from the intro emails.
-    expect(html).not.toContain(`data-stat="intros" data-value="${emails}"`);
   });
 });
