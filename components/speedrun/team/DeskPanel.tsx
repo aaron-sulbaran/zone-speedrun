@@ -1,0 +1,63 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
+import { speedrunCopy } from "@/lib/content";
+import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
+import { SECONDARY } from "../act2/IntroControls";
+
+const copy = speedrunCopy.team;
+
+type Props = { mode: "compare" | "intro" | "sample"; heading: string; about?: string; onClose: () => void; children: ReactNode };
+
+// A non-modal drawer at the board's right edge (the whole width on a phone). The desk behind it stays live; focus
+// goes to the heading when it opens, and Escape closes it. It scrolls inside itself.
+export function DeskPanel({ mode, heading, about, onClose, children }: Props) {
+  const root = useRef<HTMLElement>(null);
+  const title = useRef<HTMLHeadingElement>(null);
+  const id = useId();
+
+  useEffect(() => {
+    title.current?.focus({ preventScroll: true });
+    const node = root.current;
+    if (!node || prefersReducedMotion()) return;
+    const { stepMs, stepPx } = motion();
+    const enter = node.animate([{ opacity: 0, transform: `translateX(${stepPx}px)` }, { opacity: 1, transform: "translateX(0)" }], { duration: stepMs, easing: STEP_EASE });
+    return () => enter.cancel();
+  }, [mode]);
+
+  // A modal dialog (the founder's page) handles its own Escape, so an Escape it already took is left alone.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented && !document.querySelector("dialog[open]")) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <aside
+      ref={root}
+      data-desk-panel={mode}
+      aria-labelledby={id}
+      className="absolute inset-y-0 right-0 z-20 flex w-full flex-col overflow-y-auto overscroll-contain border-sr-soft bg-sr-surface px-4 pb-6 pt-4 shadow-[0_0_40px_var(--sr-soft)] md:w-[420px] md:border-l"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 id={id} ref={title} tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
+            {heading}
+          </h3>
+          {about && (
+            <p data-compare-about="" className="mt-1 break-words text-sm text-sr-ink2">
+              {about}
+            </p>
+          )}
+        </div>
+        <button type="button" onClick={onClose} aria-label={copy.closePanel} className={`${SECONDARY} shrink-0 px-0`}>
+          <X aria-hidden="true" size={16} />
+        </button>
+      </div>
+      <div className="mt-4 space-y-4">{children}</div>
+    </aside>
+  );
+}

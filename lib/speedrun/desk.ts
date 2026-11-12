@@ -26,7 +26,9 @@ export const INITIAL_DESK: DeskState = {
 export type DeskAction =
   | { type: "review" }
   | { type: "closePanel" }
+  | { type: "settle" }
   | { type: "openFounder" }
+  | { type: "openIntro" }
   | { type: "send" }
   | { type: "sendInstead"; rivalId: string }
   | { type: "founder"; yes: boolean }
@@ -66,6 +68,8 @@ export function deskStep(
         : refuse;
     case "openFounder":
       return status === "withFounder" ? { desk: { ...desk, founderOpen: true }, effect: null } : refuse;
+    case "openIntro":
+      return status === "connected" ? { desk: { ...desk, panel: "intro" }, effect: null } : refuse;
     case "founder":
       if (status !== "withFounder" || !desk.founderOpen) return refuse;
       return action.yes
@@ -79,6 +83,9 @@ export function deskStep(
       return !request || (status === "connected" && request.introSent)
         ? { desk: { ...desk, panel: "sample", beat: "twoWeeks", stage: "outcome", sampleSeen: true }, effect: null }
         : refuse;
+    // A panel whose request left from under it (a candidate-side removal or pass): close it and read as untouched again.
+    case "settle":
+      return { desk: { ...desk, panel: null, founderOpen: false, beat: "arrive" }, effect: null };
     case "closePanel":
       return { desk: { ...desk, panel: null, founderOpen: false }, effect: null };
     case "selectStage":

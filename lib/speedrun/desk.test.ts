@@ -211,3 +211,28 @@ describe("deskColumns", () => {
     expect(Object.keys(deskColumns(null, "A")).sort()).toEqual([...stages].sort());
   });
 });
+
+describe("openIntro", () => {
+  it("reopens the draft while connected, leaving the beat alone", () => {
+    const out = deskStep(desk({ beat: "interested" }), req("connected"), { type: "openIntro" });
+    expect(out.desk).toMatchObject({ panel: "intro", beat: "interested" });
+    expect(out.effect).toBeNull();
+  });
+  it.each(["requested", "withFounder", "passed"] as const)("is refused when %s", (status) => {
+    const d = desk();
+    expect(deskStep(d, req(status), { type: "openIntro" })).toEqual({ desk: d, effect: null });
+  });
+  it("is refused with no request", () => {
+    const d = desk();
+    expect(deskStep(d, null, { type: "openIntro" })).toEqual({ desk: d, effect: null });
+  });
+});
+
+describe("settle", () => {
+  it("closes every panel and returns the beat to arrive, keeping the stage and the sample flag", () => {
+    const d = desk({ panel: "compare", founderOpen: true, beat: "review", stage: "withFounder", sampleSeen: true });
+    const out = deskStep(d, null, { type: "settle" });
+    expect(out.desk).toMatchObject({ panel: null, founderOpen: false, beat: "arrive", stage: "withFounder", sampleSeen: true });
+    expect(out.effect).toBeNull();
+  });
+});

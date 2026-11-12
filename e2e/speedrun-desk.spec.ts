@@ -1,7 +1,8 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver } from "./speedrun-flow";
+import { RIVALS } from "../lib/speedrun/deskSamples";
+import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver, tabKey } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
 const SWITCH = speedrunCopy.team.switch;
@@ -311,4 +312,234 @@ test("desk board: Two weeks later from the nudge adds the sample's line to the l
   await teamButton(page).click();
   // Catches: desk state lost on a switch flip.
   await expect(page.locator("[data-learned] li")).toHaveCount(4);
+});
+
+// ---- The walk (Rulings 74 to 78) ----
+
+const BEATS = TEAM.beats;
+const narration = (page: Page) => page.locator("[data-narration]");
+const mineCard = (page: Page) => page.locator("[data-desk-card][data-mine]");
+const mineIn = (page: Page, stage: string) => page.locator(`[data-desk-column="${stage}"] [data-desk-card][data-mine]`);
+const compare = (page: Page) => page.locator('[data-desk-panel="compare"]');
+const founderPanel = (page: Page) => page.locator("[data-founder-panel]");
+const draft = (page: Page) => page.locator("[data-intro-draft]");
+const mineCompany = (page: Page) => mineCard(page).locator("[data-card-company]").innerText();
+
+/** Sam with her two intro-eligible matches brought forward (she has no third), the request on #1, on the talent team's desk. */
+async function deskWithTwo(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+}
+
+async function toFounderPanel(page: Page) {
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  await expect(founderPanel(page)).toBeVisible();
+}
+
+test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole loop, one narration beat per step", async ({ page }) => {
+  await deskWithTwo(page);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  // Catches: Review doing nothing, or a compare with no one to compare.
+  await expect(compare(page)).toBeVisible();
+  await expect(compare(page).locator('[data-compare-person="rival"]')).toHaveCount(2);
+  await expect(compare(page).locator('[data-compare-person="mine"]')).toHaveCount(1);
+  // Catches: a silent step.
+  await expect(narration(page)).toHaveText(BEATS.review);
+  const name = (await mineCard(page).locator("p").nth(1).innerText()).trim();
+  await compare(page).getByRole("button", { name: TEAM.compare.send(name), exact: true }).click();
+  await expect(founderPanel(page)).toBeVisible();
+  // Catches: the view shift not said (the founder's page under the team's chip).
+  await expect(founderPanel(page).locator("[data-acting-as]")).toHaveText(TEAM.actingAs.founder);
+  await expect(founderPanel(page).getByRole("heading", { level: 2 })).toBeFocused();
+  await expect(narration(page)).toHaveText(BEATS.sent);
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect(founderPanel(page).locator("[data-one-pager]")).toBeVisible();
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the card staying in With founder after a Yes.
+  await expect(mineIn(page, "connected")).toHaveCount(1);
+  await expect(draft(page)).toBeVisible();
+  await expect(narration(page)).toHaveText(BEATS.interested);
+  await page.locator("[data-intro-draft]").getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  await expect(narration(page)).toHaveText(BEATS.introSent);
+  await expect(draft(page)).toContainText(TEAM.introDraft.sent);
+  await expect(page.locator("[data-finished-sample]")).toHaveCount(0);
+  await page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  // Catches: the finished sample never reached, or reached without its survey.
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.surveyQuestion);
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.fitHit);
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.end);
+  await expect(narration(page)).toHaveText(BEATS.twoWeeks);
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+});
+
+test("desk walk: Not now passes the request, and the candidate's next match goes live on both sides", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(narration(page)).toContainText("frees Sam's pick");
+  // Catches: the next match never going live, or the old card staying.
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  const second = await mineCompany(page);
+  expect(second).not.toBe(first);
+  await expect(mineIn(page, "withFounder")).toHaveCount(0);
+  await candidateButton(page).click();
+  const row = page.locator("[data-match-row]").filter({ hasText: second }).first();
+  await row.click();
+  // Catches: the desk and the candidate's shortlist out of sync (the request not moved to #2, or still at the passed match).
+  await expect(page.locator("[data-match-detail] [data-intro-here]")).toBeVisible();
+  await expect(page.locator("[data-match-detail] [data-shortlist-rank]")).toHaveText("#1");
+});
+
+test("desk walk: Send instead sends the rival on, and the rival never becomes a card at a real company", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  const rivalNames = await compare(page).locator('[data-compare-person="rival"] [data-compare-name]').allInnerTexts();
+  expect(rivalNames).toHaveLength(2);
+  await compare(page).getByRole("button", { name: TEAM.compare.sendInstead, exact: true }).first().click();
+  await expect(compare(page)).toHaveCount(0);
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(narration(page)).toContainText(`${rivalNames[0].trim()}'s one-pager goes to the founder instead`);
+  // Catches: the visitor's card moving on, or the old match staying live.
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  expect(await mineCompany(page)).not.toBe(first);
+  // Catches: a rival at a real company moving on as a card (Ruling 2).
+  const everyRival = RIVALS.engineering.concat(RIVALS.ai, RIVALS.product, RIVALS.design, RIVALS.operations, RIVALS.default).map((r) => r.firstName);
+  const founderColumn = await page.locator('[data-desk-column="withFounder"]').innerText();
+  for (const rival of everyRival) expect(founderColumn).not.toContain(rival);
+  await expect(page.locator('[data-desk-column="withFounder"] [data-desk-card]')).toHaveCount(2);
+});
+
+test("desk walk: with one match brought forward, Not now leaves the nudge and Two weeks later still works", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  // Catches: a pass with nowhere to go leaving a ghost card, or no way forward.
+  await expect(mineCard(page)).toHaveCount(0);
+  await expect(page.locator("[data-desk-nudge]")).toBeVisible();
+  await expect(narration(page)).toHaveText(BEATS.notNow("Sam"));
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+});
+
+test("desk walk: a candidate-side swap while the drawer is open shows the new match", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toContainText(first);
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#2") break;
+  }
+  await expect(rank).toHaveText("#2");
+  await page.locator("[data-swap-intro]").click();
+  await teamButton(page).click();
+  const second = await mineCompany(page);
+  expect(second).not.toBe(first);
+  // Catches: the drawer copying the request when it opened, so it keeps showing the old match.
+  await expect(compare(page)).toBeVisible();
+  await expect(compare(page)).toContainText(second);
+  await expect(compare(page)).not.toContainText(first);
+});
+
+test("desk walk: the founder panel traps focus, Escape closes it onto the visitor's card, and the one-pager reopens", async ({ page, browserName }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press(tabKey(browserName));
+    // Catches: Tab leaving the panel for the dimmed desk behind it.
+    expect(await page.evaluate(() => !!document.activeElement?.closest("[data-founder-panel]"))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: Escape sending the card back, or closing onto nothing.
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await mineCard(page).getByRole("button", { name: TEAM.openFounder, exact: true }).click();
+  await expect(founderPanel(page)).toBeVisible();
+});
+
+test("desk walk: the compare drawer takes focus on its heading and Escape closes it onto the visitor's card", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  // Catches: focus left on the Review button behind the drawer.
+  await expect(compare(page).getByRole("heading", { level: 3 })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(compare(page)).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+});
+
+test("desk walk: a rebuild mid-walk leaves a fresh desk, with no panel and the arrive line", async ({ page }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(mineIn(page, "connected")).toHaveCount(1);
+  await draft(page).getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  await page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+  await startOver(page);
+  await expect(page.locator('#act-2[data-phase="join"]')).toBeVisible({ timeout: 8000 });
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  // Catches: desk state surviving a rebuild (a stale panel, a stale beat, a card still in Connected).
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the old walk's sample line still on the learned strip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+});
+
+test("desk walk: taking the request off the shortlist while the drawer is open closes it, and the desk reads as the empty queue", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#1") break;
+  }
+  await expect(rank).toHaveText("#1");
+  await page.locator("[data-match-detail] [data-bring-forward]").click();
+  await teamButton(page).click();
+  // Catches: a drawer left open on a request that no longer exists.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(mineCard(page)).toHaveCount(0);
+  // Catches: the narration still saying the team is comparing.
+  await expect(narration(page)).toHaveText(BEATS.empty);
+  // A new request must arrive on a clean desk: the closed drawer may not come back with it.
+  await candidateButton(page).click();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#1") break;
+  }
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: a stale drawer, or a stale review line, reappearing on the next request.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
 });

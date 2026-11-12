@@ -1,15 +1,21 @@
 "use client";
 
-import { useLayoutEffect, useRef, type Dispatch } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { deskColumns, stageOf, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import type { NetworkTab, Side } from "@/lib/speedrun/phase";
 import { deskFirstName, narrationLine } from "@/lib/speedrun/deskNarration";
+import { rivalById } from "@/lib/speedrun/deskSamples";
 import { visitorFirstName } from "../visitorName";
 import { ActingAs } from "./ActingAs";
+import { CompareDrawer } from "./CompareDrawer";
 import { DeskBoard } from "./DeskBoard";
+import { DeskPanel } from "./DeskPanel";
+import { FinishedSample } from "./FinishedSample";
+import { FounderPanel } from "./FounderPanel";
+import { IntroDraft } from "./IntroDraft";
 import { FullVersion } from "./FullVersion";
 import { LearnedStrip } from "./LearnedStrip";
 import { Narration } from "./Narration";
@@ -51,33 +57,80 @@ export function Desk({ state, desk, step, onSide }: Props) {
     };
   }, [key, desk.arrivedKey, step]);
 
-  const line = narrationLine(desk.beat, live, name);
+  // A panel is only open while the live request still fits it. A candidate-side removal or pass closes it; a swap
+  // keeps the compare drawer open on the new match, because the panels read the request on every render.
+  const compareFits = live === "requested";
+  const introFits = live === "connected";
+  const founderFits = live === "withFounder";
+  const stale = (desk.panel === "compare" && !compareFits) || (desk.panel === "intro" && !introFits) || (desk.founderOpen && !founderFits);
+  useEffect(() => {
+    if (stale) step({ type: "settle" });
+  }, [stale, step]);
+
+  // Whatever closes a panel (Escape, the close button, a refused move) hands focus back to the visitor's card.
+  const isOpen = desk.panel !== null || desk.founderOpen;
+  const wasOpen = useRef(isOpen);
+  useEffect(() => {
+    if (wasOpen.current && !isOpen) {
+      const card = root.current?.querySelector<HTMLElement>("[data-desk-card][data-mine]");
+      (card?.querySelector<HTMLElement>("button") ?? card ?? root.current?.querySelector<HTMLElement>("h2"))?.focus({ preventScroll: true });
+    }
+    wasOpen.current = isOpen;
+  }, [isOpen]);
+  const closePanel = useCallback(() => step({ type: "closePanel" }), [step]);
+
+  const line = narrationLine(desk.beat, live, name, rivalById(desk.rivalSent)?.firstName ?? "");
   return (
-    <section ref={root} data-desk="" className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
-      <h2 tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
-        {copy.heading}
-      </h2>
-      <p className="mt-2 max-w-prose text-sm leading-relaxed text-sr-ink2">{copy.intro}</p>
-      <div className="mt-4 space-y-3">
-        <Narration line={line} />
-        <ActingAs who="team" />
-      </div>
-      <div className="mt-4">
-        <DeskBoard
-          columns={columns}
-          selected={desk.stage}
-          nudge={live === null}
-          onSelect={(stage) => step({ type: "selectStage", stage })}
-          onReview={() => step({ type: "review" })}
-          onOpenFounder={() => step({ type: "openFounder" })}
-          onMatches={() => onSide("candidate", "matches")}
-          onTwoWeeks={() => step({ type: "twoWeeks" })}
-        />
-      </div>
-      <div className="mt-6 space-y-3">
-        <LearnedStrip sampleSeen={desk.sampleSeen} />
-        <FullVersion />
-      </div>
-    </section>
+    <div className="relative h-full">
+      <section ref={root} data-desk="" className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
+        <h2 tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
+          {copy.heading}
+        </h2>
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-sr-ink2">{copy.intro}</p>
+        <div className="mt-4 space-y-3">
+          <Narration line={line} />
+          <ActingAs who="team" />
+        </div>
+        <div className="mt-4">
+          <DeskBoard
+            columns={columns}
+            selected={desk.stage}
+            nudge={live === null}
+            onSelect={(stage) => step({ type: "selectStage", stage })}
+            onReview={() => step({ type: "review" })}
+            onOpenFounder={() => step({ type: "openFounder" })}
+            onOpenIntro={() => step({ type: "openIntro" })}
+            introSent={!!request?.introSent}
+            onMatches={() => onSide("candidate", "matches")}
+            onTwoWeeks={() => step({ type: "twoWeeks" })}
+          />
+        </div>
+        <div className="mt-6 space-y-3">
+          <LearnedStrip sampleSeen={desk.sampleSeen} />
+          <FullVersion />
+        </div>
+      </section>
+      {desk.panel === "compare" && compareFits && request && (
+        <DeskPanel mode="compare" heading={copy.compare.heading} about={copy.compare.about(request.match.company.name, request.match.role?.title ?? "")} onClose={closePanel}>
+          <CompareDrawer request={request} step={step} />
+        </DeskPanel>
+      )}
+      {desk.panel === "intro" && introFits && request && (
+        <DeskPanel mode="intro" heading={copy.introDraft.heading} onClose={closePanel}>
+          <IntroDraft request={request} step={step} />
+        </DeskPanel>
+      )}
+      {desk.panel === "sample" && (
+        <DeskPanel mode="sample" heading={copy.sample.heading} onClose={closePanel}>
+          <FinishedSample
+            onBack={() => {
+              closePanel();
+              onSide("candidate");
+            }}
+          />
+        </DeskPanel>
+      )}
+      {desk.founderOpen && founderFits && request && <FounderPanel request={request} step={step} />}
+    </div>
   );
 }

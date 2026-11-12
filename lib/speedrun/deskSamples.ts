@@ -96,6 +96,16 @@ export function rivalPool(fn: string | null): RivalPool {
   }
 }
 
+/** A rival by id, wherever the pool is; null for none. */
+export function rivalById(id: string | null): Rival | null {
+  if (!id) return null;
+  for (const pool of Object.values(RIVALS)) {
+    const found = pool.find((rival) => rival.id === id);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function rivalsFor(match: Match): Rival[] {
   const pool = RIVALS[rivalPool(match.role?.fn ?? null)];
   const start = hash(matchKey(match)) % pool.length;

@@ -19,12 +19,14 @@ type Props = {
   onSelect: (stage: DeskStage) => void;
   onReview: () => void;
   onOpenFounder: () => void;
+  onOpenIntro: () => void;
+  introSent: boolean;
   onMatches: () => void;
   onTwoWeeks: () => void;
 };
 
 // One component tree: five columns from md; below md a strip of five pills picks the one column shown (Ruling 73).
-export function DeskBoard({ columns, selected, nudge, onSelect, onReview, onOpenFounder, onMatches, onTwoWeeks }: Props) {
+export function DeskBoard({ columns, selected, nudge, introSent, onSelect, onReview, onOpenFounder, onOpenIntro, onMatches, onTwoWeeks }: Props) {
   const strip = useRef<HTMLDivElement>(null);
   // The strip scrolls inside itself when the labels do not fit; the selected pill is brought fully into its box (the page never scrolls).
   useLayoutEffect(() => {
@@ -81,7 +83,7 @@ export function DeskBoard({ columns, selected, nudge, onSelect, onReview, onOpen
               </div>
             )}
             {columns[stage].map((card) => (
-              <DeskCard key={card.id} card={card} stage={stage} onReview={onReview} onOpenFounder={onOpenFounder} />
+              <DeskCard key={card.id} card={card} stage={stage} introSent={introSent} onReview={onReview} onOpenFounder={onOpenFounder} onOpenIntro={onOpenIntro} onTwoWeeks={onTwoWeeks} />
             ))}
           </section>
         ))}
