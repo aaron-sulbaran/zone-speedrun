@@ -179,6 +179,13 @@ export const speedrunCopy = {
     // Drafts from the recruiter-view spec (Rulings 72, 73, 75, 79, 80, section 3), for Aaron to edit.
     intro: "I don't know what your internal tools look like. Splits could live inside them as an internal tool, or beside them.",
     actingAs: { team: "You're acting as the talent team", founder: "You're acting as the founder" },
+    // The earned door (Ruling 72): the candidate's own request line, then the way across to the talent team's side. Drafts.
+    earned: {
+      line: "Sent. It just landed on the speedrun team's desk. What does this unlock for them?",
+      button: "See the talent team's side",
+      status: (stage: string) => `On the talent team's desk: ${stage}.`,
+    },
+    passedLine: { team: "The team sent someone else this time.", founder: "The founder said not now." },
     stagesLabel: "Stages",
     stages: { requested: "Requested", withFounder: "With founder", connected: "Connected", tracking: "Tracking", outcome: "Outcome" },
     columnLabel: (stage: string, n: number) => `${stage}, ${n} ${n === 1 ? "candidate" : "candidates"}`,
@@ -295,7 +302,6 @@ export const speedrunCopy = {
       hintFirst: (rank: number) => `You get one intro request, and it goes to your #1 pick. This one is #${rank}.`,
       hintNoPath: "There is no warm intro path here yet. Apply or follow instead.",
       on: (company: string) => `Your intro request is on ${company}`,
-      here: "Intro requested. The talent team reviews it next.",
     },
     connectSheet: {
       apply: "Opens the role on the speedrun jobs board in a new tab.",
@@ -751,6 +757,10 @@ export const speedrunCopy = {
       {
         title: "Founders get routed, not buried.",
         body: "When a resume reads like a founder's, the right next step is speedrun or the alpha fellowship, not another job list. The links go straight to those applications.",
+      },
+      {
+        title: "Every intro teaches the matching.",
+        body: "A short survey asks both sides whether a miss was the match or the people. Only the match misses change who gets matched.",
       },
     ],
     measureHeading: "What I'd measure",

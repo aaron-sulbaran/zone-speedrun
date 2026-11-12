@@ -5,8 +5,8 @@ import { speedrunCopy } from "@/lib/content";
 import type { DeskAction } from "@/lib/speedrun/desk";
 import { candidateName } from "@/lib/speedrun/deskNarration";
 import type { IntroRequest } from "@/lib/speedrun/introRequest";
-import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { FILLED, SECONDARY } from "../act2/IntroControls";
+import { useModalDialog } from "../act2/useModalDialog";
 import { ActingAs } from "./ActingAs";
 import { NARRATION_LOOK } from "./Narration";
 
@@ -25,44 +25,28 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 // The visitor plays the founder (Ruling 76): the one-pager Splits built, and the one question. A native modal dialog
 // gives the focus trap, Escape, the inert desk behind it and the dim; the page stops scrolling while it is open.
 export function FounderPanel({ request, line, step }: { request: IntroRequest; line: string; step: (action: DeskAction) => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const id = useId();
   const name = candidateName(request);
   const [project, ...rest] = request.candidate.shipped;
   const why = [request.fit.whyThem, ...request.match.reasons.map((reason) => reason.text)].filter((text, i, all) => text.trim() && all.indexOf(text) === i);
   const close = () => step({ type: "closePanel" });
-  // The browser lets Tab past the last control into its own chrome; the panel keeps focus by wrapping at both ends.
-  const trapTab = (event: React.KeyboardEvent) => {
-    if (event.key !== "Tab") return;
-    const controls = [...(dialog.current?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [])];
-    const [first, last] = [controls[0], controls[controls.length - 1]];
-    if (!first || !last) return;
-    const at = document.activeElement;
-    if (event.shiftKey && (at === first || at === title.current)) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && at === last) {
-      event.preventDefault();
-      first.focus();
-    }
+  // Close hands focus back to the visitor's card, unless the answer opened a drawer that already took it.
+  const dialog = useModalDialog(close, () => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest("[data-desk-panel]")) return active;
+    return document.querySelector<HTMLElement>("[data-desk-card][data-mine] button");
+  });
+  // The hook wraps Tab at the last control; from the heading, Shift+Tab has no control before it, so it wraps here.
+  const wrapBack = (event: React.KeyboardEvent) => {
+    if (event.key !== "Tab" || !event.shiftKey || document.activeElement !== title.current) return;
+    event.preventDefault();
+    const buttons = dialog.current?.querySelectorAll<HTMLElement>("button");
+    buttons?.item(buttons.length - 1)?.focus();
   };
 
   useEffect(() => {
-    const node = dialog.current;
-    if (!node) return;
-    node.showModal();
     title.current?.focus({ preventScroll: true });
-    const before = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const enter = prefersReducedMotion()
-      ? null
-      : node.animate([{ opacity: 0, transform: `translateY(${motion().stepPx}px)` }, { opacity: 1, transform: "translateY(0)" }], { duration: motion().stepMs, easing: STEP_EASE });
-    return () => {
-      enter?.cancel();
-      document.body.style.overflow = before;
-      if (node.open) node.close();
-    };
   }, []);
 
   return (
@@ -70,17 +54,22 @@ export function FounderPanel({ request, line, step }: { request: IntroRequest; l
       ref={dialog}
       data-founder-panel=""
       aria-labelledby={id}
-      onKeyDown={trapTab}
+      onKeyDown={wrapBack}
       onCancel={(event) => {
         event.preventDefault();
         close();
       }}
-      className="m-auto max-h-[92dvh] w-[min(94vw,36rem)] overflow-y-auto overscroll-contain rounded-3xl border border-sr-soft bg-sr-surface p-5 text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-[color-mix(in_srgb,var(--sr-ink)_40%,transparent)] sm:p-6"
+      className="m-auto max-h-[92dvh] w-[min(calc(100vw-2rem),36rem)] max-w-none overflow-y-auto overscroll-contain rounded-3xl border border-sr-soft bg-sr-surface p-5 text-sr-ink shadow-[0_16px_56px_var(--sr-soft)] backdrop:bg-[color-mix(in_srgb,var(--sr-ink)_40%,transparent)] sm:p-6"
     >
       <p data-panel-narration="" aria-hidden="true" className={`mb-3 ${NARRATION_LOOK}`}>
         {line}
       </p>
-      <ActingAs who="founder" />
+      <div className="flex items-center justify-between gap-3">
+        <ActingAs who="founder" />
+        <button type="button" data-founder-close="" onClick={close} className={`${SECONDARY} shrink-0`}>
+          {copy.closePanel}
+        </button>
+      </div>
       <h2 id={id} ref={title} tabIndex={-1} className="mt-3 text-lg font-medium leading-snug focus:outline-none">
         {copy.founder.heading(request.match.company.name)}
       </h2>

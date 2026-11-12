@@ -41,6 +41,8 @@ export type MatchIntro = {
   onBring: (on: boolean) => void;
   onRequest: () => void;
   onSwap: () => void;
+  /** The earned door: across to the talent team's side. */
+  onDoor: () => void;
 };
 
 export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro }) {
@@ -119,9 +121,9 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
             {copy.connect.follow}
           </button>
         )}
-        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} />
+        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={intro.slot.kind === "here" && intro.slot.stage !== "requested"} />
       </div>
-      <IntroNote slot={intro.slot} />
+      <IntroNote slot={intro.slot} onDoor={intro.onDoor} />
       <div id={sheetId}>
         {sheet && (
           <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">

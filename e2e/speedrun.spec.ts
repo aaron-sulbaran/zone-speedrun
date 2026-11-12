@@ -686,8 +686,8 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   await openTab(page, network.tabs.decisions);
   const section = page.locator("[data-decisions]");
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
-  // Catches: a card dropped or left behind in the Rulings 61 to 64 rewrite (five kept, one replaced, three added makes nine).
-  await expect(section.locator("[data-decision-card]")).toHaveCount(9);
+  // Catches: a card dropped or left behind in the Rulings 61 to 64 rewrite (five kept, one replaced, three added makes nine), or PR 7's survey card missing (the tenth).
+  await expect(section.locator("[data-decision-card]")).toHaveCount(10);
   const close = page.locator("[data-close]");
   await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
   await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();

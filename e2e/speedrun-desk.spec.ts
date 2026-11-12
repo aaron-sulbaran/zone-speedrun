@@ -2,7 +2,8 @@ import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 import { LEARNED_FROM_SAMPLE, RIVALS } from "../lib/speedrun/deskSamples";
-import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver, tabKey } from "./speedrun-flow";
+import { PEOPLE } from "../lib/speedrun/people";
+import { accountButton, answerOnboarding, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver, tabKey } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
 const SWITCH = speedrunCopy.team.switch;
@@ -595,3 +596,128 @@ test("desk walk: at 390 every panel carries the narration line and the phone wal
   await expect(page.locator("[data-finished-sample]")).toBeVisible();
   await expect(page.locator("[data-desk-panel] [data-panel-narration]")).toHaveText(BEATS.twoWeeks);
 });
+
+// ---- The earned door, the survey's Why card, and the phones (Ruling 72, section 7) ----
+
+const EARNED = TEAM.earned;
+const door = (page: Page) => page.locator("[data-match-detail] [data-earned-door]");
+const matchDetail = (page: Page) => page.locator("[data-match-detail]");
+
+/** Back on Matches, the row for `company` selected, so its detail is the one on screen. */
+async function openMatch(page: Page, company: string) {
+  await candidateButton(page).click();
+  await page.locator("[data-match-row]").filter({ hasText: company }).first().click();
+}
+
+test("earned door: the spent request shows the line and a door to the desk, with the visitor's card first and focus on the heading", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page);
+  // Catches: the earned moment missing, or the generic "reviews it next" line standing in for it.
+  await expect(door(page)).toContainText(EARNED.line);
+  await expect(door(page).getByRole("button", { name: EARNED.button, exact: true })).toBeVisible();
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  await expect(desk(page)).toBeVisible();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  expect(await page.locator('[data-desk-column="requested"] [data-desk-card]').first().getAttribute("data-mine")).not.toBeNull();
+  // Catches: the flip leaving focus on a hidden button, so a keyboard reader lands nowhere.
+  await expect(desk(page).getByRole("heading", { level: 2 })).toBeFocused();
+});
+
+test.describe("earned door: reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("the visitor's card arrives with no running animation anywhere in the desk", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // The hero's skip button is not on this path under reduced motion, so the visitor answers the questions as Sam.
+    await page.goto("/speedrun");
+    await answerOnboarding(page, { name: "Sam", targets: ["product", "engineering"], places: ["New York", "Remote"], why: PEOPLE.sam.intake.why, person: "sam" });
+    await skipBuildLog(page);
+    await spendIntro(page);
+    await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+    await expect(mineIn(page, "requested")).toHaveCount(1);
+    // Catches: motion under reduced motion (the card's enter, or any desk animation).
+    const running = await page.evaluate(() => document.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.target?.closest?.("[data-desk]")).length);
+    expect(running).toBe(0);
+  });
+});
+
+test("why card: the Why tab lists the survey's decision", async ({ page }) => {
+  await toNetwork(page);
+  await openTab(page, TAB.decisions);
+  // Catches: the survey's decision missing from the Why tab.
+  await expect(page.locator("[data-decision-card]").filter({ hasText: "Every intro teaches the matching." })).toBeVisible();
+});
+
+test("earned door: after Not now the passed match shows the founder's line and no way to request it again", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await openMatch(page, first);
+  // Catches: re-requesting a match the founder passed.
+  await expect(matchDetail(page).locator("[data-intro-passed]")).toHaveText(TEAM.passedLine.founder);
+  await expect(matchDetail(page).locator("[data-request-intro]")).toHaveCount(0);
+  await expect(matchDetail(page).locator("[data-swap-intro]")).toHaveCount(0);
+  await expect(matchDetail(page).getByRole("button", { name: speedrunCopy.matches.intro.swap })).toHaveCount(0);
+  await expect(matchDetail(page).locator("[data-earned-door]")).toHaveCount(0);
+});
+
+test("earned door: after Send on the desk the line names With founder and the request can no longer be withdrawn", async ({ page }) => {
+  await deskWithTwo(page);
+  const company = await mineCompany(page);
+  await toFounderPanel(page);
+  // The one-pager is modal; Close leaves the card in With founder, which is where Send put it.
+  await founderPanel(page).locator("[data-founder-close]").click();
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await openMatch(page, company);
+  // Catches: a stale "reviews it next" line after the desk moved the request.
+  await expect(door(page).locator("[data-intro-here]")).toContainText(TEAM.stages.withFounder);
+  await expect(door(page).locator("[data-intro-here]")).not.toContainText("reviews it next");
+  await expect(door(page).getByRole("button", { name: EARNED.button, exact: true })).toBeVisible();
+  // Catches: a withdrawable request after the desk moved it.
+  const bring = matchDetail(page).locator("[data-bring-forward]");
+  await expect(bring).toHaveAttribute("aria-disabled", "true");
+  await bring.click({ force: true });
+  await expect(bring).toHaveAttribute("aria-pressed", "true");
+});
+
+test("founder panel: the visible Close button closes it without answering and hands focus to the visitor's card", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  const close = founderPanel(page).locator("[data-founder-close]");
+  // Catches: a phone with no way out of the one-pager but answering it (no Escape key on iOS).
+  await expect(close).toBeVisible();
+  await expect(close).toHaveText(TEAM.closePanel);
+  const box = await close.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await close.click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+});
+
+for (const width of [320, 390]) {
+  test(`desk phone: at ${width} the drawer and the founder panel fit the viewport with no sideways scroll`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 740 });
+    await toNetwork(page);
+    await spendIntro(page, 2);
+    await teamButton(page).click();
+    await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+    await expect(compare(page)).toBeVisible();
+    // Catches: the drawer wider than the phone (Review Focus 5).
+    await expect.poll(async () => (await docFits(page)).wide).toBe(width);
+    expect((await compare(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
+    await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+    await expect(founderPanel(page)).toBeVisible();
+    // Catches: the one-pager wider than the phone, or pushing the page sideways.
+    await expect.poll(async () => (await docFits(page)).wide).toBe(width);
+    expect((await founderPanel(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
+  });
+}

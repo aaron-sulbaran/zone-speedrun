@@ -18,7 +18,7 @@ function candidateFor(state: DemoState): IntroRequest["candidate"] {
 }
 
 /** Wires the shortlist and the one intro request to the matches on screen. */
-export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>) {
+export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onDoor: () => void) {
   const { shortlist, introRequest } = state;
   const shortlisted = useMemo(() => {
     const byKey = new Map((state.result?.matches ?? []).map((match) => [matchKey(match), match]));
@@ -35,13 +35,14 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>) {
   const forMatch = (match: Match): MatchIntro => {
     const key = matchKey(match);
     return {
-      slot: introSlot(match, shortlist, introRequest),
+      slot: introSlot(match, shortlist, introRequest, state.passed),
       rank: rankOf(key),
       onBring: (on) => bring(key, on),
       onRequest: () => {
         const request = createRequest({ candidate: candidateFor(state), shortlist: shortlisted, intake: state.intake });
         if (request) dispatch({ type: "requestIntro", request });
       },
+      onDoor,
       onSwap: () => {
         if (!introRequest) return;
         const request = swapRequest(introRequest, match, shortlisted, state.intake);

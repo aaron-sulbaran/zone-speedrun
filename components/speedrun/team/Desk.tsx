@@ -79,7 +79,7 @@ export function Desk({ state, desk, step, onSide }: Props) {
   return (
     <div className="relative h-full">
       <section ref={root} data-desk="" className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
-        <h2 tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
+        <h2 data-desk-heading="" tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
           {copy.heading}
         </h2>
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-sr-ink2">{copy.intro}</p>
