@@ -589,7 +589,8 @@ test("board table: from lg the table fits its card with no sideways scroll, no c
       const spill = await page.locator('[data-board-table] [data-cell="stage"] > span, [data-board-table] th[data-col] > button').evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().right > (el.parentElement as HTMLElement).getBoundingClientRect().right + 1).length);
       expect(spill, `chips or headers overhanging their column, ${where}`).toBe(0);
       // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text.
-      const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().height > 48).length);
+      // The button keeps its 44 px floor even when its label wraps, so the label's own box is what is measured.
+      const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => { const range = document.createRange(); range.selectNodeContents(el.firstChild as Node); return range.getBoundingClientRect().height > 24; }).length);
       expect(tall, `wrapped headers, ${where}`).toBe(0);
       const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
       // Catches: no rows in the view, so the height comparison below would pass with nothing to compare.
