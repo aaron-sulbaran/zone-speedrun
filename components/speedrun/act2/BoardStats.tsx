@@ -7,7 +7,7 @@ const TILE_KEYS: TileKey[] = ["applied", "inProcess", "intros", "offers"];
 
 type Props = { stats: Pipeline["stats"]; /** The warm intros the Intros list holds, which are not the same thing as intro emails. */ introCount: number; open: TileKey | null; onToggle: (key: TileKey) => void };
 
-/** The four big numbers, each a toggle: one press opens its list and filters the table, the next press puts both back. */
+/** The four big numbers, each a toggle. A press opens the tile's list; Applied, In process and Offers also set the table's filter and the next press puts both back, while Intros leaves the filter alone. */
 export function BoardStats({ stats, introCount, open, onToggle }: Props) {
   const values: Record<TileKey, number> = { ...stats, intros: introCount };
   const labels = speedrunCopy.board.statLabels;

@@ -11,7 +11,7 @@ import { BoardTableRow } from "./BoardTableRow";
 
 const DEFAULT_ROWS = 8;
 const COLUMNS: SortKey[] = ["company", "role", "stage", "applied", "lastUpdate", "next"];
-const COLUMN_WIDTHS = ["lg:w-[15%]", "lg:w-[21%]", "lg:w-[11%]", "lg:w-[10%]", "lg:w-[12%]", "lg:w-[31%]"];
+const COLUMN_WIDTHS = ["lg:w-[14%]", "lg:w-[16%]", "lg:w-[13%]", "lg:w-[11%]", "lg:w-[13%]", "lg:w-[33%]"];
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 
 type Props = {
@@ -31,7 +31,7 @@ export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor,
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "next", dir: "asc" });
   const ordered = useMemo(() => sortRows(filterRows(rows, filter), sort.key, sort.dir, actions), [rows, filter, sort, actions]);
   const shown = showAll ? ordered : ordered.slice(0, DEFAULT_ROWS);
-  const head = "px-1 py-1 text-left font-srcond text-xs font-normal uppercase tracking-widest text-sr-ink2";
+  const head = "whitespace-nowrap px-1 py-1 text-left font-srcond text-xs font-normal uppercase tracking-widest text-sr-ink2";
 
   return (
     <div data-board-table="">

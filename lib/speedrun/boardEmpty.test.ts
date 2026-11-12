@@ -91,6 +91,7 @@ describe("the Board's Intros tile", () => {
     const events = [...generateInbox(PEOPLE.sam).map(classifyEmail), again];
     const cards = introCards(events, null, DETAILS.sam, INBOX_TODAY);
     const emails = events.filter((event) => event.kind === "intro").length;
+    // Catches: a fixture where emails and cards agree, which could not tell the original bug from the fix.
     expect(emails).toBeGreaterThan(cards.length);
     const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true, events: [again] });
     // Catches: a tile number taken from the intro emails (the original bug), which disagrees with the list it opens.

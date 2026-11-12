@@ -70,13 +70,13 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
   const pressTile = (tile: TileKey) => {
     const closing = openTile === tile;
     setOpenTile(closing ? null : tile);
-    // Intros opens its list and leaves the table where it was; the other tiles also filter it.
+    // Applied, In process and Offers open their list and set the table's filter (a second press clears both); Intros opens its list and leaves the filter where it was.
     const filters = TILE_FILTER[tile];
     if (filters) setFilter(closing ? "all" : filters);
   };
   const pressChip = (next: BoardFilter) => {
     setFilter(next);
-    // A chip never closes the Intros list, which has nothing to do with the table's filter.
+    // A chip that has its own tile (In process, Offers) opens that tile and closes any other panel, one at a time. All and Closed have no tile: they close a filter tile's panel (its filter just changed) but keep the Intros list, which has nothing to do with the filter.
     setOpenTile((open) => tileOfFilter(next) ?? (open === "intros" ? open : null));
   };
   const connect = () => {

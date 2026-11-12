@@ -400,6 +400,7 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
   expect(await controls.count()).toBeGreaterThan(20);
   const sizes = await controls.evaluateAll((els) => els.map((el) => [el.textContent?.trim().slice(0, 20), el.getBoundingClientRect().width, el.getBoundingClientRect().height] as const));
   // 43.95 and not 44: a min-h-11 button lays out at 43.99997 px here, which is 44 px to a thumb.
+  // Catches: any measured control (tile, chip, header, link, Show all, Details, action) under the 44 px touch size, in either direction.
   for (const [label, width, height] of sizes) {
     expect(width, `${label} width`).toBeGreaterThanOrEqual(43.95);
     expect(height, `${label} height`).toBeGreaterThanOrEqual(43.95);
@@ -410,8 +411,9 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
   expect(await page.locator("[data-next-action]").count()).toBeGreaterThanOrEqual(3);
   await stat(page, "offers").click();
   const tileActions = await page.locator("[data-tile-action]").evaluateAll((els) => els.map((el) => [el.getBoundingClientRect().width, el.getBoundingClientRect().height]));
-  // Catches: a tile's Decide on the offer button under the 44 px touch size.
+  // Catches: the Offers list showing no actions, so the size loop below would measure nothing.
   expect(tileActions).toHaveLength(2);
+  // Catches: a tile's Decide on the offer button under the 44 px touch size.
   for (const [width, height] of tileActions) {
     expect(width).toBeGreaterThanOrEqual(43.95);
     expect(height).toBeGreaterThanOrEqual(43.95);
@@ -546,6 +548,7 @@ test("board top: the Intros list and the table's filter leave each other alone",
   await joinAs(page, "sam", true);
   const chip = (key: string) => page.locator(`[data-board-table] [data-filter="${key}"]`);
   await stat(page, "offers").click();
+  // Catches: the Offers tile not filtering, which would make the "Intros leaves the filter alone" checks below pass for nothing.
   await expect(rows(page)).toHaveCount(2);
   await stat(page, "intros").click();
   // Catches: pressing Intros resetting the filter, which would put the table back on every row.
@@ -558,22 +561,54 @@ test("board top: the Intros list and the table's filter leave each other alone",
   await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
   await expect(stat(page, "intros")).toHaveAttribute("aria-pressed", "true");
   await chip("all").click();
+  // Catches: the All chip closing the Intros list, which it has no tile for.
   await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
+  await chip("offers").click();
+  await stat(page, "intros").click();
+  await stat(page, "offers").click();
+  // Catches: Offers opening its panel on top of the Intros list instead of replacing it (one panel at a time).
+  await expect(page.locator('[data-tile-panel="offers"]')).toBeVisible();
+  await expect(page.locator('[data-tile-panel="intros"]')).toHaveCount(0);
 });
 
-test("board table: from lg the table fits its card with no sideways scroll, every column visible and every row the same height", async ({ page }) => {
-  for (const width of [1024, 1280, 1440]) {
+test("board table: from lg the table fits its card with no sideways scroll, no clipped cell, and every row the same height, in the All and In process views", async ({ page }) => {
+  // 1009 is 1024 less a classic 15 px scrollbar.
+  for (const width of [1009, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await joinAs(page, "sam", true);
-    const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
-    // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
-    expect(gap, `scroll overflow at ${width}`).toBeLessThanOrEqual(1);
-    // Catches: a Next step cell whose due date is cut by its own cell, even when the table as a whole fits.
-    const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
-    expect(clipped, `clipped Next step cells at ${width}`).toBe(0);
-    const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-    expect(heights.length).toBeGreaterThan(5);
-    // Catches: wrapping in a squeezed column making some rows taller than others (L3 at the narrowest lg width).
-    for (const height of heights) expect(Math.abs(height - heights[0]), `row height at ${width}`).toBeLessThanOrEqual(1);
+    for (const view of ["all", "inProcess"]) {
+      await page.locator(`[data-board-table] [data-filter="${view}"]`).click();
+      const where = `${view} at ${width}`;
+      const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
+      // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
+      expect(gap, `scroll overflow, ${where}`).toBeLessThanOrEqual(1);
+      // Catches: a Next step cell whose action or quiet label is cut by its own cell, even when the table as a whole fits.
+      const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+      expect(clipped, `clipped Next step cells, ${where}`).toBe(0);
+      // Catches: a stage chip (ASSESSMENT) or a header with its sort chevron spilling past its own column into the next.
+      const spill = await page.locator('[data-board-table] [data-cell="stage"] > span, [data-board-table] th[data-col] > button').evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().right > (el.parentElement as HTMLElement).getBoundingClientRect().right + 1).length);
+      expect(spill, `chips or headers overhanging their column, ${where}`).toBe(0);
+      // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text.
+      const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().height > 48).length);
+      expect(tall, `wrapped headers, ${where}`).toBe(0);
+      const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+      // Catches: no rows in the view, so the height comparison below would pass with nothing to compare.
+      expect(heights.length, `rows, ${where}`).toBeGreaterThan(3);
+      // Catches: wrapping in a squeezed column making some rows taller than others (L3 at the narrowest lg width).
+      for (const height of heights) expect(Math.abs(height - heights[0]), `row height, ${where}`).toBeLessThanOrEqual(1);
+    }
   }
+});
+
+test("board table: a Next-step link's text starts where the column's plain text does", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const left = (selector: string) => page.locator(selector).first().evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el.firstChild ?? el);
+    return range.getBoundingClientRect().left;
+  });
+  const link = await left("[data-next-action]");
+  const plain = await left('[data-cell="next"] > span');
+  // Catches: the link's hit-area padding pushing its text 8 px right of the plain rows and the header below it (L6).
+  expect(Math.abs(link - plain)).toBeLessThanOrEqual(1);
 });
