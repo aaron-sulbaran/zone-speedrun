@@ -790,8 +790,8 @@ test("warm intros: on a phone the request card draws no empty action column", as
   const request = introCards(page).first();
   // Catches: the request card missing, so the checks below look at the wrong card.
   await expect(request.locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
-  // Catches: an empty action element adding a gap under the request card's chip on a phone (it is drawn only from lg).
-  await expect(request.locator("[data-intro-actions]")).toBeHidden();
+  // Catches: an empty action element adding a gap under the request card's chip on a phone (it is drawn only from lg). Not toBeHidden: an empty box counts as hidden to Playwright even when it is laid out.
+  expect(await request.locator("[data-intro-actions]").evaluate((el) => getComputedStyle(el).display)).toBe("none");
   // Catches: the action column hidden on a card that has actions, which would strand them.
   await expect(introCards(page).filter({ hasText: "Lumora Health" }).locator("[data-intro-actions]")).toBeVisible();
 });
