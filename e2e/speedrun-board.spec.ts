@@ -370,8 +370,8 @@ test("board table: the cells carry dates, and the Next step cell opens the very 
 test("board table: on a phone the table scrolls inside its own box, the page never scrolls sideways, and every new control is 44 px", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await joinAs(page, "sam", true);
-  // Catches: the table pushing the whole page wider than the phone.
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  // Catches: the table pushing the page, or the tab's own scroll area (which would hide the overflow from the document), wider than the phone.
+  expect(await page.evaluate(() => { const panel = document.querySelector('[role="tabpanel"]:not([hidden])'); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && !!panel && panel.scrollWidth <= panel.clientWidth; })).toBe(true);
   const box = page.locator("[data-table-scroll]");
   // Catches: a table squeezed to fit, with no sideways scroll of its own.
   expect(await box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
