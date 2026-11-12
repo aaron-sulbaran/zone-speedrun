@@ -1,3 +1,6 @@
+"use client";
+
+import { useLayoutEffect, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
 import type { DeskCard as Card } from "@/lib/speedrun/desk";
 import type { DeskStage } from "@/lib/speedrun/deskSamples";
@@ -22,18 +25,29 @@ type Props = {
 
 // One component tree: five columns from md; below md a strip of five pills picks the one column shown (Ruling 73).
 export function DeskBoard({ columns, selected, nudge, onSelect, onReview, onOpenFounder, onMatches, onTwoWeeks }: Props) {
+  const strip = useRef<HTMLDivElement>(null);
+  // The strip scrolls inside itself when the labels do not fit; the selected pill is brought fully into its box (the page never scrolls).
+  useLayoutEffect(() => {
+    const box = strip.current;
+    const pill = box?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!box || !pill) return;
+    const left = pill.offsetLeft;
+    const right = left + pill.offsetWidth;
+    if (left < box.scrollLeft) box.scrollLeft = left;
+    else if (right > box.scrollLeft + box.clientWidth) box.scrollLeft = right - box.clientWidth;
+  }, [selected]);
   return (
     <div>
-      <div role="group" aria-label={copy.stagesLabel} className="mb-3 flex gap-1 md:hidden">
+      <div ref={strip} data-stage-strip="" role="group" aria-label={copy.stagesLabel} className="relative mb-3 flex gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
         {STAGE_ORDER.map((stage) => (
           <button
             key={stage}
             type="button"
             aria-pressed={stage === selected}
             onClick={() => onSelect(stage)}
-            className="flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-lg border border-sr-soft px-0.5 font-srcond text-[10px] uppercase leading-tight tracking-wider text-sr-ink2 transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-pressed:border-sr-ink aria-pressed:bg-sr-ink aria-pressed:text-sr-surface motion-reduce:transition-none"
+            className="flex min-h-11 min-w-11 shrink-0 grow flex-col items-center justify-center whitespace-nowrap rounded-lg border border-sr-soft px-3 font-srcond text-[10px] uppercase leading-tight tracking-wider text-sr-ink2 transition-colors duration-200 hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple aria-pressed:border-sr-ink aria-pressed:bg-sr-ink aria-pressed:text-sr-surface motion-reduce:transition-none"
           >
-            <span className="max-w-full truncate">{copy.stages[stage]}</span>
+            <span>{copy.stages[stage]}</span>
             <span data-stage-count="" className="text-xs">
               {columns[stage].length}
             </span>

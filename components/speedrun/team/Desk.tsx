@@ -6,7 +6,8 @@ import { deskColumns, stageOf, type DeskAction, type DeskState } from "@/lib/spe
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import type { NetworkTab, Side } from "@/lib/speedrun/phase";
-import { visitorName } from "../visitorName";
+import { deskFirstName, narrationLine } from "@/lib/speedrun/deskNarration";
+import { visitorFirstName } from "../visitorName";
 import { ActingAs } from "./ActingAs";
 import { DeskBoard } from "./DeskBoard";
 import { FullVersion } from "./FullVersion";
@@ -27,7 +28,7 @@ type Props = {
 // which NetworkPhase holds so it survives a flip. Its panel scrolls inside the shell; the document never does.
 export function Desk({ state, desk, step, onSide }: Props) {
   const root = useRef<HTMLElement>(null);
-  const name = visitorName(state);
+  const name = deskFirstName(visitorFirstName(state));
   const request = state.introRequest;
   const live = stageOf(request);
   const columns = deskColumns(request, name);
@@ -50,7 +51,7 @@ export function Desk({ state, desk, step, onSide }: Props) {
     };
   }, [key, desk.arrivedKey, step]);
 
-  const line = live === null && desk.beat === "arrive" ? copy.beats.empty : beatLine(desk, name);
+  const line = narrationLine(desk.beat, live, name);
   return (
     <section ref={root} data-desk="" className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
       <h2 tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink focus:outline-none">
@@ -79,16 +80,4 @@ export function Desk({ state, desk, step, onSide }: Props) {
       </div>
     </section>
   );
-}
-
-function beatLine(desk: DeskState, name: string): string {
-  const beats = copy.beats;
-  switch (desk.beat) {
-    case "sentInstead":
-      return beats.sentInstead(name);
-    case "notNow":
-      return beats.notNow(name);
-    default:
-      return beats[desk.beat];
-  }
 }

@@ -170,7 +170,8 @@ async function toDesk(page: Page, spend: boolean) {
   await expect(desk(page)).toBeVisible();
 }
 
-const docFits = (page: Page) => page.evaluate(() => ({ doc: document.documentElement.scrollHeight, view: window.innerHeight, wide: document.documentElement.scrollWidth, width: window.innerWidth }));
+const strip = (page: Page) => page.locator("[data-stage-strip] button");
+const docFits = (page: Page) => page.evaluate(() => ({ wide: document.documentElement.scrollWidth, width: window.innerWidth }));
 
 test("desk board: at 1440 five columns share a row, counts sum to ten, and the visitor's card leads Requested", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -190,32 +191,81 @@ test("desk board: at 1440 five columns share a row, counts sum to ten, and the v
   await expect(first).toContainText(TEAM.yours);
   await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(1);
   const fit = await docFits(page);
-  // Catches: the desk scrolling the document.
-  expect(fit.doc).toBe(fit.view);
+  // Catches: a sideways page scroll (a weak backstop: #act-2 clips overflow, so the desk pins below carry the weight).
   expect(fit.wide).toBe(fit.width);
 });
 
-test("desk board: at 390 one column shows under a five-button stage strip, and the document does not scroll", async ({ page }) => {
+test("desk board: at 390 one column shows under a five-button stage strip", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await toDesk(page, true);
   // Catches: five squeezed columns on a phone.
   await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
-  const strip = page.locator("[data-desk] [aria-pressed]").filter({ has: page.locator("[data-stage-count]") });
-  await expect(strip).toHaveCount(5);
+  await expect(strip(page)).toHaveCount(5);
   await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
-  await strip.nth(3).click();
+  await strip(page).nth(3).click();
   await expect(page.locator('[data-desk-column="tracking"]')).toBeVisible();
   await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
-  for (const button of await strip.all()) expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Catches: a stage pill under 44 by 44.
+  for (const button of await strip(page).all()) {
+    const box = (await button.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
   const fit = await docFits(page);
-  // Catches: the desk scrolling the document, or a sideways scroll on the phone.
-  expect(fit.doc).toBe(fit.view);
+  // Catches: a sideways page scroll (a weak backstop: #act-2 clips overflow).
   expect(fit.wide).toBe(fit.width);
 });
 
+for (const width of [320, 390]) {
+  test(`desk board: at ${width} the desk scrolls inside itself and its lower half is reachable`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const probe = await desk(page).evaluate((el) => ({ high: el.scrollHeight, shown: el.clientHeight, wide: el.scrollWidth, narrow: el.clientWidth }));
+    // Catches: a desk too short to scroll, or content clipped away instead of scrolled.
+    expect(probe.high).toBeGreaterThan(probe.shown);
+    // Catches: sideways overflow inside the desk.
+    expect(probe.wide).toBeLessThanOrEqual(probe.narrow);
+    await desk(page).evaluate((el) => void (el.scrollTop = el.scrollHeight));
+    // Catches: the lower desk (the full-version list) being unreachable.
+    await expect(page.locator("[data-full-version] summary")).toBeInViewport();
+    const fit = await docFits(page);
+    // Catches: a sideways page scroll (a weak backstop).
+    expect(fit.wide).toBe(fit.width);
+  });
+
+  test(`desk board: at ${width} every stage label is whole`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const cut = await strip(page).evaluateAll((pills) => pills.map((pill) => ({ pill: pill.scrollWidth > pill.clientWidth, label: [...pill.querySelectorAll("span")].some((span) => span.scrollWidth > span.clientWidth || getComputedStyle(span).textOverflow === "ellipsis") })));
+    // Catches: clipped stage labels ("WITH FOUN...").
+    expect(cut).toEqual(Array(5).fill({ pill: false, label: false }));
+  });
+
+  test(`desk board: at ${width} the selected pill stays in the strip`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const inside = () =>
+      page.evaluate(() => {
+        const box = document.querySelector("[data-stage-strip]")!.getBoundingClientRect();
+        const pill = document.querySelector('[data-stage-strip] [aria-pressed="true"]')!.getBoundingClientRect();
+        return pill.left >= box.left - 1 && pill.right <= box.right + 1;
+      });
+    // A programmatic click does not scroll the strip itself, so only the desk's own scroll-into-view can bring the pill in.
+    await strip(page).nth(4).evaluate((el) => (el as HTMLElement).click());
+    await expect(strip(page).nth(4)).toHaveAttribute("aria-pressed", "true");
+    // Catches: the selected pill left out of view after the selection changes.
+    expect(await inside()).toBe(true);
+    await strip(page).nth(0).evaluate((el) => (el as HTMLElement).click());
+    expect(await inside()).toBe(true);
+  });
+}
+
 test("desk board: with no request spent the nudge shows, there is no Review, and Matches leads back to the candidate side", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await toDesk(page, false);
+  await toNetwork(page);
+  await openTab(page, TAB.board);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
   // Catches: the desk showing a request nobody made.
   await expect(page.locator("[data-desk-nudge]")).toBeVisible();
   await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(0);
@@ -225,7 +275,8 @@ test("desk board: with no request spent the nudge shows, there is no Review, and
   // Catches: the nudge's button leaving the switch on Talent team (Review Focus 3).
   await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
   await expect(candidateButton(page)).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+  // Catches: the button dropping its tab, so the flip lands on whichever tab was last open (the test starts on Board).
+  await expect(page.getByRole("tab", { name: TAB.matches, exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("desk board: the narration is a polite status, the visitor's card carries Review, and the full version lists twelve steps", async ({ page }) => {

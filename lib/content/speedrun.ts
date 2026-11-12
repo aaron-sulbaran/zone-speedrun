@@ -183,6 +183,7 @@ export const speedrunCopy = {
     stages: { requested: "Requested", withFounder: "With founder", connected: "Connected", tracking: "Tracking", outcome: "Outcome" },
     columnLabel: (stage: string, n: number) => `${stage}, ${n} ${n === 1 ? "candidate" : "candidates"}`,
     yours: "Your request",
+    noName: "this candidate",
     review: "Review",
     openFounder: "Open the one-pager",
     nudge: "Your request lands here. Use it on a match to watch it arrive.",
