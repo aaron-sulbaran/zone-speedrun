@@ -1,7 +1,7 @@
 import { speedrunCopy } from "../lib/content";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { networkPhase, openTab, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
+import { accountButton, networkPhase, openTab, skipBuildLog, skipToSam, startOver } from "./speedrun-flow";
 
 const TAB = speedrunCopy.network.tabs;
 const SWITCH = speedrunCopy.team.switch;
@@ -101,3 +101,48 @@ for (const width of [320, 390, 640, 1024, 1440]) {
     }
   });
 }
+
+const box = (page: Page, selector: string) =>
+  page.locator(selector).first().evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2 };
+  });
+
+for (const width of [640, 768]) {
+  test(`switch: at ${width} the avatar stays in the top row and the switch takes its own row below`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await toNetwork(page);
+    const avatar = await accountButton(page).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { right: r.right, top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2 };
+    });
+    const bar = await box(page, "[data-shell] header");
+    const wordmark = await box(page, "[data-shell] header span");
+    // Catches: the avatar wrapping to a second row (its menu then opens off screen).
+    expect(bar.right - avatar.right).toBeLessThanOrEqual(32);
+    expect(Math.abs(avatar.mid - wordmark.mid)).toBeLessThanOrEqual(4);
+    const pill = await box(page, "[data-side-switch]");
+    // Catches: the switch squeezed into the top row.
+    expect(pill.top).toBeGreaterThanOrEqual(avatar.bottom);
+    expect(Math.abs(pill.right - avatar.right)).toBeLessThanOrEqual(2);
+  });
+}
+
+for (const width of [1024, 1280, 1440]) {
+  test(`switch: at ${width} the tablist ends before the switch slot`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await toNetwork(page);
+    const tabs = await box(page, '[role="tablist"]');
+    const slot = await box(page, "[data-shell-switch-slot]");
+    // Catches: the tabs running under the switch.
+    expect(tabs.right).toBeLessThanOrEqual(slot.left);
+  });
+}
+
+test("switch: at 375 the two buttons are equal halves", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await toNetwork(page);
+  const widths = await page.locator("[data-side-switch] button").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  // Catches: unequal halves on the phone row.
+  expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
+});
