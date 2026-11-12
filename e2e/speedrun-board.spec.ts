@@ -725,7 +725,7 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
   const x = SOCIALS.find((social) => (social.key as string) === "x");
   // Catches: an X link made up when the socials hold none, or missing when they do.
-  await expect(card.getByRole("link", { name: /^X\b/ })).toHaveCount(x ? 1 : 0);
+  await expect(card.getByRole("link", { name: /on X$/ })).toHaveCount(x ? 1 : 0);
   // Catches: a status chip with no words, or a status that disagrees with the pinned detail.
   await expect(card.locator("[data-intro-status]")).toHaveText(COPY.introStatus.scheduled);
   // Catches: a scheduled intro with no Prepare nudge.
@@ -778,7 +778,7 @@ test("an inline link keeps the spaces of its sentence (M3)", async ({ page }) =>
     return after.getBoundingClientRect().left - text.getBoundingClientRect().right;
   });
   // Catches: a link whose hit-area padding shows as a wide gap before the next word. One space is about 4 px.
-  expect(gap).toBeLessThan(8);
+  expect(gap).toBeLessThan(6);
 });
 
 test("warm intros: the count is the Intros tile's count, one card per company", async ({ page }) => {
