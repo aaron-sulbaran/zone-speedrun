@@ -154,6 +154,7 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   await line.locator("[data-brief-action]").click();
   // Catches: Bring forward drafting a note to the company, which sends nothing and is not what it does.
   await expect(sheet(page).locator("[data-sheet-draft]")).toHaveCount(0);
+  // Catches: the Bring forward sheet saying nothing about where the role lands.
   await expect(sheet(page).locator("[data-sheet-summary]")).toContainText(/shortlist/i);
   // Catches: the Bring forward button saying anything but adding to the shortlist (for example "Send the request").
   await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveText(ACTIONS.sheets.bringForward.confirm);
