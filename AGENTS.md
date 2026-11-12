@@ -111,6 +111,11 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
 - **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch (including its line's fade), the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog and Rise), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
 - **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45. The intro ends on pointerdown, keydown, wheel, touchmove or scroll, and the spotlight beat is skipped when its words are not fully in view.
+- **The board is fixed, not arrangeable.** `DemoState` (`lib/speedrun/demoState.ts`) holds `shortlist`, `introRequest` and `done`; `lib/speedrun/introRequest.ts` is PR 7's contract module, so its types change only with that PR. The paste input is gone: the board builds from the inbox, or from matches brought forward.
+- **One action model.** `lib/speedrun/actions.ts` derives every action, one `ActionSheet` renders them, and `settledAction` decides when a warm intro card and its Intros tile row read as done.
+- **Times.** Meeting, slot and send times join the clock and am/pm with a no-break space (`lib/speedrun/when.ts`).
+- **Desktop header.** Tab labels never wrap. From lg to below xl the concept badge stacks under the brand. `[data-shell-switch-slot]` is reserved for PR 7's switch, and header pins read its rect live. PR 7 also relies on the `data-request-intro`, `data-bring-forward`, `data-intro-on`, `data-swap-intro`, `data-intro-here`, `data-shortlist-rank` and `data-row-bring-forward` hooks.
+- **Phones.** Every `a`, `button`, `[role=tab]` and `summary` in the shell is 44 by 44 (padding or `min-h-11 min-w-11`, never a bigger font); inline links use `INLINE_LINK`. The board table scrolls inside `TableScroller`, which shows a right-edge fade while columns remain.
 - **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant. A bare rule sorts after base utilities and before every screen variant, so stack it on the screen whose rule it has to beat (the join footer uses `md:short-landscape:`; the shell and tabs use it bare or as `max-lg:short-landscape:`). Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
 
 ## Gotchas
@@ -141,4 +146,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-11 at f7ef696
+Last verified: 2026-11-12 at 640527e
