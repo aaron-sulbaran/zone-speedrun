@@ -532,20 +532,20 @@ test("board table: from lg the table fits its card with no sideways scroll, no c
       for (const sort of ["next", "lastUpdate"]) {
         // Next step is the default sort; Last update is the widest header once it carries its chevron.
         if ((await th(page, sort).getAttribute("aria-sort")) === "none") await th(page, sort).getByRole("button").click();
+        // Catches: a header click that does not sort, so the fit measurements below would run on the wrong sort.
         await expect(th(page, sort)).not.toHaveAttribute("aria-sort", "none");
         const where = `${view}, sorted by ${sort}, at ${width} less ${scrollbar}`;
         const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
         // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
         expect(gap, `scroll overflow, ${where}`).toBeLessThanOrEqual(1);
-        // Catches: a Next step cell whose action or quiet label is cut by its own cell, even when the table as a whole fits.
         const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+        // Catches: a Next step cell whose action or quiet label is cut by its own cell, even when the table as a whole fits.
         expect(clipped, `clipped Next step cells, ${where}`).toBe(0);
-        // Catches: a stage chip (ASSESSMENT) or a header with its sort chevron spilling past its own column into the next, including Last update while it is the active sort (P3).
         const spill = await page.locator('[data-board-table] [data-cell="stage"] > span, [data-board-table] th[data-col] > button').evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().right > (el.parentElement as HTMLElement).getBoundingClientRect().right + 1).length);
+        // Catches: a stage chip (ASSESSMENT) or a header with its sort chevron spilling past its own column into the next, including Last update while it is the active sort (P3).
         expect(spill, `chips or headers overhanging their column, ${where}`).toBe(0);
-        // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text.
-        // The button keeps its 44 px floor even when its label wraps, so the label's own box is what is measured.
         const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => { const range = document.createRange(); range.selectNodeContents(el.firstChild as Node); return range.getBoundingClientRect().height > 24; }).length);
+        // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text. The button keeps its 44 px floor even when its label wraps, so the label's own box is what is measured.
         expect(tall, `wrapped headers, ${where}`).toBe(0);
         const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
         // Catches: no rows in the view, so the height comparison below would pass with nothing to compare.
@@ -621,20 +621,25 @@ test("today: the Cindermoor interview's Join and Add to calendar open the sheet 
   await cinder.getByRole("button", { name: COPY.today.join }).click();
   // Catches: a dead Today item, a Join that opens nothing.
   await expect(sheet(page)).toBeVisible();
+  // Catches: the made-up meeting link missing from the sheet, or shown as a link that could be clicked.
   await expect(sheet(page).locator("[data-sheet-meeting-link]")).toHaveText("https://meet.example/cindermoor-interview");
   // Catches: a sheet that hides what the real version would do, or promises a real call.
   await expect(sheet(page).locator("[data-sheet-note]")).toContainText("the real version opens Meet or Zoom");
   const title = await sheet(page).locator("#sr-sheet-title").innerText();
   await sheet(page).locator("[data-sheet-close]").click();
+  // Catches: Not now leaving the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   await cinder.getByRole("button", { name: COPY.today.calendar }).click();
   // Catches: Add to calendar opening a different sheet from Join (Ruling 51 says the same sheet).
   await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(title);
   await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a confirm that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   // Catches: a confirmed item that keeps both live buttons, or is removed from the list.
   await expect(today(page)).toHaveCount(3);
+  // Catches: a confirmed item that does not look done (it should dim in place).
   await expect(cinder).toHaveAttribute("data-done", "true");
+  // Catches: a confirmed item that keeps a live button, which could settle the same call twice.
   await expect(cinder.getByRole("button")).toHaveCount(0);
   // Catches: focus dropping to the page when the buttons are swapped for the quiet check.
   await expect(cinder.locator("[data-action-done]")).toBeFocused();
@@ -666,22 +671,26 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(card).toHaveCount(1);
   // Catches: dead intro data: no person, or a person who is not Aaron.
   await expect(card).toContainText("Aaron Sulbaran");
+  // Catches: a person with no monogram, which the ruling asks for in place of a photo.
   await expect(card.locator("[data-intro-monogram]")).toHaveText("AS");
   const linkedin = SOCIALS.find((social) => social.key === "linkedin")!;
   const link = card.getByRole("link", { name: /LinkedIn/ });
   // Catches: a LinkedIn link that goes anywhere but the socials URL, or opens in this tab.
   await expect(link).toHaveAttribute("href", linkedin.href);
+  // Catches: a LinkedIn link that opens in this tab.
   await expect(link).toHaveAttribute("target", "_blank");
+  // Catches: an external link without noopener noreferrer.
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
   // Catches: an X link made up when the socials hold none, or missing when they do.
   const x = SOCIALS.find((social) => (social.key as string) === "x");
+  // Catches: an X link made up when the socials hold none, or missing when they do.
   await expect(card.getByRole("link", { name: /^X\b/ })).toHaveCount(x ? 1 : 0);
   // Catches: a status chip with no words, or a status that disagrees with the pinned detail.
   await expect(card.locator("[data-intro-status]")).toHaveText(COPY.introStatus.scheduled);
-  // Catches: Today and the card disagreeing about a scheduled intro (Ruling 58): it is prepared for, never "Pick a time".
+  // Catches: a scheduled intro offering "Pick a time" instead of Prepare (Ruling 58). Today holds no min/Max item on this day, so the Today side of the agreement is pinned in lib/speedrun/actions.test.ts.
   await expect(card.getByRole("button", { name: COPY.nextStep.prepare })).toBeVisible();
+  // Catches: a scheduled intro that offers Pick a time.
   await expect(card.getByRole("button", { name: COPY.nextStep.pickTime })).toHaveCount(0);
-  await expect(today(page).filter({ hasText: "min/Max" }).getByRole("button", { name: COPY.nextStep.pickTime })).toHaveCount(0);
   await card.getByRole("button", { name: COPY.nextStep.prepare }).click();
   // Catches: a nudge that opens nothing.
   await expect(sheet(page).locator("[data-sheet-meeting-link]")).toContainText("meet.example/minmax-intro");
@@ -692,6 +701,7 @@ test("warm intros: the count is the Intros tile's count, one card per company", 
   // Catches: the section listing intro emails (two from one company listed twice) instead of the cards the tile counts (C4).
   expect(await introCards(page).count()).toBe(await statValue(page, "intros"));
   const names = await introCards(page).locator("[data-intro-company]").allInnerTexts();
+  // Catches: one company listed twice.
   expect(new Set(names).size).toBe(names.length);
 });
 
@@ -719,18 +729,22 @@ test("shortlist: moving #2 up makes it #1, and the intro request stays on its ma
   expect(await names()).toEqual([matches[a].company.name, matches[b].company.name]);
   // Catches: the request's status missing from #1, where the request sits.
   await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
+  // Catches: the request's status shown on #2 as well, which would read as two requests.
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toHaveCount(0);
-  // Catches: a first item that can still move up, or a last item that can still move down.
+  // Catches: a first item that can still move up.
   await expect(shortlistItems(page).first().locator("[data-shortlist-up]")).toBeDisabled();
+  // Catches: a last item that can still move down.
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-down]")).toBeDisabled();
   await shortlistItems(page).nth(1).locator("[data-shortlist-up]").click();
   // Catches: a Move up that does nothing, or moves the wrong item.
   expect(await names()).toEqual([matches[b].company.name, matches[a].company.name]);
   // Catches: the request following the new #1 (Review Focus 2): it stays on the match that was asked for.
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
+  // Catches: the status left on the old #1 after the move, so the request looks like it followed the rank.
   await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toHaveCount(0);
   // Catches: the warm intros section forgetting a live request, which Ruling 52 says shows there too.
   await expect(introCards(page).first().locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
+  // Catches: the request card naming the wrong company after the move.
   await expect(introCards(page).first()).toContainText(matches[a].company.name);
 });
 
@@ -739,6 +753,7 @@ test("shortlist: with no picks it says how to fill it, and the link goes to Matc
   const section = page.locator('[data-board-section="shortlist"]');
   // Catches: an empty shortlist drawn as nothing, so the visitor never learns where picks come from.
   await expect(section).toContainText(COPY.shortlist.empty.after.trim());
+  // Catches: an empty-state Shortlist that still lists items.
   await expect(shortlistItems(page)).toHaveCount(0);
   await section.getByRole("button", { name: COPY.shortlist.empty.link }).click();
   // Catches: a link that looks live and leaves the visitor on the Board.
@@ -755,6 +770,7 @@ test("board: the paste box, the Arrange toggle and the card controls are gone, a
   await expect(page.locator("[data-board] [data-card-move], [data-board] [data-card-hide], [data-board] [data-card-show]")).toHaveCount(0);
   // Catches: Tools moving up above the sections that need the visitor.
   const order = await page.locator("[data-board] [data-board-section]").evaluateAll((els) => els.map((el) => el.getAttribute("data-board-section")));
+  // Catches: the sections out of order: Today, Warm intros, Shortlist, then Tools last.
   expect(order).toEqual(["today", "intros", "shortlist", "tools"]);
 });
 
@@ -771,7 +787,9 @@ test("board lower sections: on a phone every control is 44 px and the page never
   expect(sizes.length).toBeGreaterThan(8);
   // Catches: a Today, intro, shortlist or tools control under the 44 px touch size (Ruling 68).
   for (const [label, width, height] of sizes) {
+    // Catches: a Today, intro, shortlist or tools control under 44 px wide (Ruling 68).
     expect(width, `${label} width`).toBeGreaterThanOrEqual(43.95);
+    // Catches: a Today, intro, shortlist or tools control under 44 px tall (Ruling 68).
     expect(height, `${label} height`).toBeGreaterThanOrEqual(43.95);
   }
   // Catches: the new sections pushing the page, or the tab's own scroll area, wider than the phone.
