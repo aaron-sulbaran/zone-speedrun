@@ -13,10 +13,12 @@ type TopBarProps = { name: string | null; onStartOver: () => void; onReplayTop: 
 export function TopBar({ name, onStartOver, onReplayTop }: TopBarProps) {
   return (
     <header className="relative z-20 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 [grid-area:top] sm:px-6 lg:contents">
-      <div className="contents lg:flex lg:min-w-0 lg:flex-wrap lg:items-center lg:gap-x-3 lg:gap-y-1 lg:px-2 lg:[grid-area:brand] xl:flex-nowrap">
-        <SpeedrunLogo className="h-4 w-auto shrink-0" />
-        <span className="font-srcond text-sm uppercase tracking-widest text-sr-ink">{copy.wordmark}</span>
-        <div className="order-last min-w-0 basis-full sm:order-none sm:basis-auto lg:basis-full xl:basis-auto">
+      <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:items-start lg:gap-y-1 lg:px-2 lg:[grid-area:brand] xl:flex-row xl:items-center xl:gap-x-3">
+        <div className="contents lg:flex lg:items-center lg:gap-3">
+          <SpeedrunLogo className="h-4 w-auto shrink-0" />
+          <span className="font-srcond text-sm uppercase tracking-widest text-sr-ink">{copy.wordmark}</span>
+        </div>
+        <div className="order-last min-w-0 basis-full sm:order-none sm:basis-auto">
           <span data-concept-badge="" className="inline-block max-w-full rounded-full bg-sr-hud px-3 py-1 font-srcond text-[11px] uppercase tracking-widest text-sr-ink2">
             {copy.badge}
           </span>

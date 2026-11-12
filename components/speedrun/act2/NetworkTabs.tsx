@@ -50,7 +50,7 @@ export function NetworkTabs({ tab, onTab }: NetworkTabsProps) {
             aria-controls={panelId(id)}
             tabIndex={selected ? 0 : -1}
             onClick={() => onTab(id)}
-            className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-balance text-center font-srcond text-xs uppercase tracking-wider transition-colors lg:flex-row lg:whitespace-nowrap lg:text-wrap lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2 lg:text-sm duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
+            className={`flex flex-col items-center gap-1 rounded-xl px-2 py-1.5 max-lg:text-balance text-center font-srcond text-xs uppercase tracking-wider transition-colors lg:flex-row lg:whitespace-nowrap lg:rounded-none lg:border-b-2 lg:px-3 lg:py-2 lg:text-sm duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none ${
               selected ? "bg-sr-ink text-sr-surface lg:border-sr-ink lg:bg-transparent lg:text-sr-ink" : "text-sr-ink hover:bg-sr-strong lg:border-transparent lg:text-sr-ink2 lg:hover:bg-transparent lg:hover:text-sr-ink"
             }`}
           >
