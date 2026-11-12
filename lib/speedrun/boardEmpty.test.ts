@@ -74,6 +74,13 @@ describe("the Board with no inbox and no sample person", () => {
 describe("the Board for a sample person", () => {
   const sam: DemoState = { ...own, step: "ready", personKey: "sam" };
 
+  it("keeps the empty Shortlist in connect mode, where nothing else points to Matches", () => {
+    const html = render(sam);
+    // Catches: the empty Shortlist hidden on every board but the full one, leaving connect mode without Ruling 53's empty state.
+    expect(html).toContain('data-board-section="shortlist"');
+    expect(html).toContain(copy.shortlist.empty.link);
+  });
+
   it("asks to connect before showing anything, under their name", () => {
     const html = render(sam);
     // Catches: a sample person's board that forgets whose it is.
@@ -147,11 +154,20 @@ describe("Today's prep drop-down", () => {
   const items = todayItems([event], undefined, INBOX_TODAY);
   const html = renderToStaticMarkup(createElement(TodayList, { items, isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
 
-  it("lists exactly the sheet's points", () => {
-    const points = items[0].action.sheet.prep ?? [];
-    // Catches: the drop-down reading prep from somewhere other than the sheet, so the two disagree (fix 1).
-    expect(points).toHaveLength(3);
-    for (const point of points) expect(html).toContain(apos(point));
+  it("lists exactly the sheet's points, for a row whose points are not the general ones", () => {
+    // A pinned row: min/Max, three days before its call, so its prep is its own.
+    const day = "2026-11-08";
+    const intro = { emailId: "t-2", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
+    const [pinned] = todayItems([intro], DETAILS.sam, day);
+    const points = pinned.action.sheet.prep ?? [];
+    // Catches: a fixture whose points are the general ones, which could not tell the sheet's source from a constant.
+    expect(pinned.action.kind).toBe("prepare");
+    expect(points).not.toEqual(speedrunCopy.actions.defaultPrep);
+    const markup = renderToStaticMarkup(createElement(TodayList, { items: [pinned], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
+    const list = /<ul data-today-prep-points="[^>]*>(.*?)<\/ul>/.exec(markup)?.[1] ?? "";
+    const shown = [...list.matchAll(/<li>(.*?)<\/li>/g)].map((match) => match[1]);
+    // Catches: the drop-down reading prep from anywhere but the sheet, or adding or dropping a point (equality, not inclusion).
+    expect(shown).toEqual(points.map(apos));
   });
 
   it("shows the role's snapshot posting as a real new-tab link", () => {

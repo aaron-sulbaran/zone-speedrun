@@ -624,7 +624,7 @@ test("today: the Cindermoor interview is confirmed first, then joined, and every
   // Catches: Today still a bare list of sentences, with no item to act on.
   await expect(today(page)).toHaveCount(3);
   const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
-  // Catches: the interview row dropping the interviewer, the call's time or the confirm-by date (Ruling 51).
+  // Catches: the interview row dropping the interviewer (Ruling 51).
   await expect(cinder.locator("[data-today-who]")).toContainText("Aaron Sulbaran");
   // Catches: the call's time missing from the interview row (Ruling 51).
   await expect(cinder.locator("[data-today-when]")).toHaveText(/Nov 16/);
@@ -645,6 +645,10 @@ test("today: the Cindermoor interview is confirmed first, then joined, and every
   await expect(countLine(page)).toHaveText(COPY.count(3));
   // Catches: Join still missing after the confirmation.
   await expect(cinder.getByRole("button", { name: COPY.today.join })).toBeVisible();
+  // Catches: "Confirm by" lingering once the interview is confirmed, when only the meeting time should be left (M4).
+  await expect(cinder.locator("[data-today-due]")).toHaveCount(0);
+  // Catches: the call's time lost when the confirm-by line goes.
+  await expect(cinder.locator("[data-today-when]")).toHaveText(/Nov 16/);
   // Catches: a row that dims on confirm although the call is still to join.
   await expect(cinder).toHaveAttribute("data-done", "false");
   await cinder.getByRole("button", { name: COPY.today.calendar }).click();
@@ -666,8 +670,10 @@ test("today: the Cindermoor interview is confirmed first, then joined, and every
   await sheet(page).locator("[data-sheet-confirm]").click();
   // Catches: a confirm that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
-  // Catches: the other rows kept (a settled call stays in place, dimmed, and is not removed).
+  // Catches: a settled call removed from the list, so the rows under it jump up.
   await expect(today(page)).toHaveCount(3);
+  // Catches: "Confirm by" or "Due" coming back once the call is joined (M4).
+  await expect(cinder.locator("[data-today-due]")).toHaveCount(0);
   // Catches: a joined call that does not look done (it should dim in place).
   await expect(cinder).toHaveAttribute("data-done", "true");
   // Catches: a settled call that keeps a live button, which could join it twice.
@@ -702,8 +708,8 @@ test("today: a founder's reply offers three times to pick from, and a prepare it
   await expect(prep).toBeVisible();
   const toggle = prep.locator("[data-today-prep] > summary");
   await toggle.click();
-  // Catches: a drop-down that opens onto fewer than the three points.
-  await expect(prep.locator("[data-today-prep] li")).toHaveCount(3);
+  // Catches: a drop-down that opens onto other than the three points (the links list's items are not counted).
+  await expect(prep.locator("[data-today-prep-points] li")).toHaveCount(3);
 });
 
 test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn, shows a status chip and prepares, never picks a time", async ({ page }) => {
@@ -711,8 +717,8 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   const card = introCards(page).filter({ hasText: "min/Max" });
   // Catches: min/Max missing from the intros, the one real flow.
   await expect(card).toHaveCount(1);
-  // Catches: dead intro data: no person, or a person who is not Aaron.
-  await expect(card).toContainText("Aaron Sulbaran");
+  // Catches: dead intro data: a person who is not Aaron on the card's who line (the LinkedIn link's name is not read).
+  await expect(card.locator("[data-intro-who]")).toContainText("Aaron Sulbaran");
   // Catches: a person with no monogram, which the ruling asks for in place of a photo.
   await expect(card.locator("[data-intro-monogram]")).toHaveText("AS");
   const linkedin = SOCIALS.find((social) => social.key === "linkedin")!;
@@ -739,9 +745,18 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await card.getByRole("button", { name: COPY.today.calendar }).click();
   // Catches: Add to calendar opening the Prepare sheet instead of the call's (fix 7).
   await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.joinMeeting.title("min/Max"));
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a joined call that leaves the sheet open.
+  await expect(sheet(page)).toBeHidden();
+  // Catches: "Mark as joined" changing nothing on the card, which reads one action model in Today and another here (fix round 2, item 11).
+  await expect(card).toHaveAttribute("data-done", "true");
+  // Catches: a settled card that keeps live buttons, which could settle the call twice.
+  await expect(card.getByRole("button")).toHaveCount(0);
+  // Catches: focus dropping to the page when the buttons are swapped for the done marker.
+  await expect(card.locator("[data-action-done]")).toBeFocused();
 });
 
-test("warm intros: every card's status chip starts at the same x, with or without an action, at 1440", async ({ page }) => {
+async function requestIntroOnFirstMatch(page: Page) {
   let matches: { company: { name: string }; connect: string[] }[] = [];
   await page.route("**/speedrun/api/match", async (route) => {
     const response = await route.fetch();
@@ -756,13 +771,29 @@ test("warm intros: every card's status chip starts at the same x, with or withou
   await page.locator("[data-match-row]").nth(first).click();
   await page.locator("[data-match-detail] [data-request-intro]").click();
   await openTab(page, speedrunCopy.network.tabs.board);
+}
+
+test("warm intros: every card's status chip starts at the same x, with or without an action, at 1440", async ({ page }) => {
+  await requestIntroOnFirstMatch(page);
   const lefts = await introCards(page).locator("[data-intro-status]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left));
-  // Catches: too few cards, or no request card, so the comparison below proves nothing.
+  // Catches: too few cards, so the comparison below proves nothing.
   expect(lefts.length).toBeGreaterThan(3);
   // Catches: the request card's chip missing from the first card (the pin below needs it there).
   await expect(introCards(page).first().locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
   // Catches: the request card (no action) putting its chip in a different column from the others (M1).
   for (const left of lefts) expect(Math.abs(left - lefts[0]), "chip column").toBeLessThanOrEqual(1);
+});
+
+test("warm intros: on a phone the request card draws no empty action column", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await requestIntroOnFirstMatch(page);
+  const request = introCards(page).first();
+  // Catches: the request card missing, so the checks below look at the wrong card.
+  await expect(request.locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
+  // Catches: an empty action element adding a gap under the request card's chip on a phone (it is drawn only from lg).
+  await expect(request.locator("[data-intro-actions]")).toBeHidden();
+  // Catches: the action column hidden on a card that has actions, which would strand them.
+  await expect(introCards(page).filter({ hasText: "Lumora Health" }).locator("[data-intro-actions]")).toBeVisible();
 });
 
 test("an inline link keeps the spaces of its sentence (M3)", async ({ page }) => {
@@ -829,6 +860,8 @@ test("shortlist: moving #2 up makes it #1, and the intro request stays on its ma
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
   // Catches: the status left on the old #1 after the move, so the request looks like it followed the rank.
   await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toHaveCount(0);
+  // Catches: the list losing its list semantics where WebKit drops them under list-style: none, so the rank would have no carrier.
+  await expect(page.locator('[data-board-section="shortlist"] ol')).toHaveAttribute("role", "list");
   // Catches: the rank number read twice by a screen reader (the visible one is decoration, the list carries the number).
   await expect(shortlistItems(page).first().locator("[data-shortlist-position]")).toHaveAttribute("aria-hidden", "true");
   const edge = (selector: string) => page.locator(selector).first().evaluate((el) => { const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect().left; });

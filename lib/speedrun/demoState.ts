@@ -129,7 +129,7 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         profile: null,
         result: null,
         ...NO_PICKS,
-            uploadError: null,
+        uploadError: null,
       };
     }
     // The file is being read: no sample person, and the response fills the profile and result.

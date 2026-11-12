@@ -123,8 +123,8 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
             </BoardSection>
           </>
         )}
-        {/* Without an inbox the empty-board line already points to Matches, so the Shortlist waits for its first pick. */}
-        {(mode === "full" || state.shortlist.length > 0) && (
+        {/* The empty board's own line already points to Matches, so there the Shortlist waits for its first pick. Connect mode has no such line. */}
+        {(mode !== "empty" || state.shortlist.length > 0) && (
           <BoardSection id="shortlist" heading={copy.shortlist.heading}>
             <Shortlist keys={state.shortlist} matches={state.result?.matches ?? []} request={state.introRequest} dispatch={dispatch} onMatches={toMatches} />
           </BoardSection>

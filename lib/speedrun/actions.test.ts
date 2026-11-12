@@ -336,7 +336,7 @@ describe("briefAction", () => {
     const { pipeline, details } = sam();
     const [intro, , cinder] = sampleBrief("sam").items;
     expect(briefAction(intro, pipeline, details, INBOX_TODAY)?.sheet.pickSlot).toBe(true);
-    expect(briefAction(cinder, pipeline, details, INBOX_TODAY)?.sheet.meeting?.when).toBe("Mon, Nov 16, 3:00 pm");
+    expect(briefAction(cinder, pipeline, details, INBOX_TODAY)?.sheet.meeting?.when).toBe("Mon, Nov 16, 3:00\u00a0pm");
     expect(briefAction(cinder, pipeline, details, INBOX_TODAY)?.sheet.pickSlot).toBeUndefined();
   });
 

@@ -26,7 +26,9 @@ const monogram = (name: string) => name.split(/\s+/).map((word) => word.charAt(0
 
 function Card({ card, ...shared }: { card: IntroCard } & Omit<Props, "cards" | "onMatches">) {
   const { action } = card;
-  const done = !!action && shared.isDone(action);
+  // One action model, as in Today: the Prepare action or the call it points at being settled settles the card.
+  const settled = action && shared.isDone(action) ? action : card.call && shared.isDone(card.call) ? card.call : null;
+  const done = !!settled;
   const meeting = card.call?.sheet.meeting ?? action?.sheet.meeting;
   return (
     <li data-intro-card={card.company} data-done={done} data-done-scope="" className={`flex flex-col gap-2 py-3 transition-opacity duration-200 motion-reduce:transition-none lg:flex-row lg:items-center lg:gap-4 ${done ? "opacity-70" : ""}`}>
@@ -50,13 +52,19 @@ function Card({ card, ...shared }: { card: IntroCard } & Omit<Props, "cards" | "
         {card.status === "requested" && <p className="text-sm text-sr-ink2">{copy.requestNote}</p>}
         {meeting && <p data-intro-when="" className="text-sm text-sr-ink2">{meeting.when}</p>}
       </div>
-      {/* Always drawn, so every card's status column starts at the same x, with or without an action. */}
-      <div className="flex flex-wrap gap-2 lg:w-60 lg:justify-end">
-        {action && <ActionSlot action={action} slot="intro" label={copy.nextStep[action.kind]} done={done} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} />}
-        {card.call && !done && (
-          <button type="button" data-intro-calendar="" onClick={(event) => shared.onOpen(card.call as Action, event.currentTarget)} className={SECONDARY}>
-            {copy.today.calendar}
-          </button>
+      {/* From lg the column is always drawn, so every card's status column starts at the same x; below lg it is drawn only when it has content. */}
+      <div data-intro-actions="" className={`flex-wrap gap-2 lg:flex lg:w-60 lg:justify-end ${action || card.call ? "flex" : "hidden"}`}>
+        {settled ? (
+          <ActionSlot action={settled} slot="intro" label="" done picked={shared.pickedFor(settled)} className="" onOpen={shared.onOpen} />
+        ) : (
+          <>
+            {action && <ActionSlot action={action} slot="intro" label={copy.nextStep[action.kind]} done={false} className={SECONDARY} onOpen={shared.onOpen} />}
+            {card.call && (
+              <button type="button" data-intro-calendar="" onClick={(event) => shared.onOpen(card.call as Action, event.currentTarget)} className={SECONDARY}>
+                {copy.today.calendar}
+              </button>
+            )}
+          </>
         )}
       </div>
     </li>

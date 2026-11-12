@@ -24,7 +24,7 @@ function Prep({ action }: { action: Action }) {
   return (
     <details data-today-prep="" className="mt-1">
       <summary aria-label={copy.today.prepLabel(action.company)} className={SUMMARY}>{copy.today.prep}</summary>
-      <ul className="list-disc py-2 pl-5 text-sm">
+      <ul data-today-prep-points="" className="list-disc py-2 pl-5 text-sm">
         {(action.sheet.prep ?? []).map((point) => (
           <li key={point}>{point}</li>
         ))}
@@ -63,7 +63,8 @@ function Row({ item, shared }: { item: TodayItem; shared: Shared }) {
   const { action, join } = item;
   const done = shared.isDone(join ?? action);
   const when = join?.sheet.meeting?.when;
-  const confirming = action.kind === "confirmInterview" && !!join;
+  // Confirm by only matters until the interview is confirmed; after that, and after the call is joined, the row shows the meeting time alone.
+  const confirming = action.kind === "confirmInterview" && !!join && !shared.isDone(action);
   return (
     <li data-today-item={action.kind} data-done={done} data-done-scope="" className={`py-3 transition-opacity duration-200 motion-reduce:transition-none ${done ? "opacity-70" : ""}`}>
       <div className={`flex flex-col gap-1 ${LIST_GRID}`}>
@@ -76,7 +77,7 @@ function Row({ item, shared }: { item: TodayItem; shared: Shared }) {
         </p>
         <div className="text-sm font-semibold text-sr-ink">
           {when && <p data-today-when="">{when}</p>}
-          <p data-today-due="">{confirming && action.due ? copy.today.confirmBy(shortDay(action.due)) : deadlineText(action)}</p>
+          {(!join || confirming) && <p data-today-due="">{confirming && action.due ? copy.today.confirmBy(shortDay(action.due)) : deadlineText(action)}</p>}
         </div>
         <div className="lg:justify-self-end">
           <Buttons item={item} shared={shared} />

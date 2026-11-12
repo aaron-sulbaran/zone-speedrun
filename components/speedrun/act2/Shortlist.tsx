@@ -55,7 +55,7 @@ export function Shortlist({ keys, matches, request, dispatch, onMatches }: Props
   const live = isLive(request) ? request : null;
   return (
     <div ref={root}>
-      <ol className="divide-y divide-sr-soft">
+      <ol role="list" className="divide-y divide-sr-soft">
         {items.map(({ key, match }, at) => (
           <li key={key} data-shortlist-item={key} className="flex items-center gap-3 py-3">
             <span data-shortlist-position="" aria-hidden="true" className="w-8 shrink-0 font-srcond text-sm uppercase tracking-wider text-sr-ink2">{copy.rank(at + 1)}</span>
