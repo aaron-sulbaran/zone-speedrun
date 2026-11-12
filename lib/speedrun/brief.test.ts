@@ -12,7 +12,7 @@ import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
-import { matchCompanyName, rankMatches } from "./match";
+import { companyForRole, matchCompanyName, rankMatches } from "./match";
 import { matchKey } from "./matchList";
 import { PERSON_KEYS, type AppRow } from "./types";
 
@@ -177,7 +177,7 @@ describe("brief line identity", () => {
     }
     const differing = [...seen.keys()].filter((id) => {
       const role = snapshot.roles.find((entry) => entry.id === id)!;
-      return matchCompanyName(role, snapshot.companies) !== role.company;
+      return matchCompanyName(role, companyForRole(role, snapshot.companies)) !== role.company;
     });
     expect(differing.length, "the cases where the two names differ are in the sample").toBeGreaterThan(0);
   });
@@ -187,7 +187,7 @@ describe("brief line identity", () => {
     const { roles, companies } = getSnapshot();
     for (const entry of roles) {
       const company = companies.find((c) => c.slug === entry.companySlug && c.slug !== "speedrun");
-      expect(matchCompanyName(entry, companies)).toBe(company?.name ?? entry.company);
+      expect(matchCompanyName(entry, companyForRole(entry, companies))).toBe(company?.name ?? entry.company);
     }
   });
 });

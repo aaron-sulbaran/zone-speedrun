@@ -3,7 +3,7 @@ import { composeBrief, type Brief, type BriefRole } from "./brief";
 import { classifyEmail } from "./classify";
 import { DETAILS } from "./details";
 import { generateInbox, INBOX_TODAY } from "./inbox";
-import { matchCompanyName, rankMatches, type MatchResult } from "./match";
+import { companyForRole, matchCompanyName, rankMatches, type MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
 import { getSnapshot } from "./snapshot";
@@ -17,7 +17,7 @@ export function rolesFromIds(ids: string[]): BriefRole[] {
   const byId = new Map(roles.map((role) => [role.id, role]));
   return ids.slice(0, MAX_ROLE_IDS).flatMap((id) => {
     const role = byId.get(id);
-    return role ? [{ ...role, companyName: matchCompanyName(role, companies) }] : [];
+    return role ? [{ ...role, companyName: matchCompanyName(role, companyForRole(role, companies)) }] : [];
   });
 }
 

@@ -33,14 +33,18 @@ export type SheetContent = {
   links?: { label: string; href: string }[];
   /** Plain words under the title, for a sheet that drafts nothing. */
   summary?: string;
-  confirm: string;
+  /** Absent on a Pick a time sheet: each slot confirms itself. */
+  confirm?: string;
   /** What the confirmed line says, plainly. */
   done: string;
   note: string;
 };
 
 export type Action = {
-  /** `${kind}:${company}:${role ?? "-"}`, so the board, Today, intros and the brief all name one action the same way. */
+  /**
+   * `${kind}:${company}:${role ?? "-"}`, so the board, Today, intros and the brief all name one action the same way.
+   * Bring forward has no role title, so its third part is the match key instead.
+   */
   id: string;
   kind: ActionKind;
   company: string;
@@ -66,7 +70,7 @@ type SheetCopy = {
   title: (company: string, role: string | null) => string;
   draft?: (company: string, role: string | null) => string;
   summary?: (company: string, role: string | null) => string;
-  confirm: string;
+  confirm?: string;
   done: string;
   note: string;
 };
@@ -105,7 +109,8 @@ type Extras = { posting?: string | null; matchKey?: string; id?: string };
 
 function sheetFor(kind: ActionKind, company: string, role: string | null, who: Contact | null, detail: CompanyDetail | undefined, today: string, postingUrl?: string | null): SheetContent {
   const text = sheetCopy[kind];
-  const sheet: SheetContent = { title: text.title(company, role), confirm: text.confirm, done: text.done, note: text.note };
+  const sheet: SheetContent = { title: text.title(company, role), done: text.done, note: text.note };
+  if (text.confirm) sheet.confirm = text.confirm;
   if (text.draft) sheet.draft = text.draft(company, role);
   if (text.summary) sheet.summary = text.summary(company, role);
   if (kind === "pickTime" || kind === "replyTimes") sheet.slots = slotsFor(today);

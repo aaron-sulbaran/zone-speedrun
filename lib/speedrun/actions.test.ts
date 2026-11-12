@@ -22,7 +22,7 @@ function inboxOf(key: PersonKey) {
 
 function allStrings(action: Action): string[] {
   const { sheet } = action;
-  return [action.label, sheet.title, sheet.draft ?? "", sheet.confirm, sheet.note, ...(sheet.slots ?? []), ...(sheet.prep ?? [])];
+  return [action.label, sheet.title, sheet.draft ?? "", sheet.confirm ?? "", sheet.note, ...(sheet.slots ?? []), ...(sheet.prep ?? [])];
 }
 
 const SAM_FOUR = [
@@ -58,7 +58,9 @@ describe("needsYou", () => {
   it("gives every action a confirm, a hand-off note and no em dash", () => {
     const { pipeline, details } = inboxOf("sam");
     for (const action of needsYou(pipeline, details, INBOX_TODAY)) {
-      expect(action.sheet.confirm.length).toBeGreaterThan(0);
+      // Pick a time confirms by its slots, so it has no button of its own.
+      if (action.sheet.pickSlot) expect(action.sheet.confirm).toBeUndefined();
+      else expect(action.sheet.confirm?.length).toBeGreaterThan(0);
       expect(action.sheet.note).toContain("This demo sends nothing");
       for (const text of allStrings(action)) expect(text).not.toContain("\u2014");
     }

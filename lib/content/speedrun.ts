@@ -441,7 +441,6 @@ export const speedrunCopy = {
         done: "Sent",
         title: (company: string) => `Reply to the founder at ${company}`,
         draft: () => "Thanks for writing back. I'd love to talk. Does this time work for you?",
-        confirm: "Send this time",
         note: "This demo sends nothing. The real version would open this reply in Gmail and add the call to your calendar.",
       },
       replyTimes: {
