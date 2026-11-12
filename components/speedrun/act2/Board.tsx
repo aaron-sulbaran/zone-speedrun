@@ -107,7 +107,8 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
               <BoardStats stats={pipeline.stats} open={openTile} onToggle={pressTile} />
               {openTile && <TilePanel key={openTile} tile={openTile} rows={pipeline.rows} actions={actions} intros={intros} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />}
             </div>
-            <div data-board-flow="">
+            {/* On the surface colour the chart's label outlines are drawn in; no heading or controls, so it is no longer a card. */}
+            <div data-board-flow="" className="rounded-2xl border border-sr-soft bg-sr-surface p-3 md:p-5">
               <FlowChart data={flow} tone="speedrun" animate title={flowTitle} />
             </div>
             <BoardTable rows={pipeline.rows} filter={filter} onFilter={pressChip} actions={actions} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />

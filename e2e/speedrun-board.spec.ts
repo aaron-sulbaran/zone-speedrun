@@ -1,6 +1,5 @@
 import { speedrunCopy } from "../lib/content";
 import { rankMatches } from "../lib/speedrun/match";
-import { pdfWith } from "../lib/speedrun/pdfFixture";
 import { PEOPLE } from "../lib/speedrun/people";
 import { getSnapshot } from "../lib/speedrun/snapshot";
 import { shortDay } from "../lib/speedrun/when";
@@ -414,7 +413,7 @@ test("board top: a visitor with no inbox and no sample person sees Your board an
   });
   await page.goto("/speedrun");
   await answerOnboarding(page, { name: "Zephyrine", stopAtResume: true });
-  await page.locator("#join input[type=file]").setInputFiles({ name: "cv.pdf", mimeType: "application/pdf", buffer: Buffer.from(pdfWith("Ada Example, software engineer. SKILLS TypeScript.")) });
+  await page.locator("#join input[type=file]").setInputFiles({ name: "cv.txt", mimeType: "text/plain", buffer: Buffer.from("Ada Example, software engineer. SKILLS TypeScript, React, Postgres. Built a fictional billing tool.") });
   await skipBuildLog(page);
   await openTab(page, speedrunCopy.network.tabs.board);
   await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
