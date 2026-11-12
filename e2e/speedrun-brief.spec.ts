@@ -4,12 +4,15 @@ import { sampleBrief } from "../lib/speedrun/briefSample";
 import { getSnapshot } from "../lib/speedrun/snapshot";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, openTab, skipBuildLog } from "./speedrun-flow";
+import { DETAILS } from "../lib/speedrun/details";
+import { whenLabel } from "../lib/speedrun/when";
+import { answerOnboarding, openTab, skipBuildLog, tabKey } from "./speedrun-flow";
 
 const COPY = speedrunCopy.brief;
 const ACTIONS = speedrunCopy.actions;
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
+const bodyOverflow = (page: Page) => page.evaluate(() => getComputedStyle(document.body).overflow);
 
 async function joinAs(page: Page, key: "sam" | "maya", connectGmail = true) {
   await page.goto("/speedrun");
@@ -57,8 +60,9 @@ test("brief action: every one of Sam's lines has its one-tap button", async ({ p
   await expect(lines(page).locator("[data-brief-action]")).toHaveText([buttons.pickTime, buttons.replyTimes, buttons.confirmInterview]);
 });
 
-test("brief action: confirming Pick a time sends, dims the line and keeps it in place", async ({ page }) => {
+test("brief action: tapping a time sends that time, dims the line and keeps it in place", async ({ page }) => {
   await joinAs(page, "sam");
+  const unlocked = await bodyOverflow(page);
   const first = lines(page).first();
   const words = await first.locator("[data-brief-text]").innerText();
   await first.locator("[data-brief-action]").click();
@@ -72,13 +76,21 @@ test("brief action: confirming Pick a time sends, dims the line and keeps it in 
   await expect(sheet(page).locator("[data-sheet-slot]")).toHaveCount(3);
   // Catches: a sheet that lets the visitor think something was really sent.
   await expect(sheet(page).locator("[data-sheet-note]")).toContainText("This demo sends nothing");
-  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: Pick a time keeping a shared send-all button, which sends three times and picks none.
+  await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveCount(0);
+  // Catches: a time button under the 44 px touch size.
+  for (const height of await sheet(page).locator("[data-sheet-slot]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))) expect(height).toBeGreaterThanOrEqual(44);
+  const second = sheet(page).locator("[data-sheet-slot]").nth(1);
+  const time = (await second.innerText()).trim();
+  await second.click();
   // Catches: the sheet staying open after the one decision is made.
   await expect(sheet(page)).toBeHidden();
   // Catches: a confirmed line not marked done.
   await expect(first).toHaveAttribute("data-done", "true");
   // Catches: the line saying nothing plain about what happened.
-  await expect(first.locator("[data-brief-done]")).toHaveText(ACTIONS.sheets.pickTime.done);
+  await expect(first.locator("[data-brief-done]")).toHaveText(`${ACTIONS.sheets.pickTime.done} ${time}`);
+  // Catches: the scroll lock still on after a confirm (the sheet closes by unmounting, not by Escape).
+  await expect.poll(() => bodyOverflow(page)).toBe(unlocked);
   // Catches: a done line removed, or reworded, instead of dimmed in place.
   await expect(lines(page)).toHaveCount(3);
   await expect(lines(page).first().locator("[data-brief-text]")).toHaveText(words);
@@ -90,10 +102,10 @@ test("brief action: confirming Pick a time sends, dims the line and keeps it in 
   await expect(lines(page).nth(1)).toHaveAttribute("data-done", "false");
 });
 
-test("brief action: the sheet traps Tab, locks the page, closes on Escape and returns focus to its opener", async ({ page }) => {
+test("brief action: the sheet traps Tab, locks the page, closes on Escape and returns focus to its opener", async ({ page, browserName }) => {
   await joinAs(page, "sam");
   const opener = lines(page).nth(1).locator("[data-brief-action]");
-  const overflow = () => page.evaluate(() => getComputedStyle(document.body).overflow);
+  const overflow = () => bodyOverflow(page);
   // The lock only means something if the page was not already unscrollable.
   const unlocked = await overflow();
   expect(unlocked).not.toBe("hidden");
@@ -106,11 +118,11 @@ test("brief action: the sheet traps Tab, locks the page, closes on Escape and re
   expect(await overflow()).toBe("hidden");
   // Catches: Tab leaving the sheet for the page behind it, forward and back.
   for (let i = 0; i < 7; i++) {
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(tabKey(browserName));
     expect(await inside(), `Tab ${i + 1}`).toBe(true);
   }
   for (let i = 0; i < 7; i++) {
-    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press(`Shift+${tabKey(browserName)}`);
     expect(await inside(), `Shift+Tab ${i + 1}`).toBe(true);
   }
   await page.keyboard.press("Escape");
@@ -135,19 +147,36 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   // Catches: a posting link that leaves this tab behind or leaks the opener.
   await expect(apply).toHaveAttribute("target", "_blank");
   await expect(apply).toHaveAttribute("rel", "noopener noreferrer");
+  // Catches: the Apply link worded as something else, or missing its words.
   await expect(apply).toHaveText(ACTIONS.briefButtons.apply);
   await line.locator("[data-brief-action]").click();
   // Catches: Bring forward drafting a note to the company, which sends nothing and is not what it does.
   await expect(sheet(page).locator("[data-sheet-draft]")).toHaveCount(0);
   await expect(sheet(page).locator("[data-sheet-summary]")).toContainText(/shortlist/i);
-  await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveText("Add to my shortlist");
+  await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveText(ACTIONS.sheets.bringForward.confirm);
   await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a Bring forward line left looking undone after the pick was added.
   await expect(line).toHaveAttribute("data-done", "true");
   // Catches: a confirmation that says Sent for something only added.
-  await expect(line.locator("[data-brief-done]")).toHaveText("Added");
+  await expect(line.locator("[data-brief-done]")).toHaveText(ACTIONS.sheets.bringForward.done);
   // Catches: Added on the brief with nothing on the shortlist: the Matches tab never hears of it.
   await openTab(page, speedrunCopy.network.tabs.matches);
   await expect(page.locator('[data-row-bring-forward][aria-pressed="true"]')).toHaveCount(1);
+  await page.locator('[data-row-bring-forward][aria-pressed="true"]').click();
+  await expect(page.locator('[data-row-bring-forward][aria-pressed="true"]')).toHaveCount(0);
+  await openTab(page, speedrunCopy.network.tabs.brief);
+  // Catches: the brief still saying Added after the pick was taken off the shortlist.
+  await expect(lines(page).first()).toHaveAttribute("data-done", "false");
+  await expect(lines(page).first().locator("[data-brief-action]")).toHaveText(ACTIONS.briefButtons.bringForward);
+});
+
+test("brief action: a booked call is worded like the offered times, with no time zone", async ({ page }) => {
+  await joinAs(page, "sam");
+  await lines(page).nth(2).locator("[data-brief-action]").click();
+  const meeting = DETAILS.sam!["Cindermoor Cloud"].meeting!;
+  // Catches: the call read in a different format from the slots ("PM UTC" beside "10:00 am").
+  await expect(sheet(page).locator("[data-sheet-meeting]")).toHaveText(whenLabel(meeting.at));
+  await expect(sheet(page).locator("[data-sheet-meeting]")).not.toContainText("UTC");
 });
 
 test("brief action: Every morning is a labelled setting, and the channel pills are tall enough to tap", async ({ page }) => {
@@ -177,7 +206,8 @@ test("brief action: at 1440 the email keeps a readable measure on the shared lef
 test("brief action: on a phone the sheet is full width, every control is 44 px and nothing hides under the dock", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await joinAs(page, "sam");
-  const opener = lines(page).first().locator("[data-brief-action]");
+  const opener = lines(page).nth(1).locator("[data-brief-action]");
+  // Catches: a brief line's button under the 44 px touch size (Ruling 68).
   expect((await opener.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await opener.click();
   await expect(sheet(page)).toBeVisible();

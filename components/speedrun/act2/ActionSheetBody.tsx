@@ -1,13 +1,12 @@
 import type { SheetContent } from "@/lib/speedrun/actions";
 
-type Ui = { drafted: string; slots: string; prep: string; meeting: string; meetingLink: string; close: string };
+type Ui = { drafted: string; slots: string; pickSlot: string; prep: string; meeting: string; meetingLink: string; close: string };
 
 const LABEL = "font-srcond text-sm uppercase tracking-widest text-sr-ink2";
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
-const WHEN = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" });
 
 /** What the sheet shows, from the Action's own content: a draft, the slots, the prep, or the call, always as plain text. */
-export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: SheetContent; ui: Ui; onConfirm: () => void; onClose: () => void }) {
+export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: SheetContent; ui: Ui; onConfirm: (picked?: string) => void; onClose: () => void }) {
   return (
     <div className="flex flex-col gap-5">
       <h2 id="sr-sheet-title" className="text-xl font-semibold leading-tight">
@@ -22,10 +21,16 @@ export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: Shee
       )}
       {sheet.slots && (
         <section>
-          <p className={LABEL}>{ui.slots}</p>
+          <p className={LABEL}>{sheet.pickSlot ? ui.pickSlot : ui.slots}</p>
           <ul className="mt-2 flex flex-col gap-2">
             {sheet.slots.map((slot) => (
-              <li key={slot} data-sheet-slot="" className="rounded-xl bg-sr-hud px-4 py-3 text-base">{slot}</li>
+              <li key={slot}>
+                {sheet.pickSlot ? (
+                  <button type="button" data-sheet-slot="" onClick={() => onConfirm(slot)} className={`min-h-11 w-full rounded-xl bg-sr-hud px-4 py-3 text-left text-base font-semibold hover:bg-sr-strong ${FOCUS}`}>{slot}</button>
+                ) : (
+                  <span data-sheet-slot="" className="block rounded-xl bg-sr-hud px-4 py-3 text-base">{slot}</span>
+                )}
+              </li>
             ))}
           </ul>
         </section>
@@ -33,7 +38,7 @@ export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: Shee
       {sheet.meeting && (
         <section>
           <p className={LABEL}>{ui.meeting}</p>
-          <p data-sheet-meeting="" className="mt-2 text-base">{WHEN.format(new Date(sheet.meeting.at))}</p>
+          <p data-sheet-meeting="" className="mt-2 text-base">{sheet.meeting.when}</p>
           <p className="mt-1 text-sm text-sr-ink2">
             {ui.meetingLink}: <span data-sheet-meeting-link="">{sheet.meeting.link}</span>
           </p>
@@ -62,9 +67,11 @@ export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: Shee
       )}
       <p data-sheet-note="" className="text-sm text-sr-ink2">{sheet.note}</p>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" data-sheet-confirm="" onClick={onConfirm} className={`min-h-11 min-w-11 rounded-full bg-sr-ink px-6 font-srcond text-sm uppercase tracking-wider text-sr-surface ${FOCUS}`}>
-          {sheet.confirm}
-        </button>
+        {!sheet.pickSlot && (
+          <button type="button" data-sheet-confirm="" onClick={() => onConfirm()} className={`min-h-11 min-w-11 rounded-full bg-sr-ink px-6 font-srcond text-sm uppercase tracking-wider text-sr-surface ${FOCUS}`}>
+            {sheet.confirm}
+          </button>
+        )}
         <button type="button" data-sheet-close="" onClick={onClose} className={`min-h-11 min-w-11 rounded-full px-4 text-sm font-semibold text-sr-ink2 hover:text-sr-ink ${FOCUS}`}>
           {ui.close}
         </button>

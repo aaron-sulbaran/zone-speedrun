@@ -404,6 +404,7 @@ export const speedrunCopy = {
     sheetUi: {
       drafted: "Splits drafted this",
       slots: "Times I'm offering",
+      pickSlot: "Tap a time to send it",
       prep: "Prep",
       meeting: "The call",
       meetingLink: "Link (an example, not a real call)",
@@ -439,8 +440,8 @@ export const speedrunCopy = {
       pickTime: {
         done: "Sent",
         title: (company: string) => `Reply to the founder at ${company}`,
-        draft: () => "Thanks for writing back. I'd love to talk. Any of the times below works for me, so pick whichever suits you.",
-        confirm: "Send these times",
+        draft: () => "Thanks for writing back. I'd love to talk. Does this time work for you?",
+        confirm: "Send this time",
         note: "This demo sends nothing. The real version would open this reply in Gmail and add the call to your calendar.",
       },
       replyTimes: {

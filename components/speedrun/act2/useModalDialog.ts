@@ -28,11 +28,13 @@ function keepTabInside(dialog: HTMLDialogElement, event: KeyboardEvent) {
  * traps focus, closes on Escape and makes the page inert; this adds the body scroll lock, the opening motion
  * (none under reduced motion) and the hand-back of focus to whatever opened it.
  */
-export function useModalDialog(onClose: () => void) {
+export function useModalDialog(onClose: () => void, returnFocus?: () => HTMLElement | null) {
   const ref = useRef<HTMLDialogElement>(null);
   const closeRef = useRef(onClose);
+  const returnRef = useRef(returnFocus);
   useLayoutEffect(() => {
     closeRef.current = onClose;
+    returnRef.current = returnFocus;
   });
 
   useLayoutEffect(() => {
@@ -62,7 +64,12 @@ export function useModalDialog(onClose: () => void) {
       entrance?.cancel();
       if (dialog.open) dialog.close();
       document.body.style.overflow = overflow;
-      if (opener?.isConnected) opener.focus();
+      // The explicit target wins: some engines do not focus a button on click, so what was focused on open can be the page.
+      // It is read on the next frame, once the page has re-rendered (a confirmed line has swapped its button).
+      requestAnimationFrame(() => {
+        const target = returnRef.current?.() ?? opener;
+        if (target?.isConnected) target.focus();
+      });
     };
   }, []);
 
