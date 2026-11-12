@@ -11,7 +11,8 @@ import { BoardTableRow } from "./BoardTableRow";
 
 const DEFAULT_ROWS = 8;
 const COLUMNS: SortKey[] = ["company", "role", "stage", "applied", "lastUpdate", "next"];
-const COLUMN_WIDTHS = ["lg:w-[14%]", "lg:w-[16%]", "lg:w-[13%]", "lg:w-[11%]", "lg:w-[13%]", "lg:w-[33%]"];
+// Dates, the stage chip and the sort chevrons take what their content and header need; Role gets the rest so long titles read whole in two lines.
+const COLUMN_WIDTHS = ["lg:w-[14%]", "lg:w-[19%]", "lg:w-[11.5%]", "lg:w-[11%]", "lg:w-[14.5%]", "lg:w-[30%]"];
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 
 type Props = {

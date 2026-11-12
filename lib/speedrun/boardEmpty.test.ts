@@ -44,6 +44,22 @@ describe("the Board with no inbox and no sample person", () => {
     for (const marker of ["data-empty-connect", "data-empty-matches"]) expect(html).toMatch(new RegExp(`<button[^>]*${marker}[^>]*class="[^"]*min-h-11`));
   });
 
+  it("has no paste box and shows the empty board's Shortlist pointing to Matches", () => {
+    // Catches: the paste box returning on the empty board (Ruling 54).
+    expect(html).not.toContain("<textarea");
+    // Catches: a visitor with no inbox getting no Shortlist, which is how they still get a board (Ruling 53).
+    expect(html).toContain('data-board-section="shortlist"');
+    expect(html).toContain(copy.shortlist.empty.link);
+    expect(html).not.toContain("data-board-section=\"today\"");
+  });
+
+  it("with the inbox connected, the pointer line names Matches and no paste", () => {
+    const connected = render({ ...own, inboxConnected: true });
+    // Catches: the old "Paste an email below" line left behind with nothing below it.
+    expect(connected).not.toContain("<textarea");
+    expect(connected).toContain(apos(copy.empty.connectedBefore));
+  });
+
   it("keeps Tools", () => {
     // Catches: Tools lost along with the rest of the top.
     expect(html).toContain("data-tools-list");

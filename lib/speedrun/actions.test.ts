@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content";
-import { briefAction, introCards, needsYou, rowAction, todayActions, type Action } from "./actions";
+import { briefAction, introCards, needsYou, rowAction, todayActions, todayItems, type Action } from "./actions";
 import type { BriefItem } from "./brief";
 import { sampleBrief } from "./briefSample";
 import type { CompanyDetail } from "./details";
@@ -123,6 +123,20 @@ describe("rowAction", () => {
     expect(rowAction(row({ furthest: "offer" }), undefined, INBOX_TODAY)?.kind).toBe("decideOffer");
   });
 
+  // Catches: a prepare sheet with no notes whose note still opens with "These notes stay in this tab" (C1).
+  it("gives a prepare sheet with no notes a summary and a note that mention none", () => {
+    const bare = rowAction(row({ furthest: "interview", lastEventAt: "2026-11-05T10:00:00.000Z" }), undefined, INBOX_TODAY);
+    expect(bare?.sheet.summary?.length).toBeGreaterThan(0);
+    expect(bare?.sheet.note).not.toMatch(/notes/i);
+    expect(bare?.sheet.note).toContain("This demo sends nothing");
+    const { events, details } = inboxOf("sam");
+    const pinned = introCards(events, null, details, INBOX_TODAY).find((card) => card.company === "min/Max")?.action;
+    // Catches: the no-notes variant replacing the real notes of a prepare that has them.
+    expect(pinned?.sheet.prep?.length).toBeGreaterThan(0);
+    expect(pinned?.sheet.note).toMatch(/notes/i);
+    expect(pinned?.sheet.summary).toBeUndefined();
+  });
+
   // Catches: a company-keyed detail leaking onto Sam's other roles at the same company.
   it("applies a detail only to its own role", () => {
     const co = rowAction(row({ company: "Quillbright", role: "Software Engineer, Co-op", furthest: "applied" }), DETAILS.sam, INBOX_TODAY);
@@ -150,6 +164,21 @@ describe("todayActions", () => {
       "replyTimes:Tarnmoor Robotics:Founding Engineer",
       "confirmInterview:Cindermoor Cloud:Software Engineer, New Grad",
     ]);
+  });
+});
+
+describe("todayItems", () => {
+  // Catches: Today's interview having no call to join, so Join and Add to calendar have nothing to open (Ruling 51).
+  it("pairs Sam's Cindermoor interview with a joinMeeting sheet that carries the mock link and the Meet or Zoom note", () => {
+    const { events, details } = inboxOf("sam");
+    const items = todayItems(events, details, INBOX_TODAY);
+    expect(items.map((item) => item.action.id)).toEqual(todayActions(events, details, INBOX_TODAY).map((action) => action.id));
+    const cinder = items.find((item) => item.action.company === "Cindermoor Cloud");
+    expect(cinder?.join?.kind).toBe("joinMeeting");
+    expect(cinder?.join?.sheet.meeting?.link).toBe("https://meet.example/cindermoor-interview");
+    expect(cinder?.join?.sheet.note).toContain("the real version opens Meet or Zoom");
+    // Catches: a call offered for a reply that has no booked time.
+    expect(items.filter((item) => item.join).map((item) => item.action.company)).toEqual(["Cindermoor Cloud"]);
   });
 });
 

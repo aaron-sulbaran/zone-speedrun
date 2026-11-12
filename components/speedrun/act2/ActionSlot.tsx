@@ -1,7 +1,7 @@
 import { Check } from "lucide-react";
 import type { Action } from "@/lib/speedrun/actions";
 
-type Slot = "needs" | "tile" | "next";
+type Slot = "needs" | "tile" | "next" | "today" | "intro";
 
 type Props = {
   action: Action;

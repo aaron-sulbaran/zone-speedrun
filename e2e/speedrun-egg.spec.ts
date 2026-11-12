@@ -1,17 +1,8 @@
 import { speedrunCopy } from "../lib/content";
-import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
+import { playSwitch } from "./speedrun-flow";
 
 const COPY = speedrunCopy.egg;
-
-async function reachPasteBox(page: Page) {
-  await page.goto("/speedrun");
-  await answerOnboarding(page, { name: "Sam", connectGmail: true });
-  await skipBuildLog(page);
-  await openTab(page, speedrunCopy.network.tabs.board);
-  await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
-}
 
 test("typing sux on Act 2 opens the placeholder, and Escape closes it and returns focus", async ({ page }) => {
   await page.goto("/speedrun");
@@ -46,12 +37,14 @@ test("clicking the logo five times opens it, and the Close button closes it", as
   await expect(page.locator("[data-egg]")).toBeHidden();
 });
 
-test("typing sux inside the paste box does not open it", async ({ page }) => {
-  await reachPasteBox(page);
-  const paste = page.getByLabel(speedrunCopy.board.paste.label);
-  await paste.click();
+// Catches: the typing-target guard lapsing, so a visitor typing the word into a form field gets the egg instead of their text.
+test("typing sux inside a text field does not open it", async ({ page }) => {
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const field = page.locator("#join").getByLabel(speedrunCopy.join.steps.name.inputLabel);
+  await field.click();
   await page.keyboard.type("sux");
-  await expect(paste).toHaveValue("sux");
+  await expect(field).toHaveValue("sux");
   await expect(page.locator("[data-egg]")).toBeHidden();
 });
 

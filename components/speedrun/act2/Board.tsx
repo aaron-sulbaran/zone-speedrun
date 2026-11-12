@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { introCards, needsYou, rowAction, type Action } from "@/lib/speedrun/actions";
-import { boardMode, introEvents, tileOfFilter, TILE_FILTER, todayEvents, type BoardFilter, type TileKey } from "@/lib/speedrun/board";
+import { introCards, needsYou, rowAction, todayItems, type Action } from "@/lib/speedrun/actions";
+import { boardMode, tileOfFilter, TILE_FILTER, type BoardFilter, type TileKey } from "@/lib/speedrun/board";
 import { classifyEmail } from "@/lib/speedrun/classify";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { DETAILS } from "@/lib/speedrun/details";
@@ -13,20 +13,20 @@ import { rowKey } from "@/lib/speedrun/keys";
 import type { NetworkTab } from "@/lib/speedrun/phase";
 import { PEOPLE } from "@/lib/speedrun/people";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
-import type { BoardCard } from "@/lib/speedrun/types";
 import { visitorFirstName } from "../visitorName";
 import { FlowChart } from "../FlowChart";
-import { CardFrame } from "./BoardControls";
+import { BoardSection } from "./BoardSection";
 import { BoardEmpty } from "./BoardEmpty";
 import { BoardStats } from "./BoardStats";
 import { BoardTable } from "./BoardTable";
 import { ConnectPrompt } from "./ConnectPrompt";
-import { IntrosCard, TodayCard } from "./EventCards";
 import { NeedsYou } from "./NeedsYou";
-import { PasteEmail } from "./PasteEmail";
 import { Rise } from "./Rise";
+import { Shortlist } from "./Shortlist";
+import { TodayList } from "./TodayList";
 import { TilePanel } from "./TilePanel";
 import { ToolsCard } from "./ToolsCard";
+import { WarmIntros } from "./WarmIntros";
 import { useActionSheet } from "./useActionSheet";
 
 const copy = speedrunCopy.board;
@@ -58,6 +58,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
     return byRow;
   }, [pipeline, details]);
   const needs = useMemo(() => needsYou(pipeline, details, INBOX_TODAY), [pipeline, details]);
+  const todays = useMemo(() => todayItems(events, details, INBOX_TODAY), [events, details]);
   const intros = useMemo(() => introCards(events, state.introRequest, details, INBOX_TODAY), [events, state.introRequest, details]);
   const sheet = useActionSheet(state, dispatch);
 
@@ -65,7 +66,6 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
   const firstName = visitorFirstName(state);
   const stillOpen = needs.filter((action) => !sheet.isDone(action)).length;
   const flowTitle = firstName ? copy.flowTitle(firstName) : copy.flowTitleFallback;
-  const cards: BoardCard[] = mode === "full" ? ["today", "intros", "tools"] : ["tools"];
 
   const pressTile = (tile: TileKey) => {
     const closing = openTile === tile;
@@ -84,11 +84,8 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
     dispatch({ type: "connectInbox", on: true });
   };
 
-  const body = (card: BoardCard) => {
-    if (card === "today") return <TodayCard events={todayEvents(events, INBOX_TODAY)} />;
-    if (card === "intros") return <IntrosCard events={introEvents(events)} />;
-    return <ToolsCard personKey={personKey} />;
-  };
+  const toMatches = () => onTab("matches");
+  const shared = { isDone: sheet.isDone, pickedFor: sheet.pickedFor, onOpen: sheet.onOpen };
 
   return (
     <section data-board="" data-connected={connected} aria-labelledby="sr-board-heading" className="mx-auto w-full max-w-5xl lg:mx-0 lg:max-w-none">
@@ -102,7 +99,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
       )}
       <div className="mt-5 space-y-6">
         {mode === "connect" && <ConnectPrompt onConnect={connect} />}
-        {mode === "empty" && <BoardEmpty connected={connected} existing={state.events} onConnect={connect} onMatches={() => onTab("matches")} onAdd={(event) => dispatch({ type: "addEvents", events: [event] })} />}
+        {mode === "empty" && <BoardEmpty connected={connected} onConnect={connect} onMatches={toMatches} />}
         {mode === "full" && (
           <Rise className="space-y-6">
             <NeedsYou actions={needs} rows={pipeline.rows} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
@@ -115,14 +112,24 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
               <FlowChart data={flow} tone="speedrun" animate title={flowTitle} />
             </div>
             <BoardTable rows={pipeline.rows} filter={filter} onFilter={pressChip} actions={actions} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
-            <PasteEmail existing={state.events} onAdd={(event) => dispatch({ type: "addEvents", events: [event] })} />
           </Rise>
         )}
-        {cards.map((card) => (
-          <CardFrame key={card} card={card}>
-            {body(card)}
-          </CardFrame>
-        ))}
+        {mode === "full" && (
+          <>
+            <BoardSection id="today" heading={copy.today.heading}>
+              <TodayList items={todays} {...shared} />
+            </BoardSection>
+            <BoardSection id="intros" heading={copy.intros.heading}>
+              <WarmIntros cards={intros} onMatches={toMatches} {...shared} />
+            </BoardSection>
+          </>
+        )}
+        <BoardSection id="shortlist" heading={copy.shortlist.heading}>
+          <Shortlist keys={state.shortlist} matches={state.result?.matches ?? []} request={state.introRequest} dispatch={dispatch} onMatches={toMatches} />
+        </BoardSection>
+        <BoardSection id="tools" heading={copy.tools.heading}>
+          <ToolsCard personKey={personKey} />
+        </BoardSection>
       </div>
       {sheet.sheet}
     </section>

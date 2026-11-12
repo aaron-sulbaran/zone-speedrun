@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { parsePasted, todayEvents } from "./board";
+import { todayEvents } from "./board";
 import { composeBrief, renderBriefEmail, type BriefRole } from "./brief";
 import { briefAction, introCards } from "./actions";
 import { briefEvents, rolesFromIds, sampleBrief } from "./briefSample";
@@ -311,9 +311,8 @@ describe("each sample person's brief", () => {
   });
 
   it("hears a pasted reply in this morning's brief, as the preview does", () => {
-    const email = parsePasted("From: Halcyon Works Hiring <hiring@halcyonworks.example>\nSubject: Interview invitation: Software Engineer\n\nWe would like to invite you to a final round interview.\nRole: Software Engineer");
-    expect(email).not.toBeNull();
-    const brief = sampleBrief("maya", { extraEvents: email ? [classifyEmail(email)] : [], roleIds: [] });
+    const email = { id: "pasted-halcyon", from: "Halcyon Works Hiring <hiring@halcyonworks.example>", subject: "Interview invitation: Software Engineer", body: "We would like to invite you to a final round interview.\nRole: Software Engineer", date: `${INBOX_TODAY}T08:00:00.000Z` };
+    const brief = sampleBrief("maya", { extraEvents: [classifyEmail(email)], roleIds: [] });
     expect(brief.items.map((item) => item.text)).toEqual(["Halcyon Works wants to interview you for Software Engineer."]);
   });
 });

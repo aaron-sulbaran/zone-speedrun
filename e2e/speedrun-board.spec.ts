@@ -1,4 +1,4 @@
-import { speedrunCopy } from "../lib/content";
+import { siteContent, speedrunCopy } from "../lib/content";
 import { rankMatches } from "../lib/speedrun/match";
 import { PEOPLE } from "../lib/speedrun/people";
 import { getSnapshot } from "../lib/speedrun/snapshot";
@@ -36,78 +36,20 @@ test("Skip to the dashboard lands on the network, and its board is connected", a
 const stat = (page: Page, key: string) => page.locator(`[data-stat=${key}]`);
 const statValue = async (page: Page, key: string) => Number(await stat(page, key).getAttribute("data-value"));
 
-const INTERVIEW_EMAIL = [
-  "From: Halcyon Works Hiring <hiring@halcyonworks.example>",
-  "Subject: Interview invitation: Software Engineer",
-  "",
-  "We would like to invite you to a final round interview.",
-  "Role: Software Engineer",
-].join("\n");
-
-test("pasting an interview invite moves the funnel", async ({ page }) => {
-  await joinAs(page, "sam", true);
-  await expect(stat(page, "inProcess")).toBeVisible();
-  const before = await statValue(page, "inProcess");
-  await page.getByLabel(COPY.paste.label).fill(INTERVIEW_EMAIL);
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.found(COPY.kindLabels.interview, "Halcyon Works"));
-  // A tap on the button must not pull focus into the box (it would open a phone keyboard); the button keeps it.
-  await expect(page.getByRole("button", { name: COPY.paste.button })).toBeFocused();
-  await expect(page.getByRole("button", { name: COPY.paste.button })).toHaveAttribute("aria-disabled", "true");
-  await expect(stat(page, "inProcess")).toHaveAttribute("data-value", String(before + 1));
-  await expect(page.locator("[data-today-list]")).toContainText("Halcyon Works");
-});
-
-test("the visible stat number follows a paste, with motion", async ({ page }) => {
+// Catches: the visible stat number drifting from the number the tile announces (the count-up must land on it).
+test("the visible stat number is the number the tile announces, with motion", async ({ page }) => {
   await joinAs(page, "sam", true);
   const visible = stat(page, "inProcess").locator('[aria-hidden="true"]');
-  const before = await statValue(page, "inProcess");
-  await expect(visible).toHaveText(String(before));
-  await page.getByLabel(COPY.paste.label).fill(INTERVIEW_EMAIL);
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  await expect(visible).toHaveText(String(before + 1));
-});
-
-test("pasting the same email twice adds it once", async ({ page }) => {
-  await joinAs(page, "sam", true);
-  const paste = page.getByLabel(COPY.paste.label);
-  await paste.fill(INTERVIEW_EMAIL);
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  const applied = await statValue(page, "applied");
-  await paste.fill(INTERVIEW_EMAIL);
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.duplicate);
-  expect(await statValue(page, "applied")).toBe(applied);
-});
-
-test("a paste with no sender is not added as Unknown", async ({ page }) => {
-  await joinAs(page, "sam", true);
-  const applied = await statValue(page, "applied");
-  await page.getByLabel(COPY.paste.label).fill("Interview invitation\nWe would like to invite you to a final round interview.");
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.unknownSender);
-  expect(await statValue(page, "applied")).toBe(applied);
-});
-
-test("a paste that is not a hiring email leaves the board alone", async ({ page }) => {
-  await joinAs(page, "sam", true);
-  const before = await statValue(page, "applied");
-  await page.getByLabel(COPY.paste.label).fill("Weekly newsletter\nTen recipes you will love.");
-  await page.getByRole("button", { name: COPY.paste.button }).click();
-  await expect(page.locator("[data-paste-status]")).toHaveText(COPY.paste.unknown);
-  expect(await statValue(page, "applied")).toBe(before);
+  await expect(visible).toHaveText(String(await statValue(page, "inProcess")));
 });
 
 test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
-  test("the visible stat number is final on arrival and after a paste", async ({ page }) => {
+  // Catches: a count-up that still shows its starting number for a visitor who asked for no motion.
+  test("the visible stat number is final on arrival", async ({ page }) => {
     await joinAs(page, "sam", true);
     const visible = stat(page, "inProcess").locator('[aria-hidden="true"]');
-    const before = await statValue(page, "inProcess");
-    await expect(visible).toHaveText(String(before));
-    await page.getByLabel(COPY.paste.label).fill(INTERVIEW_EMAIL);
-    await page.getByRole("button", { name: COPY.paste.button }).click();
-    await expect(visible).toHaveText(String(before + 1));
+    await expect(visible).toHaveText(String(await statValue(page, "inProcess")));
   });
 });
 
@@ -463,7 +405,8 @@ test("board top: a visitor with no inbox and no sample person sees Your board an
   // Catches: a Connect control that does nothing.
   await line.getByRole("button", { name: COPY.empty.connect }).click();
   await expect(page.locator("[data-board-empty]")).toContainText(COPY.empty.connectedBefore.trim());
-  await expect(page.getByLabel(COPY.paste.label)).toBeVisible();
+  // Catches: the paste box coming back on a connected empty board.
+  await expect(page.locator("[data-board] textarea")).toHaveCount(0);
   // Catches: a Matches control that leaves the visitor on the Board.
   await page.locator("[data-board-empty]").getByRole("button", { name: COPY.empty.matches }).click();
   await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
@@ -564,40 +507,89 @@ test("board top: the Intros list and the table's filter leave each other alone",
   // Catches: the All chip closing the Intros list, which it has no tile for.
   await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
   await chip("offers").click();
+  // Catches: the Offers chip leaving the Intros list open, so its own panel never replaces it (one panel at a time).
+  await expect(page.locator('[data-tile-panel="offers"]')).toBeVisible();
+  // Catches: the Intros list staying on screen under the Offers panel the chip just opened.
+  await expect(page.locator('[data-tile-panel="intros"]')).toHaveCount(0);
   await stat(page, "intros").click();
   await stat(page, "offers").click();
-  // Catches: Offers opening its panel on top of the Intros list instead of replacing it (one panel at a time).
+  // Catches: the Offers tile opening its panel on top of the Intros list instead of replacing it.
   await expect(page.locator('[data-tile-panel="offers"]')).toBeVisible();
+  // Catches: the Intros list surviving a press on the Offers tile.
   await expect(page.locator('[data-tile-panel="intros"]')).toHaveCount(0);
 });
 
 test("board table: from lg the table fits its card with no sideways scroll, no clipped cell, and every row the same height, in the All and In process views", async ({ page }) => {
-  // 1009 is 1024 less a classic 15 px scrollbar.
-  for (const width of [1009, 1024, 1280, 1440]) {
+  // The 1024 leg is run twice: bare, and with 15 px taken from the tab panel's padding, which is what a classic scrollbar costs the content.
+  for (const [width, scrollbar] of [[1024, 0], [1024, 15], [1280, 0], [1440, 0]] as const) {
     await page.setViewportSize({ width, height: 900 });
     await joinAs(page, "sam", true);
+    if (scrollbar) await page.addStyleTag({ content: `[role=tabpanel]{padding-right: calc(0.5rem + ${scrollbar}px) !important}` });
+    // Catches: a leg that runs below Tailwind's lg and so proves nothing about the lg table.
+    expect(await page.evaluate(() => matchMedia("(min-width: 1024px)").matches), `lg at ${width}`).toBe(true);
     for (const view of ["all", "inProcess"]) {
       await page.locator(`[data-board-table] [data-filter="${view}"]`).click();
-      const where = `${view} at ${width}`;
-      const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
-      // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
-      expect(gap, `scroll overflow, ${where}`).toBeLessThanOrEqual(1);
-      // Catches: a Next step cell whose action or quiet label is cut by its own cell, even when the table as a whole fits.
-      const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
-      expect(clipped, `clipped Next step cells, ${where}`).toBe(0);
-      // Catches: a stage chip (ASSESSMENT) or a header with its sort chevron spilling past its own column into the next.
-      const spill = await page.locator('[data-board-table] [data-cell="stage"] > span, [data-board-table] th[data-col] > button').evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().right > (el.parentElement as HTMLElement).getBoundingClientRect().right + 1).length);
-      expect(spill, `chips or headers overhanging their column, ${where}`).toBe(0);
-      // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text.
-      // The button keeps its 44 px floor even when its label wraps, so the label's own box is what is measured.
-      const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => { const range = document.createRange(); range.selectNodeContents(el.firstChild as Node); return range.getBoundingClientRect().height > 24; }).length);
-      expect(tall, `wrapped headers, ${where}`).toBe(0);
-      const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
-      // Catches: no rows in the view, so the height comparison below would pass with nothing to compare.
-      expect(heights.length, `rows, ${where}`).toBeGreaterThan(3);
-      // Catches: wrapping in a squeezed column making some rows taller than others (L3 at the narrowest lg width).
-      for (const height of heights) expect(Math.abs(height - heights[0]), `row height, ${where}`).toBeLessThanOrEqual(1);
+      for (const sort of ["next", "lastUpdate"]) {
+        // Next step is the default sort; Last update is the widest header once it carries its chevron.
+        if ((await th(page, sort).getAttribute("aria-sort")) === "none") await th(page, sort).getByRole("button").click();
+        await expect(th(page, sort)).not.toHaveAttribute("aria-sort", "none");
+        const where = `${view}, sorted by ${sort}, at ${width} less ${scrollbar}`;
+        const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
+        // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
+        expect(gap, `scroll overflow, ${where}`).toBeLessThanOrEqual(1);
+        // Catches: a Next step cell whose action or quiet label is cut by its own cell, even when the table as a whole fits.
+        const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+        expect(clipped, `clipped Next step cells, ${where}`).toBe(0);
+        // Catches: a stage chip (ASSESSMENT) or a header with its sort chevron spilling past its own column into the next, including Last update while it is the active sort (P3).
+        const spill = await page.locator('[data-board-table] [data-cell="stage"] > span, [data-board-table] th[data-col] > button').evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().right > (el.parentElement as HTMLElement).getBoundingClientRect().right + 1).length);
+        expect(spill, `chips or headers overhanging their column, ${where}`).toBe(0);
+        // Catches: a header that wraps to two lines (L5), which also makes it sit off its column's text.
+        // The button keeps its 44 px floor even when its label wraps, so the label's own box is what is measured.
+        const tall = await page.locator("[data-board-table] th[data-col] > button").evaluateAll((els) => els.filter((el) => { const range = document.createRange(); range.selectNodeContents(el.firstChild as Node); return range.getBoundingClientRect().height > 24; }).length);
+        expect(tall, `wrapped headers, ${where}`).toBe(0);
+        const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+        // Catches: no rows in the view, so the height comparison below would pass with nothing to compare.
+        expect(heights.length, `rows, ${where}`).toBeGreaterThan(3);
+        // Catches: wrapping in a squeezed column making some rows taller than others (L3 at the narrowest lg width).
+        for (const height of heights) expect(Math.abs(height - heights[0]), `row height, ${where}`).toBeLessThanOrEqual(1);
+      }
     }
+  }
+});
+
+test("board table: roles read whole within two lines at 1024, with and without a classic scrollbar", async ({ page }) => {
+  for (const scrollbar of [0, 15]) {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await joinAs(page, "sam", true);
+    if (scrollbar) await page.addStyleTag({ content: `[role=tabpanel]{padding-right: calc(0.5rem + ${scrollbar}px) !important}` });
+    await page.getByRole("button", { name: /^show all \d+$/ }).click();
+    const roles = page.locator('[data-board-table] [data-cell="role"] > span');
+    const state = await roles.evaluateAll((els) => els.map((el) => ({ text: el.textContent ?? "", whole: el.scrollHeight <= el.clientHeight + 1 })));
+    // Catches: no roles to measure, so the loop below passes for nothing.
+    expect(state.length, `roles at ${scrollbar}`).toBeGreaterThan(8);
+    // Catches: the pinned long roles absent from Sam's table, so the pin names nothing.
+    for (const role of ["Software Engineer, New Grad", "Software Engineer, Product", "Embedded Software Engineer"]) expect(state.map((entry) => entry.text), `roles at ${scrollbar}`).toContain(role);
+    // Catches: Role clamped with an ellipsis at 1024 while the date columns hold short dates in wide cells (L7).
+    expect(state.filter((entry) => !entry.whole).map((entry) => entry.text), `clamped roles at ${scrollbar}`).toEqual([]);
+  }
+});
+
+test("board table: a long company name clamps to the row height with the whole name kept for readers (Dev, 1024)", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await joinAs(page, "dev", true);
+  await page.getByRole("button", { name: /^show all \d+$/ }).click();
+  const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  for (const name of ["Tidepool Founders Program", "Meridian Reach Ventures"]) {
+    const row = rows(page).filter({ hasText: name }).first();
+    // Catches: a name that never reaches the table, so the clamp checks below pin nothing.
+    await expect(row, name).toHaveCount(1);
+    // Catches: a long name growing its row past the others (three lines in a narrow column).
+    expect(Math.abs((await row.boundingBox())!.height - heights[0]), `${name} row height`).toBeLessThanOrEqual(1);
+    const cell = row.locator('[data-cell="company"] > span');
+    // Catches: the clamp cutting the name for a reader: the full name stays in the tooltip.
+    await expect(cell).toHaveAttribute("title", name);
+    // Catches: the clamp removing the name from the DOM text (what a screen reader and a search read).
+    expect(await cell.evaluate((el) => el.textContent)).toBe(name);
   }
 });
 
@@ -612,4 +604,176 @@ test("board table: a Next-step link's text starts where the column's plain text 
   const plain = await left('[data-cell="next"] > span');
   // Catches: the link's hit-area padding pushing its text 8 px right of the plain rows and the header below it (L6).
   expect(Math.abs(link - plain)).toBeLessThanOrEqual(1);
+});
+
+// ---- Task 6b: Today, warm intros and the shortlist (Rulings 51 to 55) ----
+
+const today = (page: Page) => page.locator("[data-today-item]");
+const introCards = (page: Page) => page.locator("[data-intro-card]");
+const shortlistItems = (page: Page) => page.locator("[data-shortlist-item]");
+const SOCIALS = siteContent.menu.socials;
+
+test("today: the Cindermoor interview's Join and Add to calendar open the sheet with the mock link and the Meet or Zoom note", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  // Catches: Today still a bare list of sentences, with no item to act on.
+  await expect(today(page)).toHaveCount(3);
+  const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
+  await cinder.getByRole("button", { name: COPY.today.join }).click();
+  // Catches: a dead Today item, a Join that opens nothing.
+  await expect(sheet(page)).toBeVisible();
+  await expect(sheet(page).locator("[data-sheet-meeting-link]")).toHaveText("https://meet.example/cindermoor-interview");
+  // Catches: a sheet that hides what the real version would do, or promises a real call.
+  await expect(sheet(page).locator("[data-sheet-note]")).toContainText("the real version opens Meet or Zoom");
+  const title = await sheet(page).locator("#sr-sheet-title").innerText();
+  await sheet(page).locator("[data-sheet-close]").click();
+  await expect(sheet(page)).toBeHidden();
+  await cinder.getByRole("button", { name: COPY.today.calendar }).click();
+  // Catches: Add to calendar opening a different sheet from Join (Ruling 51 says the same sheet).
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(title);
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  await expect(sheet(page)).toBeHidden();
+  // Catches: a confirmed item that keeps both live buttons, or is removed from the list.
+  await expect(today(page)).toHaveCount(3);
+  await expect(cinder).toHaveAttribute("data-done", "true");
+  await expect(cinder.getByRole("button")).toHaveCount(0);
+  // Catches: focus dropping to the page when the buttons are swapped for the quiet check.
+  await expect(cinder.locator("[data-action-done]")).toBeFocused();
+  // Catches: the other Today items marked done along with it.
+  await expect(today(page).filter({ hasText: "Lumora Health" })).toHaveAttribute("data-done", "false");
+});
+
+test("today: a founder's reply offers three times to pick from, and a prepare item opens to three points", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const lumora = today(page).filter({ hasText: "Lumora Health" });
+  await lumora.getByRole("button", { name: COPY.nextStep.pickTime }).click();
+  // Catches: Pick a time opening a sheet with no times to pick.
+  await expect(sheet(page).locator("[data-sheet-slot]")).toHaveCount(3);
+  await sheet(page).locator("[data-sheet-close]").click();
+  await joinAs(page, "dev", true);
+  const prep = today(page).filter({ has: page.locator("[data-today-prep]") }).first();
+  // Catches: a prepare item with no drop-down, so nothing says what to know.
+  await expect(prep).toBeVisible();
+  const toggle = prep.locator("[data-today-prep] > summary");
+  await toggle.click();
+  // Catches: a drop-down that opens onto fewer than the three points.
+  await expect(prep.locator("[data-today-prep] li")).toHaveCount(3);
+});
+
+test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn, shows a status chip and prepares, never picks a time", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const card = introCards(page).filter({ hasText: "min/Max" });
+  // Catches: min/Max missing from the intros, the one real flow.
+  await expect(card).toHaveCount(1);
+  // Catches: dead intro data: no person, or a person who is not Aaron.
+  await expect(card).toContainText("Aaron Sulbaran");
+  await expect(card.locator("[data-intro-monogram]")).toHaveText("AS");
+  const linkedin = SOCIALS.find((social) => social.key === "linkedin")!;
+  const link = card.getByRole("link", { name: /LinkedIn/ });
+  // Catches: a LinkedIn link that goes anywhere but the socials URL, or opens in this tab.
+  await expect(link).toHaveAttribute("href", linkedin.href);
+  await expect(link).toHaveAttribute("target", "_blank");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  // Catches: an X link made up when the socials hold none, or missing when they do.
+  const x = SOCIALS.find((social) => (social.key as string) === "x");
+  await expect(card.getByRole("link", { name: /^X\b/ })).toHaveCount(x ? 1 : 0);
+  // Catches: a status chip with no words, or a status that disagrees with the pinned detail.
+  await expect(card.locator("[data-intro-status]")).toHaveText(COPY.introStatus.scheduled);
+  // Catches: Today and the card disagreeing about a scheduled intro (Ruling 58): it is prepared for, never "Pick a time".
+  await expect(card.getByRole("button", { name: COPY.nextStep.prepare })).toBeVisible();
+  await expect(card.getByRole("button", { name: COPY.nextStep.pickTime })).toHaveCount(0);
+  await expect(today(page).filter({ hasText: "min/Max" }).getByRole("button", { name: COPY.nextStep.pickTime })).toHaveCount(0);
+  await card.getByRole("button", { name: COPY.nextStep.prepare }).click();
+  // Catches: a nudge that opens nothing.
+  await expect(sheet(page).locator("[data-sheet-meeting-link]")).toContainText("meet.example/minmax-intro");
+});
+
+test("warm intros: the count is the Intros tile's count, one card per company", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  // Catches: the section listing intro emails (two from one company listed twice) instead of the cards the tile counts (C4).
+  expect(await introCards(page).count()).toBe(await statValue(page, "intros"));
+  const names = await introCards(page).locator("[data-intro-company]").allInnerTexts();
+  expect(new Set(names).size).toBe(names.length);
+});
+
+test("shortlist: moving #2 up makes it #1, and the intro request stays on its match", async ({ page }) => {
+  let matches: { company: { name: string }; role: { title: string } | null; connect: string[] }[] = [];
+  await page.route("**/speedrun/api/match", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { result: { matches: typeof matches } };
+    matches = body.result.matches;
+    await route.fulfill({ response, json: body });
+  });
+  await joinAs(page, "sam", true);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  const eligible = matches.flatMap((match, at) => (match.connect.includes("intro") ? [at] : []));
+  // Catches: a fixture with fewer than two intro-eligible matches, which would pass the moves below for nothing.
+  expect(eligible.length).toBeGreaterThanOrEqual(2);
+  const [a, b] = eligible;
+  await page.locator("[data-row-bring-forward]").nth(a).click();
+  await page.locator("[data-row-bring-forward]").nth(b).click();
+  await page.locator("[data-match-row]").nth(a).click();
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await openTab(page, speedrunCopy.network.tabs.board);
+  const names = () => shortlistItems(page).locator("[data-shortlist-company]").allInnerTexts();
+  // Catches: a Board that shows no shortlist, or one in the wrong order.
+  expect(await names()).toEqual([matches[a].company.name, matches[b].company.name]);
+  // Catches: the request's status missing from #1, where the request sits.
+  await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
+  await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toHaveCount(0);
+  // Catches: a first item that can still move up, or a last item that can still move down.
+  await expect(shortlistItems(page).first().locator("[data-shortlist-up]")).toBeDisabled();
+  await expect(shortlistItems(page).nth(1).locator("[data-shortlist-down]")).toBeDisabled();
+  await shortlistItems(page).nth(1).locator("[data-shortlist-up]").click();
+  // Catches: a Move up that does nothing, or moves the wrong item.
+  expect(await names()).toEqual([matches[b].company.name, matches[a].company.name]);
+  // Catches: the request following the new #1 (Review Focus 2): it stays on the match that was asked for.
+  await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
+  await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toHaveCount(0);
+  // Catches: the warm intros section forgetting a live request, which Ruling 52 says shows there too.
+  await expect(introCards(page).first().locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
+  await expect(introCards(page).first()).toContainText(matches[a].company.name);
+});
+
+test("shortlist: with no picks it says how to fill it, and the link goes to Matches", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const section = page.locator('[data-board-section="shortlist"]');
+  // Catches: an empty shortlist drawn as nothing, so the visitor never learns where picks come from.
+  await expect(section).toContainText(COPY.shortlist.empty.after.trim());
+  await expect(shortlistItems(page)).toHaveCount(0);
+  await section.getByRole("button", { name: COPY.shortlist.empty.link }).click();
+  // Catches: a link that looks live and leaves the visitor on the Board.
+  await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+});
+
+test("board: the paste box, the Arrange toggle and the card controls are gone, and Tools is the last section", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  // Catches: the paste box returning.
+  await expect(page.locator("[data-board] textarea")).toHaveCount(0);
+  // Catches: the Arrange toggle returning.
+  await expect(page.locator("[data-board]").getByRole("button", { name: /arrange/i })).toHaveCount(0);
+  // Catches: the per-card move, hide and show controls returning.
+  await expect(page.locator("[data-board] [data-card-move], [data-board] [data-card-hide], [data-board] [data-card-show]")).toHaveCount(0);
+  // Catches: Tools moving up above the sections that need the visitor.
+  const order = await page.locator("[data-board] [data-board-section]").evaluateAll((els) => els.map((el) => el.getAttribute("data-board-section")));
+  expect(order).toEqual(["today", "intros", "shortlist", "tools"]);
+});
+
+test("board lower sections: on a phone every control is 44 px and the page never scrolls sideways", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await joinAs(page, "dev", true);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await page.locator("[data-row-bring-forward]").first().click();
+  await page.locator("[data-row-bring-forward]").nth(1).click();
+  await openTab(page, speedrunCopy.network.tabs.board);
+  const controls = page.locator("[data-board-section] button, [data-board-section] summary, [data-board-section] a");
+  const sizes = await controls.evaluateAll((els) => els.map((el) => [(el.textContent ?? el.getAttribute("aria-label"))?.trim().slice(0, 24), el.getBoundingClientRect().width, el.getBoundingClientRect().height] as const));
+  // Catches: the selector matching almost nothing, so the size loop below checks no controls at all.
+  expect(sizes.length).toBeGreaterThan(8);
+  // Catches: a Today, intro, shortlist or tools control under the 44 px touch size (Ruling 68).
+  for (const [label, width, height] of sizes) {
+    expect(width, `${label} width`).toBeGreaterThanOrEqual(43.95);
+    expect(height, `${label} height`).toBeGreaterThanOrEqual(43.95);
+  }
+  // Catches: the new sections pushing the page, or the tab's own scroll area, wider than the phone.
+  expect(await page.evaluate(() => { const panel = document.querySelector('[role="tabpanel"]:not([hidden])'); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && !!panel && panel.scrollWidth <= panel.clientWidth; })).toBe(true);
 });

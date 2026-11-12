@@ -73,6 +73,8 @@ type SheetCopy = {
   confirm?: string;
   done: string;
   note: string;
+  /** Used instead of the summary and note when the sheet has no notes to show. */
+  bare?: { summary: (company: string, role: string | null) => string; note: string };
 };
 
 const copy = speedrunCopy.actions;
@@ -118,6 +120,11 @@ function sheetFor(kind: ActionKind, company: string, role: string | null, who: C
   // Prep notes belong to someone with a pinned detail; a generic row gets none. The interview line is a confirmation plus prep.
   const preps = kind === "prepare" || kind === "joinMeeting" || kind === "confirmInterview";
   if (preps && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
+  // With no notes to show, the sheet says so instead of pointing at notes that are not there.
+  if (text.bare && !sheet.prep) {
+    sheet.summary = text.bare.summary(company, role);
+    sheet.note = text.bare.note;
+  }
   if (detail?.meeting) sheet.meeting = { ...detail.meeting, when: whenLabel(detail.meeting.at) };
   if (kind === "pickTime") sheet.pickSlot = true;
   const links: { label: string; href: string }[] = [];
@@ -210,6 +217,25 @@ export function needsYou(pipeline: Pipeline, details: Details, today: string): A
     .filter(({ action }) => !seen.has(action.id) && seen.add(action.id))
     .slice(0, MAX_NEEDS)
     .map(({ action }) => action);
+}
+
+export type TodayItem = {
+  action: Action;
+  /** An interview with a booked call: Join and Add to calendar both open this one sheet. */
+  join: Action | null;
+};
+
+/** The call an interview action points at: the same company and role, as a joinMeeting. */
+function callFor(action: Action, details: Details, today: string): Action | null {
+  if (action.kind === "joinMeeting") return action;
+  if (action.kind !== "confirmInterview") return null;
+  const detail = detailFor(details, action.company, action.role);
+  return detail?.meeting ? build("joinMeeting", action.company, action.role, detail, 0, today, action.who) : null;
+}
+
+/** Today's actions, each with its call to join when the interview has one booked. */
+export function todayItems(events: InboxEvent[], details: Details, today: string): TodayItem[] {
+  return todayActions(events, details, today).map((action) => ({ action, join: callFor(action, details, today) }));
 }
 
 const todayKind: Partial<Record<InboxEvent["kind"], Stage>> = { assessment: "assessment", screen: "screen", interview: "interview", offer: "offer" };

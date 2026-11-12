@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readPaste } from "./board";
 import { classifyEmail } from "./classify";
 import { buildPipeline } from "./pipeline";
 import type { InboxEmail, InboxEvent } from "./types";
@@ -134,11 +133,8 @@ describe("buildPipeline", () => {
       { ...event("applied", "2026-10-01", "Cobalt Meadow", null), emailId: "sam-0001" },
       { ...event("rejection", "2026-10-20", "Cobalt Meadow", null), emailId: "sam-0002" },
     ];
-    const paste = (from: string, subject: string): InboxEvent => {
-      const outcome = readPaste(`From: ${from}\nSubject: ${subject}\n\nWe received your application.`, []);
-      if (outcome.kind !== "added") throw new Error(`paste was ${outcome.kind}`);
-      return outcome.event;
-    };
+    // The "pasted-" id prefix is what marks a source apart from the sample inbox.
+    const paste = (from: string, subject: string): InboxEvent => classifyEmail({ id: `pasted-${subject}`, from, subject, body: "We received your application.", date: "2026-11-07T08:00:00.000Z" });
 
     it("keeps a pasted short name off the sample row it starts", () => {
       const pasted = paste("Cobalt <no-reply@hire.lever.co>", "Thank you for applying to Cobalt");
