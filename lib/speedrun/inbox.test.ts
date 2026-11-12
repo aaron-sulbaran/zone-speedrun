@@ -36,7 +36,7 @@ describe("generateInbox", () => {
     expect(count("interview")).toBeGreaterThanOrEqual(6);
     expect(count("interview")).toBeLessThanOrEqual(10);
     expect(count("offer")).toBe(2);
-    expect(pipelineFor("sam").stats.intros).toBe(4);
+    expect(count("intro")).toBe(4);
   });
 
   it("keeps each person's applied count where the overnight moves found it", () => {

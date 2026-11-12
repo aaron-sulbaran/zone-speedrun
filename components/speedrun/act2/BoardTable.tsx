@@ -11,6 +11,7 @@ import { BoardTableRow } from "./BoardTableRow";
 
 const DEFAULT_ROWS = 8;
 const COLUMNS: SortKey[] = ["company", "role", "stage", "applied", "lastUpdate", "next"];
+const COLUMN_WIDTHS = ["lg:w-[15%]", "lg:w-[21%]", "lg:w-[11%]", "lg:w-[10%]", "lg:w-[12%]", "lg:w-[31%]"];
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 
 type Props = {
@@ -49,7 +50,13 @@ export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor,
         ))}
       </div>
       <div data-table-scroll="" className="overflow-x-auto rounded-2xl border border-sr-soft bg-sr-surface">
-        <table className="w-full min-w-[58rem] border-collapse text-sm">
+        <table className="w-full min-w-[58rem] border-collapse text-sm lg:min-w-0 lg:table-fixed">
+          {/* From lg the columns share the card's width and nothing scrolls sideways; below it the table keeps its own width and scrolls. */}
+          <colgroup>
+            {COLUMN_WIDTHS.map((width, at) => (
+              <col key={COLUMNS[at]} className={width} />
+            ))}
+          </colgroup>
           <thead>
             <tr className="border-b border-sr-soft">
               {COLUMNS.map((key) => {

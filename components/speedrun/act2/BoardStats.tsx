@@ -5,10 +5,11 @@ import { CountUp } from "./CountUp";
 
 const TILE_KEYS: TileKey[] = ["applied", "inProcess", "intros", "offers"];
 
-type Props = { stats: Pipeline["stats"]; open: TileKey | null; onToggle: (key: TileKey) => void };
+type Props = { stats: Pipeline["stats"]; /** The warm intros the Intros list holds, which are not the same thing as intro emails. */ introCount: number; open: TileKey | null; onToggle: (key: TileKey) => void };
 
 /** The four big numbers, each a toggle: one press opens its list and filters the table, the next press puts both back. */
-export function BoardStats({ stats, open, onToggle }: Props) {
+export function BoardStats({ stats, introCount, open, onToggle }: Props) {
+  const values: Record<TileKey, number> = { ...stats, intros: introCount };
   const labels = speedrunCopy.board.statLabels;
   return (
     <div data-board-stats="" className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -17,7 +18,7 @@ export function BoardStats({ stats, open, onToggle }: Props) {
           key={key}
           type="button"
           data-stat={key}
-          data-value={stats[key]}
+          data-value={values[key]}
           aria-pressed={open === key}
           aria-expanded={open === key}
           aria-controls={open === key ? `sr-tile-${key}` : undefined}
@@ -28,7 +29,7 @@ export function BoardStats({ stats, open, onToggle }: Props) {
         >
           <span className="mt-3 font-srcond text-xs uppercase tracking-widest text-sr-ink2">{labels[key]}</span>
           <span className="text-5xl font-semibold leading-none tracking-tight text-sr-ink md:text-6xl">
-            <CountUp value={stats[key]} playOnMount />
+            <CountUp value={values[key]} playOnMount />
           </span>
         </button>
       ))}

@@ -37,14 +37,14 @@ function chipTone(row: AppRow): string {
 export function BoardTableRow({ row, action, done, picked, onOpen }: Props) {
   return (
     <tr data-row="" className="h-14 border-b border-sr-soft last:border-0">
-      <th scope="row" data-cell="company" className={`${CELL} min-w-[9rem] break-words text-left font-semibold [overflow-wrap:anywhere]`}>{row.company}</th>
-      <td data-cell="role" className={`${CELL} min-w-[10rem] text-sr-ink2`}>{row.role ?? copy.noRole}</td>
+      <th scope="row" data-cell="company" className={`${CELL} min-w-[9rem] break-words lg:min-w-0 text-left font-semibold [overflow-wrap:anywhere]`}>{row.company}</th>
+      <td data-cell="role" className={`${CELL} min-w-[10rem] text-sr-ink2 lg:min-w-0`}>{row.role ?? copy.noRole}</td>
       <td data-cell="stage" className={CELL}>
         <span className={`${CHIP} ${chipTone(row)}`}>{stageLabel(row)}</span>
       </td>
       <td data-cell="applied" className={`${CELL} whitespace-nowrap text-sr-ink2`}><DayCell iso={row.appliedAt} /></td>
       <td data-cell="lastUpdate" className={`${CELL} whitespace-nowrap text-sr-ink2`}><DayCell iso={row.lastEventAt} /></td>
-      <td data-cell="next" data-done-scope="" className={`${CELL} min-w-[18rem]`}>
+      <td data-cell="next" data-done-scope="" className={`${CELL} min-w-[18rem] lg:min-w-0`}>
         {action ? (
           <div className="flex items-center gap-x-2 whitespace-nowrap">
             <ActionSlot action={action} slot="next" label={speedrunCopy.board.nextStep[action.kind]} done={done} picked={picked} className={LINK} onOpen={onOpen} />

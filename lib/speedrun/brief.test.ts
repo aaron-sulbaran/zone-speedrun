@@ -18,7 +18,7 @@ import { matchKey } from "./matchList";
 import { PERSON_KEYS, type AppRow } from "./types";
 
 const copy = speedrunCopy.brief;
-const NO_ROWS = { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } };
+const NO_ROWS = { rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } };
 const role = (postedAt: string, tier: BriefRole["tier"] = "speedrun", id = "r1"): BriefRole => ({
   id, title: "Engineer", company: "Quillmark", tier, postedAt, url: "https://example.com/r",
 });
@@ -26,7 +26,7 @@ const row = (company: string, furthest: AppRow["furthest"], exit: AppRow["exit"]
   company, role: "Engineer", lane: "jobs", furthest, exit, appliedAt: null, lastEventAt, next: null, ...extra,
 });
 const assessment = (company: string) => row(company, "assessment", "open", "2026-11-01T12:00:00.000Z", { role: "Intern" });
-const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, intros: 0, offers: 0 } });
+const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, offers: 0 } });
 // Cobalt Meadow's founder has written back, so an intro there is a reply.
 const REPLIED = { "Cobalt Meadow": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Cobalt Meadow" }, introStatus: "replied" as const } };
 const base = { firstName: "Sam", cadence: "daily" as const, today: INBOX_TODAY, pipeline: NO_ROWS, roles: [] as BriefRole[], details: REPLIED };

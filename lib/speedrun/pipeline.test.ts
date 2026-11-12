@@ -61,7 +61,7 @@ describe("buildPipeline", () => {
       "2026-11-01",
     );
     expect(pipeline.rows).toHaveLength(4);
-    expect(pipeline.stats).toEqual({ applied: 4, inProcess: 1, intros: 1, offers: 1 });
+    expect(pipeline.stats).toEqual({ applied: 4, inProcess: 1, offers: 1 });
   });
 
   it("folds a three email Acme sequence into one row that reached interview", () => {

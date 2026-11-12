@@ -107,7 +107,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
           <Rise className="space-y-6">
             <NeedsYou actions={needs} rows={pipeline.rows} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
             <div className="space-y-3">
-              <BoardStats stats={{ ...pipeline.stats, intros: intros.length }} open={openTile} onToggle={pressTile} />
+              <BoardStats stats={pipeline.stats} introCount={intros.length} open={openTile} onToggle={pressTile} />
               {openTile && <TilePanel key={openTile} tile={openTile} rows={pipeline.rows} actions={actions} intros={intros} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />}
             </div>
             {/* On the surface colour the chart's label outlines are drawn in; no heading or controls, so it is no longer a card. */}

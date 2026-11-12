@@ -394,9 +394,8 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
   // Catches: a table squeezed to fit, with no sideways scroll of its own.
   expect(await box.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
   await expect(box).toHaveCSS("overflow-x", "auto");
-  await stat(page, "offers").click();
-  // Catches: any new control under the 44 px touch size (Ruling 68), tiles and chips and headers and links included.
-  const controls = page.locator("[data-needs-action], [data-needs-toggle], [data-tile-action], [data-stat], [data-board-table] [data-filter], [data-board-table] th button, [data-next-action], [data-board-table] button[aria-expanded]");
+  // Collected and measured before any tile is pressed, so Show all and every Next-step link are still on the page.
+  const controls = page.locator("[data-needs-action], [data-needs-toggle], [data-stat], [data-board-table] [data-filter], [data-board-table] th button, [data-next-action], [data-board-table] button[aria-expanded]");
   // Catches: the selector matching almost nothing, so the size loop below checks no controls at all.
   expect(await controls.count()).toBeGreaterThan(20);
   const sizes = await controls.evaluateAll((els) => els.map((el) => [el.textContent?.trim().slice(0, 20), el.getBoundingClientRect().width, el.getBoundingClientRect().height] as const));
@@ -404,6 +403,18 @@ test("board table: on a phone the table scrolls inside its own box, the page nev
   for (const [label, width, height] of sizes) {
     expect(width, `${label} width`).toBeGreaterThanOrEqual(43.95);
     expect(height, `${label} height`).toBeGreaterThanOrEqual(43.95);
+  }
+  // Catches: Show all missing from the measured set, so the table's own button could shrink unnoticed.
+  expect(await page.locator("[data-board-table] button[aria-expanded]").count()).toBe(1);
+  // Catches: Next-step links dropped from the measured set (only a few of the eight rows carry one, and each must be a thumb target).
+  expect(await page.locator("[data-next-action]").count()).toBeGreaterThanOrEqual(3);
+  await stat(page, "offers").click();
+  const tileActions = await page.locator("[data-tile-action]").evaluateAll((els) => els.map((el) => [el.getBoundingClientRect().width, el.getBoundingClientRect().height]));
+  // Catches: a tile's Decide on the offer button under the 44 px touch size.
+  expect(tileActions).toHaveLength(2);
+  for (const [width, height] of tileActions) {
+    expect(width).toBeGreaterThanOrEqual(43.95);
+    expect(height).toBeGreaterThanOrEqual(43.95);
   }
   // Catches: a tile drop-down narrower than the phone, instead of stacking full width.
   const panel = (await page.locator('[data-tile-panel="offers"]').boundingBox())!;
@@ -469,6 +480,7 @@ test("needs you: the contact and status columns start at the same x on every row
     for (const left of due) expect(Math.abs(left - due[0]), `due column at ${width}`).toBeLessThanOrEqual(1);
     await stat(page, "intros").click();
     const status = await lefts("[data-tile-status]");
+    // Catches: an Intros list with no status cells, which would pass the drift loop below with nothing to compare.
     expect(status.length).toBeGreaterThanOrEqual(2);
     // Catches: the same drift in a tile's list, where the status column is the one to scan.
     for (const left of status) expect(Math.abs(left - status[0]), `status column at ${width}`).toBeLessThanOrEqual(1);
@@ -488,6 +500,7 @@ test("board table: stage chips read as labels, not buttons, and every body row i
   expect(c.radius).toBeLessThan(b.radius);
   await page.locator('[data-board-table] [data-filter="all"]').scrollIntoViewIfNeeded();
   const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  // Catches: too few visible rows for the height comparison below to mean anything.
   expect(heights.length).toBeGreaterThan(5);
   // Catches: rows with a Next-step link taller than rows with plain text, so the table looks ragged (L3).
   for (const height of heights) expect(Math.abs(height - heights[0])).toBeLessThanOrEqual(1);
@@ -498,6 +511,7 @@ test("needs you: Details does not say the same thing three times", async ({ page
   const first = needs(page).first();
   await first.locator("[data-needs-toggle]").click();
   const details = first.locator("[data-needs-details]");
+  // Catches: Details that never open, which would make the not-contain check below pass for nothing.
   await expect(details).toBeVisible();
   // Catches: the offer's role and stage restated under a title that already names the role (L4).
   await expect(details).not.toContainText(`Founding Engineer, ${speedrunCopy.flow.stages.offer}`);
@@ -517,4 +531,49 @@ test("needs you: a time picked in the Brief shows on the Board's done marker", a
   await openTab(page, speedrunCopy.network.tabs.board);
   // Catches: a Board that knows the item is done but not which time was sent, because the pick lived in the Brief's own state.
   await expect(needs(page).nth(1).locator("[data-action-done]")).toHaveText(`${ACTIONS.sheets.pickTime.done} ${time}`);
+});
+
+test("needs you: a Details line that the title does not repeat keeps its role and stage", async ({ page }) => {
+  await joinAs(page, "dev", true);
+  // Dev's Tessel Harbor item is a Prepare, whose title ("Get ready for Tessel Harbor") never names the role.
+  const item = page.locator('[data-needs-item="prepare"]');
+  await item.locator("[data-needs-toggle]").click();
+  // Catches: the repeat-removal rule dropping the role and stage line for every item, leaving Details with no context at all.
+  await expect(item.locator("[data-needs-details]")).toContainText(COPY.needs.row("Founding Engineer", speedrunCopy.flow.stages.interview));
+});
+
+test("board top: the Intros list and the table's filter leave each other alone", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const chip = (key: string) => page.locator(`[data-board-table] [data-filter="${key}"]`);
+  await stat(page, "offers").click();
+  await expect(rows(page)).toHaveCount(2);
+  await stat(page, "intros").click();
+  // Catches: pressing Intros resetting the filter, which would put the table back on every row.
+  await expect(chip("offers")).toHaveAttribute("aria-pressed", "true");
+  await expect(rows(page)).toHaveCount(2);
+  // Catches: an Intros press that does not open its own list while a filter is on.
+  await expect(stat(page, "intros")).toHaveAttribute("aria-expanded", "true");
+  await chip("closed").click();
+  // Catches: a chip press closing the Intros list, which has nothing to do with the filter.
+  await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
+  await expect(stat(page, "intros")).toHaveAttribute("aria-pressed", "true");
+  await chip("all").click();
+  await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
+});
+
+test("board table: from lg the table fits its card with no sideways scroll, every column visible and every row the same height", async ({ page }) => {
+  for (const width of [1024, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await joinAs(page, "sam", true);
+    const gap = await page.locator("[data-table-scroll]").evaluate((el) => el.scrollWidth - el.clientWidth);
+    // Catches: a table wider than its card at lg, which clips the Next step column behind a sideways scroll.
+    expect(gap, `scroll overflow at ${width}`).toBeLessThanOrEqual(1);
+    // Catches: a Next step cell whose due date is cut by its own cell, even when the table as a whole fits.
+    const clipped = await page.locator('[data-cell="next"]').evaluateAll((els) => els.filter((el) => el.scrollWidth > el.clientWidth + 1).length);
+    expect(clipped, `clipped Next step cells at ${width}`).toBe(0);
+    const heights = await rows(page).evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+    expect(heights.length).toBeGreaterThan(5);
+    // Catches: wrapping in a squeezed column making some rows taller than others (L3 at the narrowest lg width).
+    for (const height of heights) expect(Math.abs(height - heights[0]), `row height at ${width}`).toBeLessThanOrEqual(1);
+  }
 });

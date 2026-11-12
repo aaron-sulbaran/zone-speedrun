@@ -88,7 +88,7 @@ describe("needsYou", () => {
   });
 
   it("hands back nothing for an empty pipeline", () => {
-    expect(needsYou({ rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY)).toEqual([]);
+    expect(needsYou({ rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } }, undefined, INBOX_TODAY)).toEqual([]);
   });
 });
 
@@ -266,7 +266,7 @@ describe("briefAction", () => {
   // Catches: Bring forward turning into a note to the company, or losing the match it adds.
   it("turns a new-role line into Bring forward with the match key, a shortlist sheet and the real posting", () => {
     const line = item({ kind: "new-role", company: "Quillmark", actionKey: "Quillmark-r1", href: "https://example.com/r" });
-    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY);
+    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } }, undefined, INBOX_TODAY);
     expect(action?.kind).toBe("bringForward");
     expect(action?.matchKey).toBe("Quillmark-r1");
     expect(action?.id).toBe("bringForward:Quillmark:Quillmark-r1");
@@ -299,7 +299,7 @@ describe("briefAction", () => {
   // Catches: a posting link that is not a real https address reaching a sheet.
   it("drops a posting that is not https", () => {
     const line = item({ kind: "new-role", company: "Quillmark", actionKey: "Quillmark-r1", href: "javascript:alert(1)" });
-    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } }, undefined, INBOX_TODAY);
+    const action = briefAction(line, { rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } }, undefined, INBOX_TODAY);
     expect(action?.sheet.links ?? []).toEqual([]);
   });
 

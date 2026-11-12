@@ -91,7 +91,6 @@ function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
 }
 
 export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
-  const intros = events.filter((event) => event.kind === "intro").length;
   const rows: AppRow[] = [];
 
   for (const groups of groupByApplication(events).values()) {
@@ -126,7 +125,6 @@ export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
     stats: {
       applied: rows.length,
       inProcess: rows.filter((row) => row.exit === "open" && row.furthest !== "applied" && row.furthest !== "offer").length,
-      intros,
       offers: rows.filter((row) => row.exit === "open" && row.furthest === "offer").length,
     },
   };

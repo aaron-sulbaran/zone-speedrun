@@ -86,14 +86,16 @@ describe("the Board for a sample person", () => {
 
 describe("the Board's Intros tile", () => {
   it("counts the warm intros it lists, not the intro emails", () => {
-    const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true });
-    const events = generateInbox(PEOPLE.sam).map(classifyEmail);
+    // A second intro email from a company that already has a card: five emails, still four cards.
+    const again = { emailId: "pasted-again", company: "Lumora Health", role: null, kind: "intro" as const, date: `${INBOX_TODAY}T08:00:00.000Z`, lane: "founder" as const };
+    const events = [...generateInbox(PEOPLE.sam).map(classifyEmail), again];
     const cards = introCards(events, null, DETAILS.sam, INBOX_TODAY);
-    // The tile and the Intros list are built from the same cards.
-    // Catches: a tile number that disagrees with its own list.
+    const emails = events.filter((event) => event.kind === "intro").length;
+    expect(emails).toBeGreaterThan(cards.length);
+    const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true, events: [again] });
+    // Catches: a tile number taken from the intro emails (the original bug), which disagrees with the list it opens.
     expect(html).toContain(`data-stat="intros" data-value="${cards.length}"`);
-    // The list the tile opens has one item per card, and the pipeline's own count (intro emails) is not what the tile shows.
-    expect(cards.length).toBeGreaterThan(0);
+    expect(html).not.toContain(`data-stat="intros" data-value="${emails}"`);
   });
 });
 

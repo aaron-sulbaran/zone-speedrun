@@ -64,7 +64,7 @@ export type AppRow = {
 
 export type Pipeline = {
   rows: AppRow[];
-  stats: { applied: number; inProcess: number; intros: number; offers: number };
+  stats: { applied: number; inProcess: number; offers: number };
 };
 
 export type PersonKey = (typeof PERSON_KEYS)[number];
