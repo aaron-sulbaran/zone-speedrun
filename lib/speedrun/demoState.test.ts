@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { demoReducer, initialDemoState } from "./demoState";
+import { demoReducer, initialDemoState, type DemoState } from "./demoState";
 import { stepsFor } from "./onboarding";
 import { PEOPLE } from "./people";
 import { createRequest } from "./introRequest";
-import type { Match } from "./match";
+import type { Match, MatchResult } from "./match";
 import { matchKey } from "./matchList";
 
 const LIVE = { reading: false, email: false };
@@ -362,5 +362,113 @@ describe("demoReducer shortlist, intro request and done set", () => {
     demoReducer(state, { type: "moveCard", card: "tools", to: 0 });
     // @ts-expect-error toggleCard left the actions
     demoReducer(state, { type: "toggleCard", card: "flow" });
+  });
+});
+
+describe("demoReducer the desk's transitions", () => {
+  const [ka, kb, kc] = [matchKey(A), matchKey(B), matchKey(C)];
+  const RESULT: MatchResult = { matches: [A, B, C], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
+  const requested = (keys: string[], list: Match[]) => {
+    let state: DemoState = { ...initialDemoState(LIVE), result: RESULT };
+    for (const key of keys) state = demoReducer(state, { type: "bringForward", key, on: true });
+    return demoReducer(state, { type: "requestIntro", request: request(list) });
+  };
+
+  it("advanceIntro to connected from requested leaves the state unchanged", () => {
+    const state = requested([ka, kb], [A, B]);
+    expect(demoReducer(state, { type: "advanceIntro", to: "connected" })).toBe(state);
+  });
+
+  it("advanceIntro walks requested to withFounder to connected, and sendIntro marks it sent", () => {
+    let state = requested([ka, kb], [A, B]);
+    state = demoReducer(state, { type: "advanceIntro", to: "withFounder" });
+    expect(state.introRequest?.status).toBe("withFounder");
+    expect(demoReducer(state, { type: "sendIntro" })).toBe(state);
+    state = demoReducer(state, { type: "advanceIntro", to: "connected" });
+    expect(state.introRequest?.status).toBe("connected");
+    state = demoReducer(state, { type: "sendIntro" });
+    expect(state.introRequest?.introSent).toBe(true);
+    expect(demoReducer(state, { type: "sendIntro" })).toBe(state);
+  });
+
+  it("swapIntro is refused after advanceIntro to withFounder", () => {
+    const state = demoReducer(requested([ka, kb], [A, B]), { type: "advanceIntro", to: "withFounder" });
+    expect(demoReducer(state, { type: "swapIntro", request: request([B, A]) })).toBe(state);
+  });
+
+  it("passIntro makes #2 live at requested, and moves it to the front of both lists", () => {
+    // Catches: the request leaving #1, which PR 6's Matches can't show.
+    const state = demoReducer(requested([ka, kb, kc], [A, B, C]), { type: "passIntro", by: "team" });
+    expect(state.introRequest).toMatchObject({ matchKey: kb, status: "requested" });
+    expect(state.shortlist[0]).toBe(kb);
+    expect(state.introRequest?.ranked[0]).toBe(kb);
+    expect(state.shortlist).toContain(ka);
+    expect(state.passed).toEqual([{ key: ka, by: "team" }]);
+  });
+
+  it("passIntro with no other eligible match clears the request", () => {
+    const state = demoReducer(requested([ka], [A]), { type: "passIntro", by: "founder" });
+    expect(state.introRequest).toBeNull();
+    expect(state.passed).toEqual([{ key: ka, by: "founder" }]);
+  });
+
+  it("passIntro works on a withFounder request", () => {
+    // Catches: a pass routed through the swap's guard.
+    const state = demoReducer(requested([ka, kb], [A, B]), { type: "advanceIntro", to: "withFounder" });
+    const next = demoReducer(state, { type: "passIntro", by: "founder" });
+    expect(next.introRequest).toMatchObject({ matchKey: kb, status: "requested" });
+  });
+
+  it("passIntro does nothing with no live request", () => {
+    const state = { ...initialDemoState(LIVE), result: RESULT };
+    expect(demoReducer(state, { type: "passIntro", by: "team" })).toBe(state);
+  });
+
+  it("a pass never hands the request back to a passed match", () => {
+    // Catches: the request handed back to a passed match.
+    let state = requested([ka, kb, kc], [A, B, C]);
+    state = demoReducer(state, { type: "passIntro", by: "team" });
+    expect(state.introRequest?.matchKey).toBe(kb);
+    state = demoReducer(state, { type: "moveShortlist", key: ka, direction: -1 });
+    expect(state.shortlist.slice(0, 2)).toEqual([ka, kb]);
+    state = demoReducer(state, { type: "passIntro", by: "team" });
+    expect(state.introRequest?.matchKey).toBe(kc);
+    expect(state.passed.map((p) => p.key)).toEqual([ka, kb]);
+  });
+
+  it("swapIntro and requestIntro onto a passed key are refused", () => {
+    const passedState = demoReducer(requested([ka, kb, kc], [A, B, C]), { type: "passIntro", by: "team" });
+    expect(demoReducer(passedState, { type: "swapIntro", request: request([A, B, C]) })).toBe(passedState);
+    const none = demoReducer(requested([ka], [A]), { type: "passIntro", by: "team" });
+    const again = demoReducer({ ...none, shortlist: [ka] }, { type: "requestIntro", request: request([A]) });
+    expect(again.introRequest).toBeNull();
+  });
+
+  it("moveShortlist lifting another pick keeps the live key, and passIntro passes it, not shortlist[0]", () => {
+    let state = requested([ka, kb, kc], [A, B, C]);
+    state = demoReducer(state, { type: "moveShortlist", key: kb, direction: -1 });
+    expect(state.shortlist[0]).toBe(kb);
+    expect(state.introRequest?.matchKey).toBe(ka);
+    state = demoReducer(state, { type: "passIntro", by: "team" });
+    expect(state.passed).toEqual([{ key: ka, by: "team" }]);
+  });
+
+  it("pickPerson, built and reset clear passed", () => {
+    const dirty = () => demoReducer(requested([ka, kb], [A, B]), { type: "passIntro", by: "team" });
+    expect(dirty().passed).toHaveLength(1);
+    expect(demoReducer(dirty(), { type: "pickPerson", key: "dev" }).passed).toEqual([]);
+    expect(demoReducer(dirty(), { type: "reset" }).passed).toEqual([]);
+    const building = { ...dirty(), step: "building" as const, buildId: 3 };
+    expect(demoReducer(building, { type: "built", buildId: 3, profile: PEOPLE.dev.profile, result: RESULT }).passed).toEqual([]);
+  });
+
+  it("bringForward off on the requested key is a no-op once the desk has moved it", () => {
+    // Catches: a candidate pulling a request the founder already holds.
+    const atRequested = requested([ka, kb], [A, B]);
+    expect(demoReducer(atRequested, { type: "bringForward", key: ka, on: false }).introRequest).toBeNull();
+    const held = demoReducer(atRequested, { type: "advanceIntro", to: "withFounder" });
+    expect(demoReducer(held, { type: "bringForward", key: ka, on: false })).toBe(held);
+    const connected = demoReducer(held, { type: "advanceIntro", to: "connected" });
+    expect(demoReducer(connected, { type: "bringForward", key: ka, on: false })).toBe(connected);
   });
 });

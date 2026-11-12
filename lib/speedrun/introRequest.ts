@@ -1,4 +1,4 @@
-import type { Match } from "./match";
+import type { Match, MatchResult } from "./match";
 import { matchKey } from "./matchList";
 import type { Intake } from "./types";
 
@@ -62,4 +62,18 @@ export function pass(
     if (next && eligible(next)) return { passed, live: build(request.candidate, next, request.ranked.slice(i), intake) };
   }
   return { passed, live: null };
+}
+
+/** The talent team takes the request to the founder; only a fresh request can go. */
+export const sendToFounder = (r: IntroRequest): IntroRequest | null => (r.status === "requested" ? { ...r, status: "withFounder" } : null);
+
+/** The founder says yes; gate 1 (the team's send) can't be skipped. */
+export const founderYes = (r: IntroRequest): IntroRequest | null => (r.status === "withFounder" ? { ...r, status: "connected" } : null);
+
+export const markIntroSent = (r: IntroRequest): IntroRequest | null => (r.status === "connected" && !r.introSent ? { ...r, introSent: true } : null);
+
+/** The matches for these keys, in the keys' order; a key with no match is dropped. */
+export function resolveShortlist(result: MatchResult, keys: string[]): Match[] {
+  const byKey = new Map(result.matches.map((m) => [matchKey(m), m]));
+  return keys.flatMap((key) => byKey.get(key) ?? []);
 }
