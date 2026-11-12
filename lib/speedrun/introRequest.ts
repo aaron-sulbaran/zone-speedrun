@@ -17,7 +17,7 @@ export type IntroRequest = {
 };
 
 /** At most one request is live; a passed one stays stored but blocks nothing. */
-export const isLive = (request: IntroRequest | null): request is IntroRequest => request !== null && request.status !== "passed";
+export const isLive = (request: IntroRequest | null): request is IntroRequest & { status: Exclude<IntroStatus, "passed"> } => request !== null && request.status !== "passed";
 
 export const eligible = (match: Match): boolean => match.connect.includes("intro");
 

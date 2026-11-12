@@ -584,6 +584,7 @@ test("intro request: Move my request here makes that match #1 and moves the line
   await pick(page, a);
   await requestButton(page).click();
   await pick(page, b);
+  // Catches: the second pick not showing its place on the shortlist before the swap.
   await expect(rankText(page)).toHaveText("#2");
   await swapButton(page).click();
   // Catches: a swap that leaves the rank, so #2 holds the request.
@@ -710,18 +711,23 @@ test("intro request: with no request and no Apply the toggle is the filled actio
   });
   const filled = () =>
     detail(page).locator("button:visible, a:visible").evaluateAll((nodes, color) => nodes.filter((node) => getComputedStyle(node).backgroundColor === color).map((node) => node.textContent?.trim()), ink);
+  await bringForward(page, 1);
   await pick(page, 0);
   // Catches: a company-only match with no filled action at all (the pane reads flat).
   await expect.poll(filled).toEqual([INTRO.bring]);
   await bringToggle(page).click();
-  // Catches: the toggle keeping its fill once it is pressed and the request is available.
-  await expect.poll(filled).toEqual([INTRO.request]);
+  await expect(rankText(page)).toHaveText("#2");
+  // Catches: a pressed toggle keeping the fill when neither Request (it is #2) nor Apply is available.
+  await expect.poll(filled).toEqual([]);
   await pick(page, last);
   // Catches: an ineligible match told to bring it forward first, or offered a request button.
   await expect(detail(page)).toContainText(INTRO.hintNoPath);
   await expect(detail(page)).not.toContainText(INTRO.hintBring);
+  // Catches: a request button rendered, even disabled, on a match with no intro path.
   await expect(requestButton(page)).toHaveCount(0);
   await bringToggle(page).click();
+  // Catches: the shortlist position taking over the hint once the ineligible match is brought forward.
   await expect(detail(page)).toContainText(INTRO.hintNoPath);
+  // Catches: the request button appearing on a brought-forward match that has no intro path.
   await expect(requestButton(page)).toHaveCount(0);
 });
