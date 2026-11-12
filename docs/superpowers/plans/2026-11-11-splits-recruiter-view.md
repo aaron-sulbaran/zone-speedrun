@@ -30,6 +30,7 @@
   - Playwright runs only through `scripts/pwslot.sh`, in the foreground, one command at a time, with `E2E_PORT` set to the task's port (3331 to 3336).
   - Never touch ports 3220, 3221, 3276, 3277, 3290, 3295, 3296 or 3313 to 3318.
 - **Reduced motion:** no arrival motion, no typing and no slide. Every state renders in its end state.
+- **e2e drives the candidate side through PR 6's hooks:** `data-row-bring-forward` on list rows, and `data-bring-forward`, `data-request-intro`, `data-swap-intro` and `data-intro-here` in the detail pane. Ineligible matches render no request button. If PR 6 left a helper for bringing forward and requesting in `e2e/speedrun-flow.ts`, use it; otherwise add `spendIntro(page, picks)` there once, in Task 4.
 - **Nothing calls the network.** Read and brief stay switched off. "Send" buttons change state only.
 - **Phones:**
   - no sideways page scroll at 320, 375 or 390;
@@ -82,7 +83,7 @@
 - Modify: `lib/speedrun/introRequest.ts`, `lib/speedrun/introRequest.test.ts`, `lib/speedrun/demoState.ts`, `lib/speedrun/demoState.test.ts`.
 
 **Interfaces:**
-- Consumes (PR 6): `IntroRequest`, `IntroStatus`, `eligible`, `pass(request, by, shortlist, intake)`, and `DemoState.shortlist`, `.introRequest`, `.result`, `.intake`.
+- Consumes (PR 6): `IntroRequest`, `IntroStatus`, `eligible`, `isLive(request)` (non-null and not `passed`), `pass(request, by, shortlist, intake)`, and `DemoState.shortlist`, `.introRequest`, `.result`, `.intake`.
 - Produces:
   ```ts
   // introRequest.ts
@@ -106,7 +107,8 @@
     - It stores `live` as the new `introRequest`.
     - With a live request, it moves the live key to `shortlist[0]`, as `swapIntro` does. The passed match stays in the shortlist.
     - The passed request isn't kept: the desk shows only the live one.
-  - **PR 6's `requestIntro` and `swapIntro` gain one guard:** they refuse a key that's in `passed`. A candidate can't put the request back on a match the team or the founder already passed.
+  - **PR 6's `requestIntro` and `swapIntro` gain one guard:** they refuse a key that's in `passed`. A candidate can't put the request back on a match the team or the founder already passed. PR 6's own guard uses `isLive(request)` (non-null and not `passed`), and its Matches slot (`lib/speedrun/introSlot.ts`) doesn't know about passes. This guard is what stops a passed key, and Task 6 teaches the slot.
+  - **The request is locked once the desk moves it.** In PR 6, `bringForward` with `on: false` on the requested match withdraws the request at any status. PR 7 adds a guard: while the request is `withFounder` or `connected`, `bringForward` off on its key is a no-op (spec Ruling 70: a swap or withdrawal only while `requested`). At `requested`, PR 6's withdrawal stands.
   - **`resolveShortlist`** is new here: PR 6 has no equivalent (confirmed by the Builder at PR 6's `61552bb`).
 
 - [ ] **Step 1: Write the failing tests.** In `introRequest.test.ts`:
@@ -124,7 +126,8 @@
   - with picks A, B and C, all eligible: pass A, then `moveShortlist` A up above B (PR 6's sync puts A back into `ranked`), then pass B. C is live, not A (`// Catches:` the request handed back to a passed match);
   - `swapIntro` and `requestIntro` onto a passed key are refused;
   - `moveShortlist` lifting another pick above the live request leaves `introRequest.matchKey` unchanged, and `passIntro` still passes that match, not `shortlist[0]`;
-  - `pickPerson`, `built` and `reset` clear `passed`.
+  - `pickPerson`, `built` and `reset` clear `passed`;
+  - `bringForward` off on the requested key at `withFounder` leaves both the shortlist and `introRequest` unchanged, while at `requested` it still withdraws (`// Catches:` a candidate pulling a request the founder already holds).
 - [ ] **Step 2: Run them.** Run `pnpm test lib/speedrun/introRequest.test.ts lib/speedrun/demoState.test.ts`. Expected: FAIL on the new cases.
 - [ ] **Step 3: Implement** the transitions and the three reducer cases.
 - [ ] **Step 4: Run the checks.** Run `pnpm test`, then `pnpm tsc --noEmit`. Expected: pass.
@@ -382,20 +385,32 @@
 ### Task 6: The earned door, the Why card, phones
 
 **Files:**
-- Modify: the PR 6 component that renders "Request a warm intro" (grep `data-request-intro`), `lib/content/speedrun.ts` (`team.earned`, `decisions.cards`), and `e2e/speedrun-desk.spec.ts`.
+- Modify:
+  - `lib/speedrun/introSlot.ts` and its test (PR 6's pure per-match slot);
+  - the detail-pane component that renders PR 6's `data-intro-here` line (grep for it);
+  - `lib/content/speedrun.ts` (`team.earned`, `team.passedLine`, `decisions.cards`);
+  - `e2e/speedrun-desk.spec.ts`.
 - E2E_PORT 3334.
 
 **Interfaces:**
-- Consumes: `onSide`, which reaches Matches through `NetworkPhase`.
-- Produces: `data-earned-door`.
+- Consumes:
+  - `onSide`, which reaches Matches through `NetworkPhase`;
+  - `state.passed`;
+  - PR 6's detail-pane hooks: `data-request-intro`, `data-bring-forward` (`aria-pressed`, constant name "Bring forward"), `data-intro-on`, `data-swap-intro` and `data-intro-here`.
+  - List rows use `data-row-bring-forward`. Focus moves to the `data-intro-here` line after a request or a swap.
+- Produces:
+  - `data-earned-door`;
+  - `data-intro-passed`;
+  - an `introSlot` variant for passed keys: its input gains `passed`, and the passed variant beats every other slot.
 
-**The earned door** (Ruling 72). On the match whose key is `introRequest.matchKey` (never by position), where the request button was, while the status is `requested`, show:
-- the line `team.earned.line`, verbatim from the spec: "Sent. It just landed on the speedrun team's desk. What does this unlock for them?";
-- the filled primary button `team.earned.button` ("See the talent team's side"), which calls `onSide("team")` and moves focus to the desk's heading.
+**The earned door** (Ruling 72) lives in PR 6's `data-intro-here` line, on the match whose key is `introRequest.matchKey` (never by position). PR 6's line always reads "Intro requested. The talent team reviews it next.", whatever the status, so PR 7 makes it status-aware:
+- **At `requested`:** the line `team.earned.line`, verbatim from the spec: "Sent. It just landed on the speedrun team's desk. What does this unlock for them?";
+- **At `withFounder` or `connected`:** a line that names the status in the desk's words (`team.earned.status(stage)`, using `team.stages`);
+- **The button, at all three:** the filled primary button `team.earned.button` ("See the talent team's side"). It calls `onSide("team")` and moves focus to the desk's heading.
 
-At `withFounder` or `connected`, the line names the status in the desk's words instead (`team.stages`), with the same button.
+**Locked:** at `withFounder` or `connected`, the detail pane's Bring forward toggle on the requested match is `aria-disabled`, matching Task 1's reducer guard.
 
-**A passed match** (a key in `state.passed`) shows `team.passedLine.team` ("The team sent someone else this time.") or `team.passedLine.founder` ("The founder said not now.") in place of the request controls. Both are drafts. Hook: `data-intro-passed`.
+**A passed match** (a key in `state.passed`) gets the slot's passed variant: `team.passedLine.team` ("The team sent someone else this time.") or `team.passedLine.founder` ("The founder said not now."), in place of every request control (no `data-request-intro`, `data-swap-intro` or `data-intro-on`). Both lines are drafts. Hook: `data-intro-passed`.
 
 **The Why card** (spec section 7): append `{ title: "Every intro teaches the matching.", body: "A short survey asks both sides whether a miss was the match or the people. Only the match misses change who gets matched." }` to `decisions.cards`.
 
@@ -405,6 +420,8 @@ At `withFounder` or `connected`, the line names the status in the desk's words i
   - the Why tab lists "Every intro teaches the matching." (`// Catches:` the survey's decision missing);
   - after Not now on the desk, the passed match on Matches shows `[data-intro-passed]` with the founder line, and no request or "Move my request here" button (`// Catches:` re-requesting a match the founder passed);
   - after moving another pick above the live request on the Board, `[data-earned-door]` is still on the requested match (`// Catches:` the door following #1 instead of the request);
+  - after Send on the desk, the requested match's `[data-intro-here]` names With founder (not "reviews it next"), and its `[data-bring-forward]` has `aria-disabled="true"` (`// Catches:` a stale status line, and a withdrawable request after the desk moved it);
+  - vitest in `introSlot.test.ts`: a passed key yields the passed variant even when the key is eligible, on the shortlist, and there is no live request;
   - at 320 and 390, on the team side, with the drawer open and with the founder panel open, `document.documentElement.scrollWidth` equals the viewport width. Both panels' widths are at least the viewport minus 32 (Review Focus 5).
 - [ ] **Step 2: Run it red** (`-g "earned|reduced|why card|desk phone"`). Show at least one pin red first by dropping its guard, running, and restoring. Save the log.
 - [ ] **Step 3: Implement** the change.
