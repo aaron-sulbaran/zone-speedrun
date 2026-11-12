@@ -7,11 +7,11 @@ import type { DemoAction } from "@/lib/speedrun/demoState";
 import { isLive, type IntroRequest } from "@/lib/speedrun/introRequest";
 import type { Match } from "@/lib/speedrun/match";
 import { matchKey } from "@/lib/speedrun/matchList";
+import { INLINE_LINK } from "./links";
 
 const copy = speedrunCopy.board.shortlist;
 const board = speedrunCopy.board;
 const MOVE = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-sr-soft text-sr-ink hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple disabled:cursor-not-allowed disabled:opacity-40";
-const LINK = "inline-flex min-h-11 items-center rounded-full px-1 font-semibold text-sr-ink underline underline-offset-4 hover:text-sr-ink2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 const CHIP = "inline-block whitespace-nowrap rounded-md border border-sr-soft bg-sr-surface px-2 py-0.5 font-srcond text-[11px] uppercase tracking-wider text-sr-ink";
 
 type Props = {
@@ -43,7 +43,7 @@ export function Shortlist({ keys, matches, request, dispatch, onMatches }: Props
     return (
       <p data-shortlist-empty="" className="text-base text-sr-ink">
         {copy.empty.before}
-        <button type="button" onClick={onMatches} className={LINK}>{copy.empty.link}</button>
+        <button type="button" onClick={onMatches} className={INLINE_LINK}>{copy.empty.link}</button>
         {copy.empty.after}
       </p>
     );
@@ -58,14 +58,14 @@ export function Shortlist({ keys, matches, request, dispatch, onMatches }: Props
       <ol className="divide-y divide-sr-soft">
         {items.map(({ key, match }, at) => (
           <li key={key} data-shortlist-item={key} className="flex items-center gap-3 py-3">
-            <span data-shortlist-position="" className="w-8 shrink-0 font-srcond text-sm uppercase tracking-wider text-sr-ink2">{copy.rank(at + 1)}</span>
+            <span data-shortlist-position="" aria-hidden="true" className="w-8 shrink-0 font-srcond text-sm uppercase tracking-wider text-sr-ink2">{copy.rank(at + 1)}</span>
             <div className="min-w-0 flex-1">
               <p data-shortlist-company="" className="break-words font-semibold [overflow-wrap:anywhere]">{match.company.name}</p>
               <p className="break-words text-sm text-sr-ink2">{match.role?.title ?? speedrunCopy.matches.companyOnly}</p>
               {live?.matchKey === key && (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <span data-shortlist-status="" className={CHIP}>{board.introStatus[live.status]}</span>
-                  {live.status === "requested" && <span className="text-sm text-sr-ink2">{copy.requestNote}</span>}
+                  {live.status === "requested" && <span className="text-sm text-sr-ink2">{board.requestNote}</span>}
                 </div>
               )}
             </div>
@@ -80,7 +80,7 @@ export function Shortlist({ keys, matches, request, dispatch, onMatches }: Props
           </li>
         ))}
       </ol>
-      <button type="button" data-shortlist-matches="" onClick={onMatches} className={`mt-2 ${LINK}`}>{copy.toMatches}</button>
+      <button type="button" data-shortlist-matches="" onClick={onMatches} className={`mt-2 ${INLINE_LINK}`}>{copy.toMatches}</button>
     </div>
   );
 }

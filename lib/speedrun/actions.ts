@@ -5,6 +5,7 @@ import type { IntroRequest } from "./introRequest";
 import { daysFrom, detailFor, introStatusOf, QUIET_INTRO_DAYS } from "./intros";
 import { rowKey } from "./keys";
 import { STAGES } from "./pipeline";
+import { getSnapshot } from "./snapshot";
 import { clockLabel, dayLabel, whenLabel } from "./when";
 import type { AppRow, InboxEvent, Pipeline, Stage } from "./types";
 
@@ -63,6 +64,8 @@ export type IntroCard = {
   who: Contact;
   status: "requested" | "withFounder" | "connected" | "replied" | "scheduled" | "waiting";
   action: Action | null;
+  /** The booked call, for Add to calendar. */
+  call: Action | null;
 };
 
 type Details = Record<string, CompanyDetail> | undefined;
@@ -73,8 +76,6 @@ type SheetCopy = {
   confirm?: string;
   done: string;
   note: string;
-  /** Used instead of the summary and note when the sheet has no notes to show. */
-  bare?: { summary: (company: string, role: string | null) => string; note: string };
 };
 
 const copy = speedrunCopy.actions;
@@ -91,6 +92,7 @@ const STAGE_RANK: Record<Stage, number> = { offer: 0, interview: 1, assessment: 
 const QUIET_RANK = 4;
 const LINKEDIN = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
 
+const snapshotPosting = (company: string, role: string | null) => (role ? (getSnapshot().roles.find((entry) => entry.company === company && entry.title === role)?.url ?? null) : null);
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
 const daysUntil = (iso: string, today: string) => dayOf(iso) - dayOf(today);
 const httpsOnly = (href: string | null | undefined) => (href && /^https:\/\//i.test(href) ? href : null);
@@ -119,12 +121,9 @@ function sheetFor(kind: ActionKind, company: string, role: string | null, who: C
   if (kind === "pickTime" || kind === "replyTimes") sheet.slots = slotsFor(today);
   // Prep notes belong to someone with a pinned detail; a generic row gets none. The interview line is a confirmation plus prep.
   const preps = kind === "prepare" || kind === "joinMeeting" || kind === "confirmInterview";
+  // A prepare sheet always has its points: the pinned ones, or the general ones that name no meeting, link or company fact.
   if (preps && detail) sheet.prep = detail.prep ?? copy.defaultPrep;
-  // With no notes to show, the sheet says so instead of pointing at notes that are not there.
-  if (text.bare && !sheet.prep) {
-    sheet.summary = text.bare.summary(company, role);
-    sheet.note = text.bare.note;
-  }
+  else if (kind === "prepare") sheet.prep = copy.defaultPrep;
   if (detail?.meeting) sheet.meeting = { ...detail.meeting, when: whenLabel(detail.meeting.at) };
   if (kind === "pickTime") sheet.pickSlot = true;
   const links: { label: string; href: string }[] = [];
@@ -149,7 +148,7 @@ function build(kind: ActionKind, company: string, role: string | null, detail: C
     due,
     quietDays: due ? null : quietDays,
     label: copy.labels[kind](company),
-    sheet: sheetFor(kind, company, role, who, detail, today, extras.posting),
+    sheet: sheetFor(kind, company, role, who, detail, today, extras.posting === undefined ? snapshotPosting(company, role) : extras.posting),
   };
   if (extras.matchKey) action.matchKey = extras.matchKey;
   return action;
@@ -225,17 +224,17 @@ export type TodayItem = {
   join: Action | null;
 };
 
-/** The call an interview action points at: the same company and role, as a joinMeeting. */
-function callFor(action: Action, details: Details, today: string): Action | null {
+/** The call an action points at: the same company and role, as a joinMeeting with the call's time and mock link. */
+export function callFor(action: Action, details: Details, today: string): Action | null {
   if (action.kind === "joinMeeting") return action;
-  if (action.kind !== "confirmInterview") return null;
+  if (action.kind !== "confirmInterview" && action.kind !== "prepare") return null;
   const detail = detailFor(details, action.company, action.role);
   return detail?.meeting ? build("joinMeeting", action.company, action.role, detail, 0, today, action.who) : null;
 }
 
-/** Today's actions, each with its call to join when the interview has one booked. */
+/** Today's actions. An interview with a booked call also carries that call: confirm first, then join. */
 export function todayItems(events: InboxEvent[], details: Details, today: string): TodayItem[] {
-  return todayActions(events, details, today).map((action) => ({ action, join: callFor(action, details, today) }));
+  return todayActions(events, details, today).map((action) => ({ action, join: action.kind === "prepare" ? null : callFor(action, details, today) }));
 }
 
 const todayKind: Partial<Record<InboxEvent["kind"], Stage>> = { assessment: "assessment", screen: "screen", interview: "interview", offer: "offer" };
@@ -287,7 +286,7 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
   const cards: IntroCard[] = [];
   if (request && request.status !== "passed") {
     const company = request.match.company.name;
-    cards.push({ company, who: detailFor(details, company, null)?.contact ?? defaultContact(company), status: request.status, action: null });
+    cards.push({ company, who: detailFor(details, company, null)?.contact ?? defaultContact(company), status: request.status, action: null, call: null });
   }
   const latest = new Map<string, InboxEvent>();
   for (const event of events) {
@@ -301,7 +300,8 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
     const detail = detailFor(details, event.company, null);
     const status = introStatusOf(detail);
     const who = detail?.contact ?? defaultContact(event.company);
-    cards.push({ company: event.company, who, status, action: introAction(event.company, detail, status, daysFrom(event.date, today), today, who) });
+    const action = introAction(event.company, detail, status, daysFrom(event.date, today), today, who);
+    cards.push({ company: event.company, who, status, action, call: action ? callFor(action, details, today) : null });
   }
   return cards;
 }

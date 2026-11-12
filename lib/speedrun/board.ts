@@ -87,10 +87,6 @@ export function boardMode(personKey: string | null, connected: boolean, rowCount
   return !connected && personKey ? "connect" : "empty";
 }
 
-export function todayEvents(events: InboxEvent[], today: string): InboxEvent[] {
-  return events.filter((event) => event.kind !== "other" && event.date.startsWith(today)).sort((a, b) => b.date.localeCompare(a.date));
-}
-
 export function introEvents(events: InboxEvent[]): InboxEvent[] {
   return events.filter((event) => event.kind === "intro").sort((a, b) => b.date.localeCompare(a.date));
 }

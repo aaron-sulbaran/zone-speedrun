@@ -87,7 +87,6 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
       </div>
       <p className="mt-2 text-xs text-sr-ink2">{copy.send.note}</p>
       <p data-brief-list-note="" className="mt-1 text-xs text-sr-ink2">{copy.send.listNote}</p>
-      <p className="mt-1 text-xs text-sr-ink2">{copy.send.pastedNote}</p>
       <p data-brief-status="" role="status" className="mt-2 text-sm text-sr-ink">
         {STATUS_COPY[status]}
       </p>

@@ -2,7 +2,7 @@ import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
 import { isLive, type IntroRequest } from "./introRequest";
-import type { InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
+import type { Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
 
@@ -23,7 +23,6 @@ export type DemoState = {
   personKey: PersonKey | null;
   profile: Profile | null;
   result: MatchResult | null;
-  events: InboxEvent[];
   /** matchKeys the visitor brought forward, in order. */
   shortlist: string[];
   introRequest: IntroRequest | null;
@@ -48,7 +47,6 @@ export type DemoAction =
   /** The browser refused the file before any build began. */
   | { type: "uploadRejected"; error: UploadErrorKey }
   | { type: "built"; buildId: number; profile: Profile; result: MatchResult }
-  | { type: "addEvents"; events: InboxEvent[] }
   | { type: "bringForward"; key: string; on: boolean }
   | { type: "moveShortlist"; key: string; direction: -1 | 1 }
   | { type: "requestIntro"; request: IntroRequest }
@@ -72,7 +70,6 @@ export function initialDemoState(live: Live): DemoState {
     personKey: null,
     profile: null,
     result: null,
-    events: [],
     shortlist: [],
     introRequest: null,
     done: [],
@@ -132,13 +129,12 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         profile: null,
         result: null,
         ...NO_PICKS,
-        events: [],
-        uploadError: null,
+            uploadError: null,
       };
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, ...NO_PICKS, events: [], uploadError: null };
+      return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, ...NO_PICKS, uploadError: null };
     case "uploadFailed":
       return state.step === "building" && state.personKey === null && action.buildId === state.buildId ? { ...state, step: "join", uploadError: action.error } : state;
     case "uploadRejected":
@@ -147,8 +143,6 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "built":
       if (state.step !== "building" || action.buildId !== state.buildId) return state;
       return { ...state, step: "ready", profile: action.profile, result: action.result, ...NO_PICKS };
-    case "addEvents":
-      return { ...state, events: [...state.events, ...action.events] };
     case "bringForward": {
       const has = state.shortlist.includes(action.key);
       if (action.on === has) return state;

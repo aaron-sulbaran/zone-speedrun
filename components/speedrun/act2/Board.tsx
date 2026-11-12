@@ -44,8 +44,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
     headingRef.current?.focus();
   });
 
-  const sampleEvents = useMemo(() => (connected && personKey ? generateInbox(PEOPLE[personKey]).map(classifyEmail) : []), [connected, personKey]);
-  const events = useMemo(() => [...sampleEvents, ...state.events], [sampleEvents, state.events]);
+  const events = useMemo(() => (connected && personKey ? generateInbox(PEOPLE[personKey]).map(classifyEmail) : []), [connected, personKey]);
   const pipeline = useMemo(() => buildPipeline(events, INBOX_TODAY), [events]);
   const flow = useMemo(() => toFlow(pipeline), [pipeline]);
   const details = personKey ? DETAILS[personKey] : undefined;
@@ -124,9 +123,12 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
             </BoardSection>
           </>
         )}
-        <BoardSection id="shortlist" heading={copy.shortlist.heading}>
-          <Shortlist keys={state.shortlist} matches={state.result?.matches ?? []} request={state.introRequest} dispatch={dispatch} onMatches={toMatches} />
-        </BoardSection>
+        {/* Without an inbox the empty-board line already points to Matches, so the Shortlist waits for its first pick. */}
+        {(mode === "full" || state.shortlist.length > 0) && (
+          <BoardSection id="shortlist" heading={copy.shortlist.heading}>
+            <Shortlist keys={state.shortlist} matches={state.result?.matches ?? []} request={state.introRequest} dispatch={dispatch} onMatches={toMatches} />
+          </BoardSection>
+        )}
         <BoardSection id="tools" heading={copy.tools.heading}>
           <ToolsCard personKey={personKey} />
         </BoardSection>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INBOX_TODAY } from "./inbox";
 import type { Action } from "./actions";
-import { boardMode, filterRows, introEvents, sortRows, TILE_FILTER, tileOfFilter, todayEvents } from "./board";
+import { boardMode, filterRows, introEvents, sortRows, TILE_FILTER, tileOfFilter } from "./board";
 import type { AppRow, InboxEvent } from "./types";
 
 function row(company: string, exit: AppRow["exit"], lastEventAt: string, furthest: AppRow["furthest"] = "applied", over: Partial<AppRow> = {}): AppRow {
@@ -98,12 +98,8 @@ function event(kind: InboxEvent["kind"], date: string, company = "Halcyon Works"
   return { emailId: `${kind}-${date}`, company, role: null, kind, date, lane: "jobs" };
 }
 
-describe("todayEvents and introEvents", () => {
+describe("introEvents", () => {
   const events = [event("interview", `${INBOX_TODAY}T09:00:00.000Z`), event("applied", "2026-11-01T09:00:00.000Z"), event("other", `${INBOX_TODAY}T10:00:00.000Z`), event("intro", `${INBOX_TODAY}T11:00:00.000Z`, "Pinewick")];
-
-  it("keeps only real events dated today, newest first", () => {
-    expect(todayEvents(events, INBOX_TODAY).map((e) => e.kind)).toEqual(["intro", "interview"]);
-  });
 
   it("lists the intro events", () => {
     expect(introEvents(events).map((e) => e.company)).toEqual(["Pinewick"]);

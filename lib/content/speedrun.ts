@@ -279,6 +279,7 @@ export const speedrunCopy = {
     tileMore: (shown: number, total: number) => `Showing ${shown} of ${total}. The table below has the rest.`,
     listMore: (shown: number, total: number) => `Showing ${shown} of ${total}.`,
     appliedOn: (day: string) => `Applied ${day}`,
+    requestNote: "The talent team reviews it next.",
     introStatus: { requested: "Requested", withFounder: "With the founder", connected: "Connected", replied: "Founder replied", scheduled: "Scheduled", waiting: "Waiting" },
     // Shown when there is no inbox and no sample person: one line, two ways forward.
     empty: {
@@ -315,14 +316,12 @@ export const speedrunCopy = {
       calendar: "Add to calendar",
       prep: "What to know",
       prepLabel: (company: string) => `What to know for ${company}`,
-      interviewer: (name: string, title: string, when: string) => `${when} with ${name}, ${title}`,
+      confirmBy: (day: string) => `Confirm by ${day}`,
     },
     intros: {
       heading: "warm intros",
       empty: { before: "No intros yet. Ask for one from a match in the ", link: "Matches tab", after: "." },
-      linkedin: (name: string) => `${name} on LinkedIn`,
       x: (name: string) => `${name} on X`,
-      requestNote: "The talent team reviews it next.",
     },
     shortlist: {
       heading: "your shortlist",
@@ -331,7 +330,6 @@ export const speedrunCopy = {
       rank: (rank: number) => `#${rank}`,
       moveUp: (company: string) => `Move ${company} up`,
       moveDown: (company: string) => `Move ${company} down`,
-      requestNote: "The talent team reviews it next.",
     },
     tools: {
       heading: "speedrun tools, where they help you",
@@ -499,11 +497,6 @@ export const speedrunCopy = {
         title: (company: string) => `Get ready for ${company}`,
         confirm: "Mark as prepared",
         note: "These notes stay in this tab. This demo sends nothing; the real version would put a reminder on your calendar.",
-        // A row with no pinned detail has no notes to show, so the sheet cannot point at any.
-        bare: {
-          summary: (company: string) => `No time is set with ${company} yet. When one is, this is where the prep for it lands.`,
-          note: "This demo sends nothing. The real version would put a reminder on your calendar.",
-        },
       },
       finishAssessment: {
         done: "Done",
@@ -607,7 +600,6 @@ export const speedrunCopy = {
       sent: "If that address is on the demo's list, the brief is on its way.",
       failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
-      pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
       sampleOnly: "Only the sample briefs can be sent in this demo.",
       listNote: "This demo only emails addresses on its list.",
     },

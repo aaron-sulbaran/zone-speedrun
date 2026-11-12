@@ -20,7 +20,7 @@ type Channel = (typeof CHANNELS)[number];
 // The brief as an inbox would show it. It is React over the same Brief data the
 // real email renders from, so the preview and the email say the same things.
 export function BriefPreview({ state, dispatch, name }: { state: DemoState; dispatch: Dispatch<DemoAction>; name: string }) {
-  const { personKey, profile, result, inboxConnected: connected, events: pasted, live } = state;
+  const { personKey, profile, result, inboxConnected: connected, live } = state;
   const [channel, setChannel] = useState<Channel>("email");
   const sheet = useActionSheet(state, dispatch);
   const firstName = profile?.firstName ?? "";
@@ -29,15 +29,15 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
   const roleIds = useMemo(() => (result ? roleIdsOf(result) : []), [result]);
   const brief = useMemo(() => {
     if (!result) return null;
-    if (personKey) return sampleBrief(personKey, { connected, extraEvents: connected ? pasted : [], roleIds });
-    return visitorBrief(firstName, connected ? pasted : [], roleIds);
-  }, [personKey, connected, pasted, result, firstName, roleIds]);
+    if (personKey) return sampleBrief(personKey, { connected, roleIds });
+    return visitorBrief(firstName, roleIds);
+  }, [personKey, connected, result, firstName, roleIds]);
   const actions = useMemo(() => {
     if (!brief) return [];
-    const pipeline = buildPipeline(briefEvents(personKey, connected, pasted), INBOX_TODAY);
+    const pipeline = buildPipeline(briefEvents(personKey, connected), INBOX_TODAY);
     const details = personKey ? DETAILS[personKey] : undefined;
     return brief.items.map((item) => briefAction(item, pipeline, details, INBOX_TODAY));
-  }, [brief, personKey, connected, pasted]);
+  }, [brief, personKey, connected]);
   if (!brief || !profile) return null;
 
   const subject = briefSubject(brief, name);

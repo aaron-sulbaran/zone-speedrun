@@ -405,8 +405,6 @@ test("board top: a visitor with no inbox and no sample person sees Your board an
   // Catches: a Connect control that does nothing.
   await line.getByRole("button", { name: COPY.empty.connect }).click();
   await expect(page.locator("[data-board-empty]")).toContainText(COPY.empty.connectedBefore.trim());
-  // Catches: the paste box coming back on a connected empty board.
-  await expect(page.locator("[data-board] textarea")).toHaveCount(0);
   // Catches: a Matches control that leaves the visitor on the Board.
   await page.locator("[data-board-empty]").getByRole("button", { name: COPY.empty.matches }).click();
   await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
@@ -520,7 +518,7 @@ test("board top: the Intros list and the table's filter leave each other alone",
 });
 
 test("board table: from lg the table fits its card with no sideways scroll, no clipped cell, and every row the same height, in the All and In process views", async ({ page }) => {
-  // The 1024 leg is run twice: bare, and with 15 px taken from the tab panel's padding, which is what a classic scrollbar costs the content.
+  // The 1024 leg is run twice: bare, and with 15 px added to the tab panel's right padding, which is what a classic scrollbar costs the content.
   for (const [width, scrollbar] of [[1024, 0], [1024, 15], [1280, 0], [1440, 0]] as const) {
     await page.setViewportSize({ width, height: 900 });
     await joinAs(page, "sam", true);
@@ -612,39 +610,83 @@ const today = (page: Page) => page.locator("[data-today-item]");
 const introCards = (page: Page) => page.locator("[data-intro-card]");
 const shortlistItems = (page: Page) => page.locator("[data-shortlist-item]");
 const SOCIALS = siteContent.menu.socials;
+const needsTitle = async (page: Page, company: string) => {
+  await needs(page).filter({ hasText: company }).locator("[data-needs-action]").click();
+  const title = await sheet(page).locator("#sr-sheet-title").innerText();
+  await sheet(page).locator("[data-sheet-close]").click();
+  // Catches: the helper leaving the sheet open, which would cover the page for what follows.
+  await expect(sheet(page)).toBeHidden();
+  return title;
+};
 
-test("today: the Cindermoor interview's Join and Add to calendar open the sheet with the mock link and the Meet or Zoom note", async ({ page }) => {
+test("today: the Cindermoor interview is confirmed first, then joined, and every button opens the sheet it names", async ({ page }) => {
   await joinAs(page, "sam", true);
   // Catches: Today still a bare list of sentences, with no item to act on.
   await expect(today(page)).toHaveCount(3);
   const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
-  await cinder.getByRole("button", { name: COPY.today.join }).click();
-  // Catches: a dead Today item, a Join that opens nothing.
+  // Catches: the interview row dropping the interviewer, the call's time or the confirm-by date (Ruling 51).
+  await expect(cinder.locator("[data-today-who]")).toContainText("Aaron Sulbaran");
+  // Catches: the call's time missing from the interview row (Ruling 51).
+  await expect(cinder.locator("[data-today-when]")).toHaveText(/Nov 16/);
+  // Catches: the interview row still saying Due, when the visitor has to confirm by that day.
+  await expect(cinder.locator("[data-today-due]")).toHaveText(COPY.today.confirmBy(shortDay("2026-11-11")));
+  // Catches: Join offered before the interview is confirmed, so Today and Needs you disagree about what comes next.
+  await expect(cinder.getByRole("button", { name: COPY.today.join })).toHaveCount(0);
+  const needsSheetTitle = await needsTitle(page, "Cindermoor Cloud");
+  await cinder.getByRole("button", { name: ACTIONS.briefButtons.confirmInterview }).click();
+  // Catches: Confirm opening a different sheet from the Needs you item for the same interview.
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(needsSheetTitle);
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a confirm in Today that leaves the sheet open.
+  await expect(sheet(page)).toBeHidden();
+  // Catches: a decision made in Today that the Needs you list never hears of (two clocks for one action).
+  await expect(needs(page).filter({ hasText: "Cindermoor Cloud" })).toHaveAttribute("data-done", "true");
+  // Catches: the count ignoring a decision made in Today.
+  await expect(countLine(page)).toHaveText(COPY.count(3));
+  // Catches: Join still missing after the confirmation.
+  await expect(cinder.getByRole("button", { name: COPY.today.join })).toBeVisible();
+  // Catches: a row that dims on confirm although the call is still to join.
+  await expect(cinder).toHaveAttribute("data-done", "false");
+  await cinder.getByRole("button", { name: COPY.today.calendar }).click();
+  // Catches: a dead Add to calendar.
   await expect(sheet(page)).toBeVisible();
-  // Catches: the made-up meeting link missing from the sheet, or shown as a link that could be clicked.
-  await expect(sheet(page).locator("[data-sheet-meeting-link]")).toHaveText("https://meet.example/cindermoor-interview");
-  // Catches: a sheet that hides what the real version would do, or promises a real call.
-  await expect(sheet(page).locator("[data-sheet-note]")).toContainText("the real version opens Meet or Zoom");
   const title = await sheet(page).locator("#sr-sheet-title").innerText();
   await sheet(page).locator("[data-sheet-close]").click();
   // Catches: Not now leaving the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
-  await cinder.getByRole("button", { name: COPY.today.calendar }).click();
-  // Catches: Add to calendar opening a different sheet from Join (Ruling 51 says the same sheet).
+  await cinder.getByRole("button", { name: COPY.today.join }).click();
+  // Catches: a dead Join, a button that opens nothing.
+  await expect(sheet(page)).toBeVisible();
+  // Catches: Join opening a different sheet from Add to calendar (Ruling 51 says the same sheet).
   await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(title);
+  // Catches: the made-up meeting link missing from the sheet.
+  await expect(sheet(page).locator("[data-sheet-meeting-link]")).toHaveText("https://meet.example/cindermoor-interview");
+  // Catches: a sheet that hides what the real version would do, or promises a real call.
+  await expect(sheet(page).locator("[data-sheet-note]")).toContainText("the real version opens Meet or Zoom");
   await sheet(page).locator("[data-sheet-confirm]").click();
   // Catches: a confirm that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
-  // Catches: a confirmed item that keeps both live buttons, or is removed from the list.
+  // Catches: the other rows kept (a settled call stays in place, dimmed, and is not removed).
   await expect(today(page)).toHaveCount(3);
-  // Catches: a confirmed item that does not look done (it should dim in place).
+  // Catches: a joined call that does not look done (it should dim in place).
   await expect(cinder).toHaveAttribute("data-done", "true");
-  // Catches: a confirmed item that keeps a live button, which could settle the same call twice.
+  // Catches: a settled call that keeps a live button, which could join it twice.
   await expect(cinder.getByRole("button")).toHaveCount(0);
-  // Catches: focus dropping to the page when the buttons are swapped for the quiet check.
+  // Catches: focus dropping to the page when the buttons are swapped for the quiet check, which should take it.
   await expect(cinder.locator("[data-action-done]")).toBeFocused();
   // Catches: the other Today items marked done along with it.
   await expect(today(page).filter({ hasText: "Lumora Health" })).toHaveAttribute("data-done", "false");
+});
+
+test("today: confirming the interview in Needs you turns Today's row to Join", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
+  await needs(page).filter({ hasText: "Cindermoor Cloud" }).locator("[data-needs-action]").click();
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: Today keeping Confirm for an interview already confirmed in Needs you.
+  await expect(cinder.getByRole("button", { name: COPY.today.join })).toBeVisible();
+  // Catches: Confirm still offered once the interview is confirmed.
+  await expect(cinder.getByRole("button", { name: ACTIONS.briefButtons.confirmInterview })).toHaveCount(0);
 });
 
 test("today: a founder's reply offers three times to pick from, and a prepare item opens to three points", async ({ page }) => {
@@ -675,25 +717,68 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(card.locator("[data-intro-monogram]")).toHaveText("AS");
   const linkedin = SOCIALS.find((social) => social.key === "linkedin")!;
   const link = card.getByRole("link", { name: /LinkedIn/ });
-  // Catches: a LinkedIn link that goes anywhere but the socials URL, or opens in this tab.
+  // Catches: a LinkedIn link that goes anywhere but the socials URL.
   await expect(link).toHaveAttribute("href", linkedin.href);
   // Catches: a LinkedIn link that opens in this tab.
   await expect(link).toHaveAttribute("target", "_blank");
   // Catches: an external link without noopener noreferrer.
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  // Catches: an X link made up when the socials hold none, or missing when they do.
   const x = SOCIALS.find((social) => (social.key as string) === "x");
   // Catches: an X link made up when the socials hold none, or missing when they do.
   await expect(card.getByRole("link", { name: /^X\b/ })).toHaveCount(x ? 1 : 0);
   // Catches: a status chip with no words, or a status that disagrees with the pinned detail.
   await expect(card.locator("[data-intro-status]")).toHaveText(COPY.introStatus.scheduled);
-  // Catches: a scheduled intro offering "Pick a time" instead of Prepare (Ruling 58). Today holds no min/Max item on this day, so the Today side of the agreement is pinned in lib/speedrun/actions.test.ts.
+  // Catches: a scheduled intro with no Prepare nudge.
   await expect(card.getByRole("button", { name: COPY.nextStep.prepare })).toBeVisible();
-  // Catches: a scheduled intro that offers Pick a time.
+  // Catches: a scheduled intro offering "Pick a time" (Ruling 58). Today holds no min/Max item on this day, so the Today side of the agreement is pinned in lib/speedrun/actions.test.ts.
   await expect(card.getByRole("button", { name: COPY.nextStep.pickTime })).toHaveCount(0);
   await card.getByRole("button", { name: COPY.nextStep.prepare }).click();
   // Catches: a nudge that opens nothing.
   await expect(sheet(page).locator("[data-sheet-meeting-link]")).toContainText("meet.example/minmax-intro");
+  await sheet(page).locator("[data-sheet-close]").click();
+  await card.getByRole("button", { name: COPY.today.calendar }).click();
+  // Catches: Add to calendar opening the Prepare sheet instead of the call's (fix 7).
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.joinMeeting.title("min/Max"));
+});
+
+test("warm intros: every card's status chip starts at the same x, with or without an action, at 1440", async ({ page }) => {
+  let matches: { company: { name: string }; connect: string[] }[] = [];
+  await page.route("**/speedrun/api/match", async (route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as { result: { matches: typeof matches } };
+    matches = body.result.matches;
+    await route.fulfill({ response, json: body });
+  });
+  await joinAs(page, "sam", true);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  const first = matches.findIndex((match) => match.connect.includes("intro"));
+  await page.locator("[data-row-bring-forward]").nth(first).click();
+  await page.locator("[data-match-row]").nth(first).click();
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await openTab(page, speedrunCopy.network.tabs.board);
+  const lefts = await introCards(page).locator("[data-intro-status]").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left));
+  // Catches: too few cards, or no request card, so the comparison below proves nothing.
+  expect(lefts.length).toBeGreaterThan(3);
+  // Catches: the request card's chip missing from the first card (the pin below needs it there).
+  await expect(introCards(page).first().locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
+  // Catches: the request card (no action) putting its chip in a different column from the others (M1).
+  for (const left of lefts) expect(Math.abs(left - lefts[0]), "chip column").toBeLessThanOrEqual(1);
+});
+
+test("an inline link keeps the spaces of its sentence (M3)", async ({ page }) => {
+  await joinAs(page, "sam", true);
+  const gap = await page.locator('[data-board-section="shortlist"] [data-shortlist-empty] button').evaluate((link) => {
+    const text = document.createRange();
+    text.selectNodeContents(link);
+    const next = link.nextSibling as Text;
+    const start = next.data.search(/\S/);
+    const after = document.createRange();
+    after.setStart(next, start);
+    after.setEnd(next, start + 1);
+    return after.getBoundingClientRect().left - text.getBoundingClientRect().right;
+  });
+  // Catches: a link whose hit-area padding shows as a wide gap before the next word. One space is about 4 px.
+  expect(gap).toBeLessThan(8);
 });
 
 test("warm intros: the count is the Intros tile's count, one card per company", async ({ page }) => {
@@ -736,16 +821,26 @@ test("shortlist: moving #2 up makes it #1, and the intro request stays on its ma
   // Catches: a last item that can still move down.
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-down]")).toBeDisabled();
   await shortlistItems(page).nth(1).locator("[data-shortlist-up]").click();
+  // Catches: focus lost to the page when a moved item changes place (it should stay on the moved item's button).
+  await expect(shortlistItems(page).first().locator("[data-shortlist-down]")).toBeFocused();
   // Catches: a Move up that does nothing, or moves the wrong item.
   expect(await names()).toEqual([matches[b].company.name, matches[a].company.name]);
   // Catches: the request following the new #1 (Review Focus 2): it stays on the match that was asked for.
   await expect(shortlistItems(page).nth(1).locator("[data-shortlist-status]")).toContainText(COPY.introStatus.requested);
   // Catches: the status left on the old #1 after the move, so the request looks like it followed the rank.
   await expect(shortlistItems(page).first().locator("[data-shortlist-status]")).toHaveCount(0);
+  // Catches: the rank number read twice by a screen reader (the visible one is decoration, the list carries the number).
+  await expect(shortlistItems(page).first().locator("[data-shortlist-position]")).toHaveAttribute("aria-hidden", "true");
+  const edge = (selector: string) => page.locator(selector).first().evaluate((el) => { const range = document.createRange(); range.selectNodeContents(el); return range.getBoundingClientRect().left; });
+  // Catches: Back to Matches sitting off the list's left edge by its hit-area padding (M3).
+  expect(Math.abs((await edge("[data-shortlist-matches]")) - (await edge("[data-shortlist-position]")))).toBeLessThanOrEqual(1);
   // Catches: the warm intros section forgetting a live request, which Ruling 52 says shows there too.
   await expect(introCards(page).first().locator("[data-intro-status]")).toHaveText(COPY.introStatus.requested);
   // Catches: the request card naming the wrong company after the move.
   await expect(introCards(page).first()).toContainText(matches[a].company.name);
+  await page.locator("[data-shortlist-matches]").click();
+  // Catches: a Back to Matches button that looks live and leaves the visitor on the Board.
+  await expect(page.getByRole("tab", { name: speedrunCopy.network.tabs.matches, exact: true })).toHaveAttribute("aria-selected", "true");
 });
 
 test("shortlist: with no picks it says how to fill it, and the link goes to Matches", async ({ page }) => {

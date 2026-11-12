@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { todayEvents } from "./board";
 import { composeBrief, renderBriefEmail, type BriefRole } from "./brief";
 import { briefAction, introCards } from "./actions";
 import { briefEvents, rolesFromIds, sampleBrief } from "./briefSample";
@@ -272,7 +271,7 @@ describe("each sample person's brief", () => {
     });
 
     it(`${key}: every moved item names a company on the Today card above it`, () => {
-      const today = todayEvents(generateInbox(PEOPLE[key]).map(classifyEmail), INBOX_TODAY).slice(0, 6);
+      const today = generateInbox(PEOPLE[key]).map(classifyEmail).filter((event) => event.kind !== "other" && event.date.startsWith(INBOX_TODAY));
       for (const item of sampleBrief(key).items.filter((entry) => !entry.standing)) {
         expect(today.some((event) => item.text.includes(event.company)), item.text).toBe(true);
       }
@@ -308,12 +307,6 @@ describe("each sample person's brief", () => {
   it("gives Dev a moved line from his founder lane", () => {
     const moved = sampleBrief("dev").items.filter((item) => !item.standing);
     expect(moved.some((item) => FOUNDER_ORGS.some((org) => item.text.startsWith(org)))).toBe(true);
-  });
-
-  it("hears a pasted reply in this morning's brief, as the preview does", () => {
-    const email = { id: "pasted-halcyon", from: "Halcyon Works Hiring <hiring@halcyonworks.example>", subject: "Interview invitation: Software Engineer", body: "We would like to invite you to a final round interview.\nRole: Software Engineer", date: `${INBOX_TODAY}T08:00:00.000Z` };
-    const brief = sampleBrief("maya", { extraEvents: [classifyEmail(email)], roleIds: [] });
-    expect(brief.items.map((item) => item.text)).toEqual(["Halcyon Works wants to interview you for Software Engineer."]);
   });
 });
 

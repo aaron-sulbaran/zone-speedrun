@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 import { Board } from "@/components/speedrun/act2/Board";
 import { TilePanel } from "@/components/speedrun/act2/TilePanel";
 import { speedrunCopy } from "@/lib/content";
-import { introCards } from "./actions";
+import { WarmIntros } from "@/components/speedrun/act2/WarmIntros";
+import { TodayList } from "@/components/speedrun/act2/TodayList";
+import { introCards, todayItems } from "./actions";
+import { getSnapshot } from "./snapshot";
 import { classifyEmail } from "./classify";
 import { initialDemoState, type DemoState } from "./demoState";
 import { DETAILS } from "./details";
@@ -44,13 +47,15 @@ describe("the Board with no inbox and no sample person", () => {
     for (const marker of ["data-empty-connect", "data-empty-matches"]) expect(html).toMatch(new RegExp(`<button[^>]*${marker}[^>]*class="[^"]*min-h-11`));
   });
 
-  it("has no paste box and shows the empty board's Shortlist pointing to Matches", () => {
+  it("has no paste box, and shows no Shortlist until it has a pick", () => {
     // Catches: the paste box returning on the empty board (Ruling 54).
     expect(html).not.toContain("<textarea");
-    // Catches: a visitor with no inbox getting no Shortlist, which is how they still get a board (Ruling 53).
-    expect(html).toContain('data-board-section="shortlist"');
-    expect(html).toContain(copy.shortlist.empty.link);
-    expect(html).not.toContain("data-board-section=\"today\"");
+    // Catches: an empty Shortlist drawn under a line that already points to Matches (fix 12).
+    expect(html).not.toContain('data-board-section="shortlist"');
+    // Catches: a Today section drawn over nothing.
+    expect(html).not.toContain('data-board-section="today"');
+    // Catches: a pick made on the empty board going missing from the Board.
+    expect(render({ ...own, shortlist: ["x"] })).toContain('data-board-section="shortlist"');
   });
 
   it("with the inbox connected, the pointer line names Matches and no paste", () => {
@@ -101,18 +106,15 @@ describe("the Board for a sample person", () => {
 });
 
 describe("the Board's Intros tile", () => {
-  it("counts the warm intros it lists, not the intro emails", () => {
-    // A second intro email from a company that already has a card: five emails, still four cards.
-    const again = { emailId: "pasted-again", company: "Lumora Health", role: null, kind: "intro" as const, date: `${INBOX_TODAY}T08:00:00.000Z`, lane: "founder" as const };
-    const events = [...generateInbox(PEOPLE.sam).map(classifyEmail), again];
+  it("counts the warm intros it lists, which are cards, not the intro emails", () => {
+    const events = generateInbox(PEOPLE.sam).map(classifyEmail);
     const cards = introCards(events, null, DETAILS.sam, INBOX_TODAY);
-    const emails = events.filter((event) => event.kind === "intro").length;
-    // Catches: a fixture where emails and cards agree, which could not tell the original bug from the fix.
-    expect(emails).toBeGreaterThan(cards.length);
-    const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true, events: [again] });
-    // Catches: a tile number taken from the intro emails (the original bug), which disagrees with the list it opens.
+    const html = render({ ...own, step: "ready", personKey: "sam", inboxConnected: true });
+    // Catches: a tile number that is not the length of the cards list beside it.
     expect(html).toContain(`data-stat="intros" data-value="${cards.length}"`);
-    expect(html).not.toContain(`data-stat="intros" data-value="${emails}"`);
+    // Catches: a second intro email from one company becoming a second card (C4).
+    const again = { emailId: "x-again", company: "Lumora Health", role: null, kind: "intro" as const, date: `${INBOX_TODAY}T08:00:00.000Z`, lane: "founder" as const };
+    expect(introCards([...events, again], null, DETAILS.sam, INBOX_TODAY)).toHaveLength(cards.length);
   });
 });
 
@@ -124,5 +126,38 @@ describe("a tile's list for a row with no application email", () => {
     // Catches: "Applied" followed by the date of the last email, which is not when the application went in.
     expect(html).not.toContain("Applied Nov");
     expect(html).toContain(copy.table.noApplied);
+  });
+});
+
+describe("Warm intros with no cards", () => {
+  const html = renderToStaticMarkup(createElement(WarmIntros, { cards: [], isDone: () => false, pickedFor: () => undefined, onOpen: () => {}, onMatches: () => {} }));
+
+  it("points to the Matches tab with a real button, not to a place above", () => {
+    // Catches: the old "from a match above" wording, which points at nothing on this tab (C2).
+    expect(html).toContain(copy.intros.empty.before);
+    expect(html).not.toContain("above");
+    // Catches: an empty state with no way to get to Matches.
+    expect(html).toMatch(new RegExp(`<button[^>]*>${copy.intros.empty.link}</button>`));
+  });
+});
+
+describe("Today's prep drop-down", () => {
+  const role = getSnapshot().roles[0];
+  const event = { emailId: "t-1", company: role.company, role: role.title, kind: "interview" as const, date: `${INBOX_TODAY}T09:00:00.000Z`, lane: "jobs" as const };
+  const items = todayItems([event], undefined, INBOX_TODAY);
+  const html = renderToStaticMarkup(createElement(TodayList, { items, isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
+
+  it("lists exactly the sheet's points", () => {
+    const points = items[0].action.sheet.prep ?? [];
+    // Catches: the drop-down reading prep from somewhere other than the sheet, so the two disagree (fix 1).
+    expect(points).toHaveLength(3);
+    for (const point of points) expect(html).toContain(apos(point));
+  });
+
+  it("shows the role's snapshot posting as a real new-tab link", () => {
+    // Catches: a prep item whose posting link is missing, or not opened safely in a new tab (Ruling 51).
+    const anchor = html.slice(html.indexOf(`<a href="${role.url.replace(/&/g, "&amp;")}"`));
+    expect(anchor.startsWith("<a href=")).toBe(true);
+    expect(anchor.slice(0, anchor.indexOf(">"))).toContain('target="_blank" rel="noopener noreferrer"');
   });
 });

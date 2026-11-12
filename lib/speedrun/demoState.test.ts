@@ -222,25 +222,6 @@ describe("demoReducer onboarding answers", () => {
   });
 });
 
-describe("demoReducer pasted events", () => {
-  const pasted = { emailId: "pasted-1", company: "Halcyon Works", role: null, kind: "interview", date: "2026-11-07T08:00:00.000Z", lane: "jobs" } as const;
-
-  it("clears pasted events when another person is picked or a file is uploaded", () => {
-    const withEvent = demoReducer(demoReducer(initialDemoState(LIVE), { type: "pickPerson", key: "sam" }), { type: "addEvents", events: [pasted] });
-    expect(withEvent.events).toHaveLength(1);
-    expect(demoReducer(withEvent, { type: "pickPerson", key: "dev" }).events).toEqual([]);
-    expect(demoReducer(withEvent, { type: "uploaded", buildId: 1 }).events).toEqual([]);
-  });
-})
-
-describe("demoReducer events", () => {
-  it("appends events", () => {
-    const event = { emailId: "e1", company: "Acme", role: null, kind: "applied", date: "2026-11-01", lane: "jobs" } as const;
-    const state = demoReducer(initialDemoState(LIVE), { type: "addEvents", events: [event] });
-    expect(state.events).toEqual([event]);
-  });
-});
-
 describe("uploadRejected", () => {
   it("shows the error on the join step without ever building, and bumps the id so a repeat is seen", () => {
     const start = initialDemoState(LIVE);

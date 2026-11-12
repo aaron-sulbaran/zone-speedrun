@@ -10,6 +10,7 @@ import { INBOX_TODAY, generateInbox } from "./inbox";
 import { createRequest } from "./introRequest";
 import type { Match } from "./match";
 import { PEOPLE } from "./people";
+import { getSnapshot } from "./snapshot";
 import { buildPipeline } from "./pipeline";
 import type { AppRow, Intake, PersonKey } from "./types";
 
@@ -114,27 +115,35 @@ describe("rowAction", () => {
     expect(action?.sheet.prep).toBeUndefined();
   });
 
-  // Catches: a generic interview reading "Confirm your interview" weeks after the invite, or carrying invented prep notes.
+  // Catches: a generic interview reading "Confirm your interview" weeks after the invite, or carrying an invented meeting, link or company detail.
   it("prepares for a recent generic interview and quiet ones are followed up, never offers", () => {
     const fresh = rowAction(row({ furthest: "interview", lastEventAt: "2026-11-05T10:00:00.000Z" }), undefined, INBOX_TODAY);
     expect(fresh?.kind).toBe("prepare");
-    expect(fresh?.sheet.prep).toBeUndefined();
+    expect(fresh?.sheet.prep).toEqual(copy.defaultPrep);
+    expect(fresh?.sheet.meeting).toBeUndefined();
+    expect(fresh?.sheet.links).toBeUndefined();
     expect(rowAction(row({ furthest: "interview" }), undefined, INBOX_TODAY)?.kind).toBe("followUp");
     expect(rowAction(row({ furthest: "offer" }), undefined, INBOX_TODAY)?.kind).toBe("decideOffer");
   });
 
-  // Catches: a prepare sheet with no notes whose note still opens with "These notes stay in this tab" (C1).
-  it("gives a prepare sheet with no notes a summary and a note that mention none", () => {
+  // Catches: Today's drop-down and the Prepare sheet reading two different sources of prep, so one is nearly empty (C1).
+  it("gives a generic prepare sheet the three general points, and a pinned one its own", () => {
     const bare = rowAction(row({ furthest: "interview", lastEventAt: "2026-11-05T10:00:00.000Z" }), undefined, INBOX_TODAY);
-    expect(bare?.sheet.summary?.length).toBeGreaterThan(0);
-    expect(bare?.sheet.note).not.toMatch(/notes/i);
+    expect(bare?.sheet.prep).toHaveLength(3);
     expect(bare?.sheet.note).toContain("This demo sends nothing");
     const { events, details } = inboxOf("sam");
     const pinned = introCards(events, null, details, INBOX_TODAY).find((card) => card.company === "min/Max")?.action;
-    // Catches: the no-notes variant replacing the real notes of a prepare that has them.
-    expect(pinned?.sheet.prep?.length).toBeGreaterThan(0);
-    expect(pinned?.sheet.note).toMatch(/notes/i);
-    expect(pinned?.sheet.summary).toBeUndefined();
+    // Catches: the general points replacing a pinned person's own prep.
+    expect(pinned?.sheet.prep).toEqual(DETAILS.sam?.["min/Max"].prep);
+  });
+
+  // Catches: a snapshot role's posting URL never reaching a prep item's links (Ruling 51).
+  it("links a prepare item to the role's snapshot posting", () => {
+    const role = getSnapshot().roles[0];
+    const event = { emailId: "t-1", company: role.company, role: role.title, kind: "interview" as const, date: `${INBOX_TODAY}T09:00:00.000Z`, lane: "jobs" as const };
+    const [item] = todayItems([event], undefined, INBOX_TODAY);
+    expect(item.action.kind).toBe("prepare");
+    expect(item.action.sheet.links).toEqual([{ label: copy.postingLink, href: role.url }]);
   });
 
   // Catches: a company-keyed detail leaking onto Sam's other roles at the same company.
@@ -179,6 +188,8 @@ describe("todayItems", () => {
     expect(cinder?.join?.sheet.note).toContain("the real version opens Meet or Zoom");
     // Catches: a call offered for a reply that has no booked time.
     expect(items.filter((item) => item.join).map((item) => item.action.company)).toEqual(["Cindermoor Cloud"]);
+    // Catches: Today's interview carrying a different action from Needs you, so confirming in one leaves the other open (fix 6).
+    expect(cinder?.action.id).toBe("confirmInterview:Cindermoor Cloud:Software Engineer, New Grad");
   });
 });
 
@@ -208,6 +219,10 @@ describe("introCards", () => {
     expect(byCompany["Velmora Loft"]).toMatchObject({ status: "waiting", action: { kind: "followUp" } });
     expect(byCompany["Velmora Loft"].who.name).toBe("Aaron Sulbaran");
     expect(introCards(events, null, details, INBOX_TODAY).filter((card) => card.company === "Lumora Health")).toHaveLength(1);
+    // Catches: Add to calendar opening the Prepare sheet instead of the call's (fix 7).
+    expect(byCompany["min/Max"].call?.kind).toBe("joinMeeting");
+    expect(byCompany["min/Max"].call?.sheet.meeting?.link).toBe("https://meet.example/minmax-intro");
+    expect(byCompany["Lumora Health"].call).toBeNull();
   });
 
   // Catches: Task 6b's pinned phrase drifting, or the made-up meeting link turning into a real href.
