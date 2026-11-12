@@ -716,6 +716,7 @@ test("intro request: with no request and no Apply the toggle is the filled actio
   // Catches: a company-only match with no filled action at all (the pane reads flat).
   await expect.poll(filled).toEqual([INTRO.bring]);
   await bringToggle(page).click();
+  // Catches: the company-only match not sitting at #2, so the no-fill check would run with Request live.
   await expect(rankText(page)).toHaveText("#2");
   // Catches: a pressed toggle keeping the fill when neither Request (it is #2) nor Apply is available.
   await expect.poll(filled).toEqual([]);
