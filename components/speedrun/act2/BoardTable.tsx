@@ -1,67 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { speedrunCopy } from "@/lib/content";
-import { tableRows } from "@/lib/speedrun/board";
+import type { Action } from "@/lib/speedrun/actions";
+import { BOARD_FILTERS, filterRows, sortRows, type BoardFilter, type SortKey } from "@/lib/speedrun/board";
+import { rowKey } from "@/lib/speedrun/keys";
 import type { AppRow } from "@/lib/speedrun/types";
+import { BoardTableRow } from "./BoardTableRow";
 
 const DEFAULT_ROWS = 8;
-const CHIP = "inline-block whitespace-nowrap rounded-full px-2.5 py-1 font-srcond text-[11px] uppercase tracking-wider";
+const COLUMNS: SortKey[] = ["company", "role", "stage", "applied", "lastUpdate", "next"];
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple";
 
-function stageLabel(row: AppRow) {
-  const { stages, exits } = speedrunCopy.flow;
-  if (row.exit === "rejected") return exits.rejected;
-  if (row.exit === "noreply") return exits.noreply;
-  return stages[row.furthest];
-}
+type Props = {
+  rows: AppRow[];
+  filter: BoardFilter;
+  onFilter: (filter: BoardFilter) => void;
+  actions: Map<string, Action>;
+  isDone: (action: Action) => boolean;
+  pickedFor: (action: Action) => string | undefined;
+  onOpen: (action: Action, opener: HTMLButtonElement) => void;
+};
 
-function nextStep(row: AppRow) {
-  const copy = speedrunCopy.board.table;
-  if (row.exit === "rejected") return copy.closed;
-  if (row.exit === "noreply") return copy.quiet;
-  return row.next ?? copy.closed;
-}
-
-export function BoardTable({ rows }: { rows: AppRow[] }) {
+export function BoardTable({ rows, filter, onFilter, actions, isDone, pickedFor, onOpen }: Props) {
   const copy = speedrunCopy.board.table;
   const [showAll, setShowAll] = useState(false);
-  const { shown, total } = tableRows(rows, showAll, DEFAULT_ROWS);
-  const head = "px-3 py-2 text-left font-srcond text-xs font-normal uppercase tracking-widest text-sr-ink2";
+  // The default is the soonest deadline first (Ruling 50).
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "next", dir: "asc" });
+  const ordered = useMemo(() => sortRows(filterRows(rows, filter), sort.key, sort.dir, actions), [rows, filter, sort, actions]);
+  const shown = showAll ? ordered : ordered.slice(0, DEFAULT_ROWS);
+  const head = "px-1 py-1 text-left font-srcond text-xs font-normal uppercase tracking-widest text-sr-ink2";
+
   return (
     <div data-board-table="">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b border-sr-soft">
-            <th scope="col" className={head}>{copy.headers.company}</th>
-            <th scope="col" className={`${head} hidden md:table-cell`}>{copy.headers.role}</th>
-            <th scope="col" className={head}>{copy.headers.stage}</th>
-            <th scope="col" className={head}>{copy.headers.next}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((row) => (
-            <tr key={`${row.company}-${row.role ?? ""}`} data-row="" className="border-b border-sr-soft align-top last:border-0">
-              <th scope="row" className="break-words px-3 py-3 text-left font-semibold [overflow-wrap:anywhere]">
-                {row.company}
-                <span className="mt-0.5 block text-xs font-normal text-sr-ink2 md:hidden">{row.role ?? copy.noRole}</span>
-              </th>
-              <td className="hidden px-3 py-3 text-sr-ink2 md:table-cell">{row.role ?? copy.noRole}</td>
-              <td className="px-3 py-3">
-                <span className={`${CHIP} ${row.exit === "open" ? "bg-sr-ink text-sr-surface" : "bg-sr-hud text-sr-ink2"}`}>{stageLabel(row)}</span>
-              </td>
-              <td className="px-3 py-3 text-sr-ink2">{nextStep(row)}</td>
+      <div role="group" aria-label={copy.filtersLabel} className="mb-3 flex flex-wrap gap-2">
+        {BOARD_FILTERS.map((key) => (
+          <button
+            key={key}
+            type="button"
+            data-filter={key}
+            aria-pressed={filter === key}
+            onClick={() => onFilter(key)}
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-4 text-sm font-semibold transition-colors duration-200 motion-reduce:transition-none ${FOCUS} ${filter === key ? "bg-sr-ink text-sr-surface" : "bg-sr-hud text-sr-ink hover:bg-sr-strong"}`}
+          >
+            {copy.filters[key]}
+          </button>
+        ))}
+      </div>
+      <div data-table-scroll="" className="overflow-x-auto rounded-2xl border border-sr-soft bg-sr-surface">
+        <table className="w-full min-w-[52rem] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-sr-soft">
+              {COLUMNS.map((key) => {
+                const active = sort.key === key;
+                return (
+                  <th key={key} scope="col" data-col={key} aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={head}>
+                    <button
+                      type="button"
+                      onClick={() => setSort(active ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" })}
+                      className={`inline-flex min-h-11 min-w-11 items-center gap-1 rounded-full px-2 uppercase tracking-widest hover:text-sr-ink ${FOCUS} ${active ? "text-sr-ink" : ""}`}
+                    >
+                      {copy.headers[key]}
+                      {active && (sort.dir === "asc" ? <ChevronUp aria-hidden="true" size={14} /> : <ChevronDown aria-hidden="true" size={14} />)}
+                    </button>
+                  </th>
+                );
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {total > DEFAULT_ROWS && (
+          </thead>
+          <tbody>
+            {shown.length === 0 ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="px-3 py-4 text-sr-ink2">{copy.noRows}</td>
+              </tr>
+            ) : (
+              shown.map((row) => {
+                const action = actions.get(rowKey(row));
+                return <BoardTableRow key={rowKey(row)} row={row} action={action} done={!!action && isDone(action)} picked={action ? pickedFor(action) : undefined} onOpen={onOpen} />;
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+      {ordered.length > DEFAULT_ROWS && (
         <button
           type="button"
           aria-expanded={showAll}
           onClick={() => setShowAll((now) => !now)}
-          className="mt-3 rounded-full px-3 py-1.5 font-srcond text-xs uppercase tracking-wider text-sr-ink2 underline underline-offset-4 hover:text-sr-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple"
+          className={`mt-3 inline-flex min-h-11 min-w-11 items-center rounded-full px-4 font-srcond text-xs uppercase tracking-wider text-sr-ink2 underline underline-offset-4 hover:text-sr-ink ${FOCUS}`}
         >
-          {showAll ? copy.showFewer : copy.showAll(total)}
+          {showAll ? copy.showFewer : copy.showAll(ordered.length)}
         </button>
       )}
     </div>

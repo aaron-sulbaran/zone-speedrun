@@ -56,6 +56,8 @@ export type AppRow = {
   lane: Lane;
   furthest: Stage;
   exit: Exit;
+  /** The first application email's date; null when the row began with a later email (an invite with no application on file). */
+  appliedAt: string | null;
   lastEventAt: string;
   next: string | null;
 };
@@ -67,7 +69,7 @@ export type Pipeline = {
 
 export type PersonKey = (typeof PERSON_KEYS)[number];
 
-export type BoardCard = "today" | "pipeline" | "flow" | "intros" | "tools";
+export type BoardCard = "today" | "intros" | "tools";
 
 export type Person = {
   key: PersonKey;

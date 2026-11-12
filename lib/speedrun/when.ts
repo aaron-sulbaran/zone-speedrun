@@ -11,3 +11,8 @@ export function clockLabel(date: Date): string {
 
 /** One format for every time the sheets show, the offered slots and a booked call alike. */
 export const whenLabel = (iso: string) => `${dayLabel(new Date(iso))}, ${clockLabel(new Date(iso))}`;
+
+const SHORT_DAY = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+/** "Nov 9": a table's date, read in UTC like every other made-up time. */
+export const shortDay = (iso: string) => SHORT_DAY.format(new Date(iso));

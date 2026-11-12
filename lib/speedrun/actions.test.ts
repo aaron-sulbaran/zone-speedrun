@@ -95,7 +95,7 @@ describe("needsYou", () => {
 describe("rowAction", () => {
   const row = (over: Partial<AppRow>): AppRow => ({
     company: "Vantablue", role: "Full Stack Engineer", lane: "jobs", furthest: "screen", exit: "open",
-    lastEventAt: "2026-10-29T10:00:00.000Z", next: null, ...over,
+    appliedAt: null, lastEventAt: "2026-10-29T10:00:00.000Z", next: null, ...over,
   });
 
   // Catches: the quiet-application window drifting from 7 days, or following up on a row with nobody to nudge.

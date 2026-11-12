@@ -2,7 +2,7 @@ import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
 import { isLive, type IntroRequest } from "./introRequest";
-import type { BoardCard, InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
+import type { InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
 
@@ -55,9 +55,6 @@ export type DemoAction =
   | { type: "reset" };
 
 export const MAX_PLACES = 8;
-
-/** The Board renders its cards in this order until it is rebuilt. */
-export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
 
 const NO_PICKS = { shortlist: [] as string[], introRequest: null, done: [] as string[] };
 

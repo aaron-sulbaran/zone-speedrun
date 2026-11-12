@@ -3,7 +3,7 @@ import { toFlow } from "./funnel";
 import type { AppRow, Pipeline, Stage, Exit } from "./types";
 
 function row(i: number, furthest: Stage, exit: Exit, lane: AppRow["lane"] = "jobs"): AppRow {
-  return { company: `Co${i}`, role: "Engineer", lane, furthest, exit, lastEventAt: "2026-10-01", next: null };
+  return { company: `Co${i}`, role: "Engineer", lane, furthest, exit, appliedAt: null, lastEventAt: "2026-10-01", next: null };
 }
 
 const rows: AppRow[] = [

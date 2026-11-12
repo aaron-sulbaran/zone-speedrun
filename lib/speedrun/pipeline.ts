@@ -113,6 +113,7 @@ export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
         lane,
         furthest,
         exit,
+        appliedAt: group.events.find((event) => event.kind === "applied")?.date ?? null,
         lastEventAt: last.date,
         next: exit === "open" ? speedrunCopy.board.next[furthest] : null,
       });

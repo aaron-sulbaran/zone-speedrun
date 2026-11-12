@@ -1,34 +1,40 @@
 "use client";
 
-import { useEffect, useMemo, useRef, type Dispatch } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { introEvents, todayEvents } from "@/lib/speedrun/board";
+import { introCards, needsYou, rowAction, type Action } from "@/lib/speedrun/actions";
+import { boardMode, introEvents, tileOfFilter, TILE_FILTER, todayEvents, type BoardFilter, type TileKey } from "@/lib/speedrun/board";
 import { classifyEmail } from "@/lib/speedrun/classify";
-import { DEFAULT_BOARD_ORDER, type DemoAction, type DemoState } from "@/lib/speedrun/demoState";
+import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import { DETAILS } from "@/lib/speedrun/details";
 import { toFlow } from "@/lib/speedrun/funnel";
 import { generateInbox, INBOX_TODAY } from "@/lib/speedrun/inbox";
+import { rowKey } from "@/lib/speedrun/keys";
+import type { NetworkTab } from "@/lib/speedrun/phase";
 import { PEOPLE } from "@/lib/speedrun/people";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
 import type { BoardCard } from "@/lib/speedrun/types";
+import { visitorFirstName } from "../visitorName";
 import { FlowChart } from "../FlowChart";
 import { CardFrame } from "./BoardControls";
+import { BoardEmpty } from "./BoardEmpty";
 import { BoardStats } from "./BoardStats";
 import { BoardTable } from "./BoardTable";
 import { ConnectPrompt } from "./ConnectPrompt";
 import { IntrosCard, TodayCard } from "./EventCards";
+import { NeedsYou } from "./NeedsYou";
 import { PasteEmail } from "./PasteEmail";
 import { Rise } from "./Rise";
+import { TilePanel } from "./TilePanel";
 import { ToolsCard } from "./ToolsCard";
+import { useActionSheet } from "./useActionSheet";
 
 const copy = speedrunCopy.board;
-function EmptyBody() {
-  return <p className="text-sm text-sr-ink2">{copy.emptyBody}</p>;
-}
 
-const INBOX_CARDS: BoardCard[] = ["today", "intros", "pipeline", "flow"];
-
-export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatch<DemoAction> }) {
+export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: Dispatch<DemoAction>; onTab: (tab: NetworkTab) => void }) {
   const { personKey, inboxConnected: connected } = state;
+  const [filter, setFilter] = useState<BoardFilter>("all");
+  const [openTile, setOpenTile] = useState<TileKey | null>(null);
   // Focus returns to the heading after Connect swaps the prompt out.
   const pendingFocus = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -42,56 +48,79 @@ export function Board({ state, dispatch }: { state: DemoState; dispatch: Dispatc
   const events = useMemo(() => [...sampleEvents, ...state.events], [sampleEvents, state.events]);
   const pipeline = useMemo(() => buildPipeline(events, INBOX_TODAY), [events]);
   const flow = useMemo(() => toFlow(pipeline), [pipeline]);
+  const details = personKey ? DETAILS[personKey] : undefined;
+  const actions = useMemo(() => {
+    const byRow = new Map<string, Action>();
+    for (const row of pipeline.rows) {
+      const action = rowAction(row, details, INBOX_TODAY);
+      if (action) byRow.set(rowKey(row), action);
+    }
+    return byRow;
+  }, [pipeline, details]);
+  const needs = useMemo(() => needsYou(pipeline, details, INBOX_TODAY), [pipeline, details]);
+  const intros = useMemo(() => introCards(events, state.introRequest, details, INBOX_TODAY), [events, state.introRequest, details]);
+  const sheet = useActionSheet(state, dispatch);
 
-  const shown = DEFAULT_BOARD_ORDER.filter((card) => connected || !INBOX_CARDS.includes(card));
-
-  const firstName = state.profile?.firstName.trim();
+  const mode = boardMode(personKey, connected, pipeline.rows.length);
+  const firstName = visitorFirstName(state);
+  const stillOpen = needs.filter((action) => !sheet.isDone(action)).length;
   const flowTitle = firstName ? copy.flowTitle(firstName) : copy.flowTitleFallback;
+  const cards: BoardCard[] = mode === "full" ? ["today", "intros", "tools"] : ["tools"];
+
+  const pressTile = (tile: TileKey) => {
+    const closing = openTile === tile;
+    setOpenTile(closing ? null : tile);
+    setFilter(closing ? "all" : TILE_FILTER[tile]);
+  };
+  const pressChip = (next: BoardFilter) => {
+    setFilter(next);
+    setOpenTile(tileOfFilter(next));
+  };
+  const connect = () => {
+    pendingFocus.current = true;
+    dispatch({ type: "connectInbox", on: true });
+  };
 
   const body = (card: BoardCard) => {
-    switch (card) {
-      case "today":
-        return <TodayCard events={todayEvents(events, INBOX_TODAY)} />;
-      case "intros":
-        return <IntrosCard events={introEvents(events)} />;
-      case "tools":
-        return <ToolsCard personKey={personKey} />;
-      case "pipeline":
-        return pipeline.rows.length > 0 ? <BoardTable rows={pipeline.rows} /> : <EmptyBody />;
-      case "flow":
-        return flow.nodes.length > 0 ? <FlowChart data={flow} tone="speedrun" animate title={flowTitle} /> : <EmptyBody />;
-    }
+    if (card === "today") return <TodayCard events={todayEvents(events, INBOX_TODAY)} />;
+    if (card === "intros") return <IntrosCard events={introEvents(events)} />;
+    return <ToolsCard personKey={personKey} />;
   };
 
   return (
     <section data-board="" data-connected={connected} aria-labelledby="sr-board-heading" className="mx-auto w-full max-w-5xl lg:mx-0 lg:max-w-none">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h3 ref={headingRef} id="sr-board-heading" tabIndex={-1} className="font-srcond text-sm uppercase tracking-widest text-sr-ink2 focus:outline-none">
-            {copy.heading}
-          </h3>
-          <p className="mt-2 text-lg text-sr-ink2">{copy.subhead}</p>
-        </div>
-      </div>
-      <div className="mt-6 space-y-4">
-        {!connected && <ConnectPrompt
-            onConnect={() => {
-              pendingFocus.current = true;
-              dispatch({ type: "connectInbox", on: true });
-            }}
-          />}
-        {connected && (
-          <Rise className="space-y-4">
-            <BoardStats stats={pipeline.stats} />
+      <h3 ref={headingRef} id="sr-board-heading" tabIndex={-1} className="text-2xl font-semibold tracking-tight text-sr-ink focus:outline-none md:text-3xl">
+        {copy.heading(personKey ? firstName : null)}
+      </h3>
+      {mode === "full" && (
+        <p data-needs-count="" className="mt-1 text-lg text-sr-ink2">
+          {stillOpen > 0 ? copy.count(stillOpen) : copy.allClear}
+        </p>
+      )}
+      <div className="mt-5 space-y-6">
+        {mode === "connect" && <ConnectPrompt onConnect={connect} />}
+        {mode === "empty" && <BoardEmpty connected={connected} existing={state.events} onConnect={connect} onMatches={() => onTab("matches")} onAdd={(event) => dispatch({ type: "addEvents", events: [event] })} />}
+        {mode === "full" && (
+          <Rise className="space-y-6">
+            <NeedsYou actions={needs} rows={pipeline.rows} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
+            <div className="space-y-3">
+              <BoardStats stats={pipeline.stats} open={openTile} onToggle={pressTile} />
+              {openTile && <TilePanel key={openTile} tile={openTile} rows={pipeline.rows} actions={actions} intros={intros} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />}
+            </div>
+            <div data-board-flow="">
+              <FlowChart data={flow} tone="speedrun" animate title={flowTitle} />
+            </div>
+            <BoardTable rows={pipeline.rows} filter={filter} onFilter={pressChip} actions={actions} isDone={sheet.isDone} pickedFor={sheet.pickedFor} onOpen={sheet.onOpen} />
             <PasteEmail existing={state.events} onAdd={(event) => dispatch({ type: "addEvents", events: [event] })} />
           </Rise>
         )}
-        {shown.map((card) => (
+        {cards.map((card) => (
           <CardFrame key={card} card={card}>
             {body(card)}
           </CardFrame>
         ))}
       </div>
+      {sheet.sheet}
     </section>
   );
 }

@@ -23,7 +23,7 @@ const role = (postedAt: string, tier: BriefRole["tier"] = "speedrun", id = "r1")
   id, title: "Engineer", company: "Quillmark", tier, postedAt, url: "https://example.com/r",
 });
 const row = (company: string, furthest: AppRow["furthest"], exit: AppRow["exit"], lastEventAt: string, extra: Partial<AppRow> = {}): AppRow => ({
-  company, role: "Engineer", lane: "jobs", furthest, exit, lastEventAt, next: null, ...extra,
+  company, role: "Engineer", lane: "jobs", furthest, exit, appliedAt: null, lastEventAt, next: null, ...extra,
 });
 const assessment = (company: string) => row(company, "assessment", "open", "2026-11-01T12:00:00.000Z", { role: "Intern" });
 const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, intros: 0, offers: 0 } });

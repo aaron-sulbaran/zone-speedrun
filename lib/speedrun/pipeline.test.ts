@@ -20,6 +20,13 @@ describe("buildPipeline", () => {
     expect(pipeline.rows[0].lastEventAt).toBe("2026-10-15");
   });
 
+  it("dates a row's application from its applied event, and leaves it empty without one", () => {
+    const withApplication = buildPipeline([event("applied", "2026-10-01"), event("screen", "2026-10-05")], "2026-11-01");
+    expect(withApplication.rows[0].appliedAt).toBe("2026-10-01");
+    const inviteOnly = buildPipeline([event("interview", "2026-10-20", "Mossgate")], "2026-11-01");
+    expect(inviteOnly.rows[0].appliedAt).toBeNull();
+  });
+
   it("marks an applied event older than 21 days as no reply", () => {
     const pipeline = buildPipeline([event("applied", "2026-10-02")], "2026-11-01");
     expect(pipeline.rows[0].exit).toBe("noreply");
