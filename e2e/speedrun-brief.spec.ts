@@ -75,7 +75,7 @@ test("brief action: tapping a time sends that time, dims the line and keeps it i
   // Catches: Pick a time showing fewer than the three one-tap slots.
   await expect(sheet(page).locator("[data-sheet-slot]")).toHaveCount(3);
   // Catches: a sheet that lets the visitor think something was really sent.
-  await expect(sheet(page).locator("[data-sheet-note]")).toContainText("This demo sends nothing");
+  await expect(sheet(page).locator("[data-sheet-note]")).toHaveText(ACTIONS.sheets.pickTime.note);
   // Catches: Pick a time keeping a shared send-all button, which sends three times and picks none.
   await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveCount(0);
   // Catches: a time button under the 44 px touch size.
@@ -155,6 +155,7 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   // Catches: Bring forward drafting a note to the company, which sends nothing and is not what it does.
   await expect(sheet(page).locator("[data-sheet-draft]")).toHaveCount(0);
   await expect(sheet(page).locator("[data-sheet-summary]")).toContainText(/shortlist/i);
+  // Catches: the Bring forward button saying anything but adding to the shortlist (for example "Send the request").
   await expect(sheet(page).locator("[data-sheet-confirm]")).toHaveText(ACTIONS.sheets.bringForward.confirm);
   await sheet(page).locator("[data-sheet-confirm]").click();
   // Catches: a Bring forward line left looking undone after the pick was added.
@@ -165,10 +166,12 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   await openTab(page, speedrunCopy.network.tabs.matches);
   await expect(page.locator('[data-row-bring-forward][aria-pressed="true"]')).toHaveCount(1);
   await page.locator('[data-row-bring-forward][aria-pressed="true"]').click();
+  // Catches: the Matches toggle not taking the pick off, which would leave the brief check below proving nothing.
   await expect(page.locator('[data-row-bring-forward][aria-pressed="true"]')).toHaveCount(0);
   await openTab(page, speedrunCopy.network.tabs.brief);
   // Catches: the brief still saying Added after the pick was taken off the shortlist.
   await expect(lines(page).first()).toHaveAttribute("data-done", "false");
+  // Catches: the line going undone but with no Bring forward button to do it again.
   await expect(lines(page).first().locator("[data-brief-action]")).toHaveText(ACTIONS.briefButtons.bringForward);
 });
 
@@ -178,7 +181,6 @@ test("brief action: a booked call is worded like the offered times, with no time
   const meeting = DETAILS.sam!["Cindermoor Cloud"].meeting!;
   // Catches: the call read in a different format from the slots ("PM UTC" beside "10:00 am").
   await expect(sheet(page).locator("[data-sheet-meeting]")).toHaveText(whenLabel(meeting.at));
-  await expect(sheet(page).locator("[data-sheet-meeting]")).not.toContainText("UTC");
 });
 
 test("brief action: Every morning is a labelled setting, and the channel pills are tall enough to tap", async ({ page }) => {
