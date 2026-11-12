@@ -117,6 +117,10 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Desktop header.** Tab labels never wrap. From lg to below xl the concept badge stacks under the brand. `[data-shell-switch-slot]` is reserved for PR 7's switch, and header pins read its rect live. PR 7 also relies on the `data-request-intro`, `data-bring-forward`, `data-intro-on`, `data-swap-intro`, `data-intro-here`, `data-shortlist-rank` and `data-row-bring-forward` hooks.
 - **Phones.** Every `a`, `button`, `[role=tab]` and `summary` in the shell, the open account menu and Today prep included, is 44 by 44 (padding or `min-h-11 min-w-11`, never a bigger font); inline links use `INLINE_LINK`. The board table scrolls inside `TableScroller`, which shows a right-edge fade while columns remain.
 - **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant. A bare rule sorts after base utilities and before every screen variant, so stack it on the screen whose rule it has to beat (the join footer uses `md:short-landscape:`; the shell and tabs use it bare or as `max-lg:short-landscape:`). Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
+- **The desk's walk** runs only through `deskStep` (`lib/speedrun/desk.ts`). An illegal action is a no-op, and the request changes only through its effect.
+- **`PhaseState.side` is `candidate` on every phase change.** The candidate panels stay mounted on the team side.
+- **Sample desk cards** name only fictional companies, and the deskSamples test checks it.
+- **One intro request per candidate.** A pass frees the pick, so the shortlist never holds a passed key: `passIntro` drops it, and `bringForward` refuses it (`lib/speedrun/demoState.ts`).
 
 ## Gotchas
 
@@ -143,6 +147,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 
 - `app/`: the page and `api/{read,brief,match}`
 - `components/speedrun/`: `act1/`, `act2/`, `phases/`, `shell/`, the switch and the experience
+- `components/speedrun/team/`: the talent team's desk
 - `lib/speedrun/`: pure logic, `snapshot.json`, tests (plus the dev-only `introHold.ts`)
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
