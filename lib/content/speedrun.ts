@@ -617,7 +617,7 @@ export const speedrunCopy = {
       },
       {
         title: "Every screen ends in a next step.",
-        body: "Nothing here is a dead end. Each view closes on the one thing worth doing next, so you never have to work out where to go.",
+        body: "Today, the intros and the board each carry their next action.",
       },
       {
         title: "AI suggests. You decide.",
@@ -625,11 +625,11 @@ export const speedrunCopy = {
       },
       {
         title: "One tap for the human.",
-        body: "When a person is the next step, one tap opens the draft, the profile or the thread. The work that needs you is a single move.",
+        body: "Agents draft the reply, find the times and open the prep. You confirm.",
       },
       {
         title: "No pasting.",
-        body: "Drafts arrive filled in with the role, the company and what you share, so nothing gets copied from one tab into another.",
+        body: "Hunting for an email to paste is friction. The board builds from your inbox, or from the matches you bring forward.",
       },
       {
         title: "Your inbox is read-only.",
@@ -641,7 +641,7 @@ export const speedrunCopy = {
       },
       {
         title: "One intro, your top pick.",
-        body: "Ask for one intro at a time, to the role you want most. A single clear ask is easier to say yes to than a list.",
+        body: "The cap keeps intros meaningful, for founders and for the talent team.",
       },
       {
         title: "Founders get routed, not buried.",

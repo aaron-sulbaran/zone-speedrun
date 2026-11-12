@@ -709,8 +709,9 @@ test("the last tab is named Why I built this, with the refresher above the cards
   await openTab(page, network.tabs.decisions);
   const section = page.locator("[data-decisions]");
   const refresher = section.locator("[data-why-refresher]");
-  // Catches: the refresher line missing from the tab or reworded away from the ruling's draft.
+  // Catches: the refresher paragraph missing from the tab, or the hook rendering another field's text.
   await expect(refresher).toHaveText(speedrunCopy.decisions.refresher);
+  // Catches: the refresher reworded away from the ruling's draft.
   await expect(refresher).toContainText("84 applications this fall");
   // Catches: the refresher rendered below the cards, where it no longer sets up the decisions.
   const tops = await page.evaluate(() => ({
@@ -733,14 +734,75 @@ test("the Why tab keeps its reading text to a comfortable measure at 1440", asyn
   await skipToSam(page);
   await skipBuildLog(page);
   await openTab(page, network.tabs.decisions);
-  const closeBody = await page.locator("[data-close] p").first().evaluate((el) => ({ width: el.getBoundingClientRect().width, font: parseFloat(getComputedStyle(el).fontSize) }));
-  // Catches: the close paragraph running the full 66rem column (about 110 characters a line) instead of the capped measure.
-  expect(closeBody.width).toBeLessThanOrEqual(closeBody.font * 34);
-  await openTab(page, network.tabs.brief);
-  const email = await page.locator("[data-brief-email]").boundingBox();
-  // Catches: the brief email growing past 36rem (576px) and stretching its lines past about 75 characters.
-  expect(email!.width).toBeLessThanOrEqual(576);
+  const closeBody = await page.locator("[data-close] p").first().evaluate((el) => ({ width: el.getBoundingClientRect().width }));
+  // Catches: the close paragraph running past its 36rem (576px) cap, about 110 characters a line in the full 66rem column.
+  expect(closeBody.width).toBeLessThanOrEqual(576);
 });
+
+for (const width of [1024, 1100, 1280, 1440]) {
+  test(`desktop header ${width}: every tab on one line, clear of the switch slot and the avatar, the badge on one line`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const list = page.getByRole("tablist", { name: network.tabsLabel });
+    await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(40);
+    const lineCount = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return new Set(Array.from(range.getClientRects()).map((r) => Math.round(r.top))).size;
+      });
+    const box = (selector: string) => page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const slot = await box("[data-shell-switch-slot]");
+    const avatar = await accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const overlaps = (a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    for (const id of ["matches", "board", "brief", "decisions"] as const) {
+      const selector = `#sr-tab-${id}`;
+      // Catches: a tab label wrapping to two or three lines and overflowing the header.
+      expect(await lineCount(selector), `${id} lines`).toBe(1);
+      const tab = await box(selector);
+      // Catches: a tab sitting over the empty switch slot, or over the avatar, so a click lands on them.
+      if (slot.right > slot.left && slot.bottom > slot.top) expect(overlaps(tab, slot), `${id} over the slot`).toBe(false);
+      expect(overlaps(tab, avatar), `${id} over the avatar`).toBe(false);
+      // Catches: a tab whose centre is covered by another element, so a mouse click misses it.
+      const hit = await page.evaluate(({ x, y, sel }) => !!document.elementFromPoint(x, y)?.closest(sel), { x: (tab.left + tab.right) / 2, y: (tab.top + tab.bottom) / 2, sel: selector });
+      expect(hit, `${id} hit target`).toBe(true);
+    }
+    // Catches: the concept badge hidden or wrapped when the header is made to fit; the disclaimer must stay whole.
+    await expect(page.locator("[data-concept-badge]")).toBeVisible();
+    expect(await lineCount("[data-concept-badge]")).toBe(1);
+  });
+}
+
+for (const width of [375, 390]) {
+  test(`phone dock ${width}: the last label balances onto at most two lines with no orphan word`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const lines = await page.locator("#sr-tab-decisions").evaluate((el) => {
+      const text = Array.from(el.childNodes).find((n) => n.nodeType === Node.TEXT_NODE)!;
+      const words: { word: string; top: number }[] = [];
+      const content = text.textContent ?? "";
+      const re = /\S+/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content))) {
+        const range = document.createRange();
+        range.setStart(text, m.index);
+        range.setEnd(text, m.index + m[0].length);
+        words.push({ word: m[0], top: Math.round(range.getBoundingClientRect().top) });
+      }
+      const byLine = new Map<number, number>();
+      for (const w of words) byLine.set(w.top, (byLine.get(w.top) ?? 0) + 1);
+      return Array.from(byLine.values());
+    });
+    // Catches: the dock label wrapping to three lines and growing the dock.
+    expect(lines.length).toBeLessThanOrEqual(2);
+    // Catches: a lone word on a line (WHY I BUILT / THIS) because the label is not balanced.
+    if (lines.length === 2) expect(Math.min(...lines)).toBeGreaterThan(1);
+  });
+}
 
 const TABS = Object.values(network.tabs);
 /** Wide panel content scrolls sideways inside its panel (overflow-y:auto makes overflow-x auto) and never reaches the document's scrollWidth, so read the scrollers too. */

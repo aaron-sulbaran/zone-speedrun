@@ -202,8 +202,8 @@ test("brief action: at 1440 the email keeps a readable measure on the shared lef
   await page.setViewportSize(DESKTOP);
   await joinAs(page, "sam");
   const [email, heading] = await Promise.all([page.locator("[data-brief-email]").boundingBox(), page.locator("#sr-brief-heading").boundingBox()]);
-  // Catches: the brief email filling the whole 66rem column, about 110 characters a line.
-  expect(email!.width).toBeLessThanOrEqual(768);
+  // Catches: the brief email growing past 36rem (576px) and stretching its lines past about 75 characters.
+  expect(email!.width).toBeLessThanOrEqual(576);
   // Catches: the capped email centred or indented away from the heading's left edge.
   expect(Math.abs(email!.x - heading!.x)).toBeLessThanOrEqual(1);
 });

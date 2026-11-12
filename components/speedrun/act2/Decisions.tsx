@@ -2,7 +2,7 @@ import { speedrunCopy } from "@/lib/content";
 
 const copy = speedrunCopy.decisions;
 
-// Aaron's product decisions: nine cards, then what he would measure. Each card
+// Aaron's product decisions as cards, then what he would measure. Each card
 // sits under a 2px black rule, like the trait columns on their application page.
 export function Decisions() {
   return (
