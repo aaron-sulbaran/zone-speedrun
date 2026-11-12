@@ -306,6 +306,12 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
   return cards;
 }
 
+/** The action that settles an intro card: its own, or the call it points at. Cards and the Intros tile's rows both read this, so they settle together. */
+export function settledAction(card: IntroCard, isDone: (action: Action) => boolean): Action | null {
+  if (card.action && isDone(card.action)) return card.action;
+  return card.call && isDone(card.call) ? card.call : null;
+}
+
 /** A founder who wrote back on an intro: the one pickTime the board and the brief both build. */
 function pickTimeAction(company: string, details: Details, today: string): Action {
   const detail = detailFor(details, company, null);

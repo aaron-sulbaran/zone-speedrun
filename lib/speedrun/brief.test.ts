@@ -348,6 +348,6 @@ describe("renderBriefEmail", () => {
   });
 
   it("calls the preview this morning's brief", () => {
-    expect(copy.heading).toBe("this morning, 8:02 am");
+    expect(copy.heading).toBe("this morning, 8:02\u00a0am");
   });
 });

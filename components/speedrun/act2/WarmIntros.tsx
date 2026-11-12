@@ -1,7 +1,7 @@
 "use client";
 
 import { siteContent, speedrunCopy } from "@/lib/content";
-import type { Action, IntroCard } from "@/lib/speedrun/actions";
+import { settledAction, type Action, type IntroCard } from "@/lib/speedrun/actions";
 import { INLINE_LINK } from "./links";
 import { ActionSlot } from "./ActionSlot";
 import { SECONDARY } from "./IntroControls";
@@ -27,7 +27,7 @@ const monogram = (name: string) => name.split(/\s+/).map((word) => word.charAt(0
 function Card({ card, ...shared }: { card: IntroCard } & Omit<Props, "cards" | "onMatches">) {
   const { action } = card;
   // One action model, as in Today: the Prepare action or the call it points at being settled settles the card.
-  const settled = action && shared.isDone(action) ? action : card.call && shared.isDone(card.call) ? card.call : null;
+  const settled = settledAction(card, shared.isDone);
   const done = !!settled;
   const meeting = card.call?.sheet.meeting ?? action?.sheet.meeting;
   return (

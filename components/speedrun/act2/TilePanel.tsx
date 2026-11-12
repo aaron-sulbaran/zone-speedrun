@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { speedrunCopy } from "@/lib/content";
-import type { Action, IntroCard } from "@/lib/speedrun/actions";
+import { settledAction, type Action, type IntroCard } from "@/lib/speedrun/actions";
 import { deadlineText, plainNextStep } from "@/lib/speedrun/boardLabels";
 import { filterRows, sortRows, TILE_FILTER, type TileKey } from "@/lib/speedrun/board";
 import { rowKey } from "@/lib/speedrun/keys";
@@ -76,16 +76,20 @@ export function TilePanel({ tile, rows, actions, intros, ...shared }: Props) {
       ) : (
         <ul className="divide-y divide-sr-soft">
           {tile === "intros"
-            ? intros.slice(0, MAX_ITEMS).map((card) => (
+            ? intros.slice(0, MAX_ITEMS).map((card) => {
+                const settled = settledAction(card, shared.isDone);
+                const action = settled ?? card.action;
+                return (
                 <Item
                   key={card.company}
                   company={card.company}
                   second={<p data-tile-who="" className="text-sm text-sr-ink2">{copy.needs.who(card.who.name, card.who.title)}</p>}
                   status={copy.introStatus[card.status]}
                   statusAttr="data-tile-status"
-                  action={card.action ? <ActionSlot action={card.action} slot="tile" label={copy.nextStep[card.action.kind]} done={shared.isDone(card.action)} picked={shared.pickedFor(card.action)} className={SECONDARY} onOpen={shared.onOpen} /> : null}
+                  action={action ? <ActionSlot action={action} slot="tile" label={copy.nextStep[action.kind]} done={!!settled} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} /> : null}
                 />
-              ))
+                );
+              })
             : shown.map((row) => <RowItem key={rowKey(row)} row={row} action={actions.get(rowKey(row))} shared={shared} />)}
         </ul>
       )}

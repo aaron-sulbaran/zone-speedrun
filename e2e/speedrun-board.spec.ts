@@ -754,6 +754,14 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(card.getByRole("button")).toHaveCount(0);
   // Catches: focus dropping to the page when the buttons are swapped for the done marker.
   await expect(card.locator("[data-action-done]")).toBeFocused();
+  await stat(page, "intros").click();
+  const tileRow = page.locator('[data-tile-panel="intros"] [data-tile-item]').filter({ hasText: "min/Max" });
+  // Catches: the Intros tile's min/Max row missing, so the two checks below look at nothing.
+  await expect(tileRow).toHaveCount(1);
+  // Catches: the open Intros tile keeping a done marker off a row whose card is settled (Ruling 58: one action model).
+  await expect(tileRow.locator("[data-action-done]")).toHaveCount(1);
+  // Catches: the tile row keeping a live button after the same company's call was joined.
+  await expect(tileRow.locator("[data-tile-action]")).toHaveCount(0);
 });
 
 async function requestIntroOnFirstMatch(page: Page) {

@@ -31,8 +31,9 @@ describe("the Board's Intros tile", () => {
     // Catches: a fixture where emails and cards agree, which could not tell the original bug from the fix.
     expect(emails).toBeGreaterThan(cards);
     const html = renderToStaticMarkup(createElement(Board, { state: { ...initialDemoState({ reading: false, email: false }), step: "ready", personKey: "sam", inboxConnected: true }, dispatch: () => {}, onTab: () => {} }));
-    // Catches: a tile number counted from the intro emails, which disagrees with the cards beside it.
+    // Catches: a tile number that is not the count of cards beside it.
     expect(html).toContain(`data-stat="intros" data-value="${cards}"`);
+    // Catches: a tile number counted from the intro emails.
     expect(html).not.toContain(`data-stat="intros" data-value="${emails}"`);
   });
 });

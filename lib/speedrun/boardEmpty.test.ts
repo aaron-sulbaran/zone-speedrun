@@ -78,6 +78,7 @@ describe("the Board for a sample person", () => {
     const html = render(sam);
     // Catches: the empty Shortlist hidden on every board but the full one, leaving connect mode without Ruling 53's empty state.
     expect(html).toContain('data-board-section="shortlist"');
+    // Catches: the empty state drawn without its link to Matches, the one way forward it offers.
     expect(html).toContain(copy.shortlist.empty.link);
   });
 
@@ -160,8 +161,9 @@ describe("Today's prep drop-down", () => {
     const intro = { emailId: "t-2", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
     const [pinned] = todayItems([intro], DETAILS.sam, day);
     const points = pinned.action.sheet.prep ?? [];
-    // Catches: a fixture whose points are the general ones, which could not tell the sheet's source from a constant.
+    // Catches: a fixture that is not a prepare row, so no drop-down renders and the equality below compares nothing.
     expect(pinned.action.kind).toBe("prepare");
+    // Catches: a fixture whose points are the general ones, which could not tell the sheet's source from a constant.
     expect(points).not.toEqual(speedrunCopy.actions.defaultPrep);
     const markup = renderToStaticMarkup(createElement(TodayList, { items: [pinned], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
     const list = /<ul data-today-prep-points="[^>]*>(.*?)<\/ul>/.exec(markup)?.[1] ?? "";
@@ -175,5 +177,21 @@ describe("Today's prep drop-down", () => {
     const anchor = html.slice(html.indexOf(`<a href="${role.url.replace(/&/g, "&amp;")}"`));
     expect(anchor.startsWith("<a href=")).toBe(true);
     expect(anchor.slice(0, anchor.indexOf(">"))).toContain('target="_blank" rel="noopener noreferrer"');
+  });
+});
+
+describe("Today's day-of join row", () => {
+  const day = "2026-11-10";
+  const intro = { emailId: "t-3", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
+  const [item] = todayItems([intro], DETAILS.sam, day);
+  const html = renderToStaticMarkup(createElement(TodayList, { items: [item], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
+
+  it("shows the meeting time and no Due line", () => {
+    // Catches: a fixture that is not the day-of call (join is the action itself), so the checks below test another row.
+    expect(item.action.kind).toBe("joinMeeting");
+    // Catches: the call's time missing from its own row.
+    expect(html).toContain("data-today-when");
+    // Catches: a Due line next to the meeting time on a row that only has a call to join.
+    expect(html).not.toContain("data-today-due");
   });
 });

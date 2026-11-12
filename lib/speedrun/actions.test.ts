@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content";
-import { briefAction, introCards, needsYou, rowAction, todayActions, todayItems, type Action } from "./actions";
+import { briefAction, introCards, needsYou, rowAction, settledAction, todayActions, todayItems, type Action } from "./actions";
 import type { BriefItem } from "./brief";
 import { sampleBrief } from "./briefSample";
 import type { CompanyDetail } from "./details";
@@ -173,6 +173,23 @@ describe("todayActions", () => {
       "replyTimes:Tarnmoor Robotics:Founding Engineer",
       "confirmInterview:Cindermoor Cloud:Software Engineer, New Grad",
     ]);
+  });
+});
+
+describe("settledAction", () => {
+  const { events, details } = inboxOf("sam");
+  const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "min/Max") as NonNullable<ReturnType<typeof introCards>[number]>;
+  const done = (...ids: (string | undefined)[]) => (action: Action) => ids.includes(action.id);
+
+  it("is the action once it is done, the call once the call is, and nothing before", () => {
+    // Catches: a fixture with no call, so the call branch below proves nothing.
+    expect(card.call).not.toBeNull();
+    // Catches: a card that reads as settled before anything is done.
+    expect(settledAction(card, done())).toBeNull();
+    // Catches: the card's own action being done not settling it.
+    expect(settledAction(card, done(card.action?.id))?.id).toBe(card.action?.id);
+    // Catches: a joined call not settling the card and the Intros tile row with it (Ruling 58).
+    expect(settledAction(card, done(card.call?.id))?.id).toBe(card.call?.id);
   });
 });
 

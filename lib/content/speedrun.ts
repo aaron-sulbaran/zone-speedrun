@@ -542,10 +542,10 @@ export const speedrunCopy = {
     },
   },
   brief: {
-    heading: "this morning, 8:02 am",
+    heading: "this morning, 8:02\u00a0am",
     subhead: "The brief you'd get. It only says what changed for you, so it never reads like a newsletter.",
     from: "a concept for the speedrun talent network",
-    time: "8:02 am",
+    time: "8:02\u00a0am",
     subject: (name: string, count: number) => `${name}, ${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubject: (name: string) => `${name}, nothing moved. that's fine.`,
     subjectAnon: (count: number) => `${count} ${count === 1 ? "thing" : "things"} moved overnight`,
