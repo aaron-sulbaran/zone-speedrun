@@ -440,6 +440,9 @@ test("desk walk: after a pass with one pick the pick is free, and another match 
   expect(other).not.toBe("");
   await teamButton(page).click();
   await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: a request landing in the emptied slot still narrating the old notNow beat ("goes live") instead of the arrive beat.
+  expect(await narration(page).innerText()).toBe(BEATS.arrive);
+  expect(await narration(page).innerText()).not.toContain("goes live");
   expect(other).not.toContain(first);
   expect(await mineCompany(page)).not.toBe(first);
 });

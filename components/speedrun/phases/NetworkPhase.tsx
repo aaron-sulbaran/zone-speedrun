@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type Dispatch } from "r
 import { speedrunCopy } from "@/lib/content";
 import { deskStep, INITIAL_DESK, stageOf, type DeskAction, type DeskState } from "@/lib/speedrun/desk";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
+import { isLive } from "@/lib/speedrun/introRequest";
 import { motion, prefersReducedMotion, STEP_EASE } from "@/lib/speedrun/motion";
 import { nextTab, NETWORK_TABS, type NetworkTab, type Side } from "@/lib/speedrun/phase";
 import { Board } from "../act2/Board";
@@ -55,10 +56,14 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
   // Written after commit. This layout effect lives here, not in Desk, because Desk only mounts on the team side: a request
   // that leaves or changes under an open panel while the visitor is on the candidate side must still settle the desk.
   useLayoutEffect(() => {
+    const previous = requestRef.current;
     requestRef.current = state.introRequest;
     const live = stageOf(state.introRequest);
     const d = deskRef.current;
-    if ((d.panel === "compare" && live !== "requested") || (d.panel === "intro" && live !== "connected") || (d.founderOpen && live !== "withFounder")) step({ type: "settle" });
+    // A request landing in an empty slot (none before, or a passed one) starts the desk at its arrive beat. A pass that hands
+    // straight to a next match never goes through the empty slot, so its notNow line stays (Ruling 75).
+    const landedInEmptySlot = !isLive(previous) && isLive(state.introRequest);
+    if (landedInEmptySlot || (d.panel === "compare" && live !== "requested") || (d.panel === "intro" && live !== "connected") || (d.founderOpen && live !== "withFounder")) step({ type: "settle" });
   }, [state.introRequest, step]);
   usePhaseEntrance(frameRef);
   // A panel mounts on its first selection and stays, so its arrival motion plays in view, once.
