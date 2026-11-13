@@ -23,12 +23,6 @@ test("while EGG_ENABLED is false, typing sux and five logo clicks open no dialog
   // Catches: the egg still mounted behind its flag (closed but in the page), where a later change could open it.
   await expect(page.locator("[data-egg]")).toHaveCount(0);
 });
-  await logo.scrollIntoViewIfNeeded();
-  for (let i = 0; i < 5; i++) await logo.click();
-  // Catches: five logo clicks opening the egg.
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator("[data-egg]")).toHaveCount(0);
-});
 
 test("typing sux on Act 2 opens the placeholder, and Escape closes it and returns focus", async ({ page }) => {
   test.skip(!EGG_ENABLED, SKIP_REASON);
