@@ -109,9 +109,9 @@ A PR per change with CI green before merge. Second-model review on anything touc
   - Read and brief run only with their switch on and a reachable store, and email also needs the allowlist. A missing, slow or erroring store denies (`lib/speedrun/sharedLimit.ts`, `liveFlags` in `lib/speedrun/guard.ts`).
   - The brief answers every valid submission with one 202 and delivers in `after()`, so the allowlist can't be probed.
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
-- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch (including its line's fade), the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog and Rise), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
-- **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45. The intro ends on pointerdown, keydown, wheel, touchmove or scroll, and the spotlight beat is skipped when its words are not fully in view.
-- **The board is fixed, not arrangeable.** `DemoState` (`lib/speedrun/demoState.ts`) holds `shortlist`, `introRequest`, `passed` and `done`; `lib/speedrun/introRequest.ts` is the request's contract (Ruling 70), shared by the board and the desk. No paste input: the board builds from the inbox, or from matches brought forward.
+- **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog and Rise), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
+- **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45.
+- **The board is fixed, not arrangeable.** `DemoState` (`lib/speedrun/demoState.ts`) holds `shortlist`, `introRequest`, `passed` and `done`; `lib/speedrun/introRequest.ts` is the request's contract (Ruling 70). The board builds from the inbox, or from matches brought forward.
 - **One action model.** `lib/speedrun/actions.ts` derives every action, one `ActionSheet` renders them, and `settledAction` decides when a warm intro card and its Intros tile row read as done.
 - **Times.** Meeting, slot and send times join the clock and am/pm with a no-break space (`lib/speedrun/when.ts`).
 - **Desktop header.** Tab labels never wrap. From lg to below xl the concept badge stacks under the brand and the Candidate / Talent team switch (`[data-shell-switch-slot]`) takes its own row; from xl it sits beside the avatar. Header pins read its rect live. The desk's e2e drives every `data-*` hook in `act2/IntroControls.tsx`; never rename one.
@@ -131,7 +131,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **No analytics yet**: the insights script's root path would route to the site's project.
 - **Browser checks.** A hidden built-in browser pane pauses rAF and Web Animations, so check end states there and time motion in Playwright.
 - **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
-- **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor (often `#act-2`), so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` (and `Shift+${tabKey}`) from `e2e/speedrun-flow.ts`.
+- **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor, so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` from `e2e/speedrun-flow.ts`.
 - **e2e pins** name the regression they catch, and must go red without their guard.
 - **The demo's today is the visitor's date** (`demoToday()`, read on the client only); Sam's dues and calls sit at offsets from it (`detailsFor`). e2e pins the clock only in tests that assert a demo date: `pinToday(page, day = INBOX_TODAY)` from `e2e/support/fixtures.ts` (`setFixedTime` freezes `Date.now`, which skews hero and switch timing pins, so never pin by default).
 
@@ -151,4 +151,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-12 at 3d41ae2
+Last verified: 2026-11-12 at ba3a50e
