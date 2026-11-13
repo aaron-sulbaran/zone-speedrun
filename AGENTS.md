@@ -129,7 +129,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
 - **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor (often `#act-2`), so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` (and `Shift+${tabKey}`) from `e2e/speedrun-flow.ts`.
 - **e2e pins** name the regression they catch, and must go red without their guard.
-- **The demo's today is the visitor's date** (`demoToday()`, read on the client only); Sam's dues and calls sit at offsets from it (`detailsFor`). e2e pins the clock only in tests that assert a demo date: `pinToday(page, day = INBOX_TODAY)` from `e2e/support/fixtures.ts` (`setFixedTime` freezes `Date.now`, which skews hero and switch timing pins, so never pin by default).
+- **The demo's today is the visitor's date** (`demoToday()`, read on the client only); Sam's dues and calls sit at offsets from it (`detailsFor`). e2e pins the clock only in tests that assert a demo date: `pinToday(page, day = INBOX_TODAY)` from `e2e/support/fixtures.ts` (`setSystemTime` moves `Date.now` and lets it run; a frozen clock skewed hero and switch timing pins, so never pin by default).
 
 ## Run and deploy
 
@@ -147,4 +147,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-12 at 71a8e59
+Last verified: 2026-11-13 at c0c94cb
