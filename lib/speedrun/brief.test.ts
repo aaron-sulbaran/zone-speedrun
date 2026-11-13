@@ -124,7 +124,6 @@ describe("composeBrief", () => {
     const moved = composeBrief({ ...standing, pipeline: rows([assessment("Nightfold"), row("Halcyon Works", "applied", "rejected", OVERNIGHT_AT)]) });
     // Catches: standing lines (intro, role, deadline) appended under moved ones again, so the brief lists more lines than the subject counts as moved.
     expect(moved.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["reply", false]]);
-    // Catches: the subject drifting from the one moved line the brief shows.
     expect(renderBriefEmail(moved, "Sam").subject).toBe("Sam, 1 thing moved overnight");
   });
 
