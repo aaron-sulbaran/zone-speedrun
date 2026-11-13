@@ -13,12 +13,12 @@ type Fixtures = {
 };
 
 /**
- * Pins the page's "now" to local noon of `day` (the demo's dates follow the visitor's today). Call it first in a test whose
- * assertions read a demo date; every other test keeps the real clock. setFixedTime freezes Date.now, which skews hero and
- * switch timings (a frozen clock broke the intro-replay and switch-floor pins), so pin only where a date is asserted.
+ * Sets the page's "now" to local noon of `day` (the demo's dates follow the visitor's today). Call it first in a test whose
+ * assertions read a demo date; every other test keeps the real clock. setSystemTime moves "now" and lets it keep running, so hero and
+ * switch timings keep their pace (setFixedTime froze Date.now and broke the intro-replay and switch-floor pins).
  */
 export async function pinToday(page: Page, day: string = INBOX_TODAY) {
-  await page.context().clock.setFixedTime(new Date(`${day}T12:00:00`));
+  await page.context().clock.setSystemTime(new Date(`${day}T12:00:00`));
 }
 
 export const test = base.extend<Fixtures>({
