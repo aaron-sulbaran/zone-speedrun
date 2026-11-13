@@ -98,7 +98,7 @@ function replyText(row: AppRow): string {
 
 /**
  * Only what changed between today's midnight and the 8:02 send, the same day the board's Today card shows.
- * What moved goes first, then what is still open, at most three lines. A quiet night gives an empty list on purpose.
+ * What moved, at most three lines; on a night when nothing moved, what is still open instead. A quiet night gives an empty list on purpose.
  */
 export function composeBrief(input: BriefInput): Brief {
   const { pipeline, roles, cadence, today } = input;
@@ -152,8 +152,12 @@ export function composeBrief(input: BriefInput): Brief {
     if (assessment) add(assessment.company, { kind: "due", text: copy.items.due(copy.dueWhat, assessment.company, copy.dueWhen), href: null, standing: true, company: assessment.company, actionKey: rowKey(assessment) });
   }
 
-  items.splice(MAX_ITEMS);
-  return { personKey: input.personKey ?? "you", date: today, cadence, items };
+  // The subject says how many things moved overnight, so when anything did, only those lines are shown and the
+  // count is the line count. Standing lines are for a night when nothing moved (the subject then says "still open").
+  const movedItems = items.filter((item) => !item.standing);
+  const shown = movedItems.length > 0 ? movedItems : items;
+  shown.splice(MAX_ITEMS);
+  return { personKey: input.personKey ?? "you", date: today, cadence, items: shown };
 }
 
 const escapeHtml = (value: string) =>

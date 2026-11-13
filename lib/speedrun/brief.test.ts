@@ -117,12 +117,12 @@ describe("composeBrief", () => {
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "new-role"]);
   });
 
-  it("lists what moved first, then the standing intro, role and deadline, at most three", () => {
+  it("lists the standing intro, role and deadline only when nothing moved, at most three", () => {
     const standing = { ...base, intros: [RECENT_INTRO], roles: [role("2026-10-15T00:00:00.000Z")] };
     const quiet = composeBrief({ ...standing, pipeline: rows([assessment("Nightfold")]) });
     expect(quiet.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["intro", true], ["new-role", true], ["due", true]]);
     const moved = composeBrief({ ...standing, pipeline: rows([assessment("Nightfold"), row("Halcyon Works", "applied", "rejected", OVERNIGHT_AT)]) });
-    expect(moved.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["reply", false], ["intro", true], ["new-role", true]]);
+    expect(moved.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["reply", false]]);
     expect(renderBriefEmail(moved, "Sam").subject).toBe("Sam, 1 thing moved overnight");
   });
 
@@ -276,6 +276,25 @@ describe("each sample person's brief", () => {
         expect(today.some((event) => item.text.includes(event.company)), item.text).toBe(true);
       }
     });
+  }
+
+  for (const connected of [true, false]) {
+    for (const key of PERSON_KEYS) {
+      it(`${key} (${connected ? "inbox connected" : "no inbox"}): the number in the subject is the number of lines`, () => {
+        const brief = sampleBrief(key, { connected });
+        const subject = renderBriefEmail(brief, PEOPLE[key].profile.firstName).subject;
+        const said = subject.match(/(\d+) things? moved overnight/);
+        // Catches: the subject counting the lines that moved while the brief also lists lines that did not, so it says 2 over 3 lines.
+        if (said) expect(Number(said[1])).toBe(brief.items.length);
+        // Catches: the still-open subject naming a count different from the lines under it.
+        const open = subject.match(/(\d+) things still open/);
+        if (open) expect(Number(open[1])).toBe(brief.items.length);
+        // Catches: a quiet subject over a brief that lists lines.
+        if (brief.items.length === 0) expect(subject).toMatch(/nothing moved/i);
+        // Catches: a brief with no lines or still-open wording that the subject treats as moved.
+        if (brief.items.length > 0 && !said && !open) expect(subject).toContain("nothing new overnight");
+      });
+    }
   }
 
   it("gives the five people subjects that do not all share a shape", () => {
