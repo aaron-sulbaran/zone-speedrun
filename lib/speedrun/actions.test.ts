@@ -154,7 +154,7 @@ describe("rowAction", () => {
     expect(coScreen?.due).toBeNull();
     expect(coScreen?.who).toBeNull();
     const offer = rowAction(row({ company: "Quillbright", role: "Software Engineer, Product", furthest: "offer" }), DETAILS.sam, INBOX_TODAY);
-    expect(offer).toMatchObject({ kind: "decideOffer", due: "2026-11-12" });
+    expect(offer).toMatchObject({ kind: "decideOffer", due: "2026-11-10" });
   });
 
   it("skips rows that are closed", () => {
@@ -245,7 +245,7 @@ describe("introCards", () => {
   // Catches: Task 6b's pinned phrase drifting, or the made-up meeting link turning into a real href.
   it("joins the meeting on the day, says where the real version opens, and keeps the link out of links", () => {
     const { events, details } = inboxOf("sam");
-    const card = introCards(events, null, details, "2026-11-10").find((entry) => entry.company === "min/Max");
+    const card = introCards(events, null, details, "2026-11-09").find((entry) => entry.company === "min/Max");
     expect(card?.action?.kind).toBe("joinMeeting");
     expect(card?.action?.sheet.note).toContain("the real version opens Meet or Zoom");
     for (const link of card?.action?.sheet.links ?? []) expect(link.href).not.toContain("meet.example");
@@ -256,10 +256,10 @@ describe("introCards", () => {
     const { pipeline, events, details } = inboxOf("sam");
     const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "min/Max");
     expect(card?.action?.sheet.meeting).toMatchObject(DETAILS.sam?.["min/Max"].meeting ?? {});
-    expect(card?.action?.due).toBe("2026-11-10T15:00:00.000Z");
+    expect(card?.action?.due).toBe("2026-11-09T15:00:00.000Z");
     const cinder = needsYou(pipeline, details, INBOX_TODAY).find((action) => action.company === "Cindermoor Cloud");
     expect(cinder?.sheet.meeting?.at).toBe("2026-11-16T15:00:00.000Z");
-    expect(cinder?.due).toBe("2026-11-11");
+    expect(cinder?.due).toBe("2026-11-09");
   });
 
   // Catches: an intro follow-up that talks about "my application".
@@ -273,8 +273,8 @@ describe("introCards", () => {
   // Catches: Today reading a scheduled intro as "Pick a time" while its card says scheduled.
   it("gives an intro the same action in Today and on its card", () => {
     const { events, details } = inboxOf("sam");
-    const moved = events.map((event) => (event.company === "min/Max" ? { ...event, date: "2026-11-10T09:00:00.000Z" } : event));
-    const day = "2026-11-10";
+    const moved = events.map((event) => (event.company === "min/Max" ? { ...event, date: "2026-11-09T09:00:00.000Z" } : event));
+    const day = "2026-11-09";
     const card = introCards(moved, null, details, day).find((entry) => entry.company === "min/Max");
     const today = todayActions(moved, details, day).find((action) => action.company === "min/Max");
     expect(card?.action?.id).toBe("joinMeeting:min/Max:-");

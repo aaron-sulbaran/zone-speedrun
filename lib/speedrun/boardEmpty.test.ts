@@ -156,8 +156,8 @@ describe("Today's prep drop-down", () => {
   const html = renderToStaticMarkup(createElement(TodayList, { items, isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));
 
   it("lists exactly the sheet's points, for a row whose points are not the general ones", () => {
-    // A pinned row: min/Max, two days before its call, so its prep is its own.
-    const day = "2026-11-08";
+    // A pinned row: min/Max, two days before its call (the reference day), so its prep is its own.
+    const day = INBOX_TODAY;
     const intro = { emailId: "t-2", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
     const [pinned] = todayItems([intro], DETAILS.sam, day);
     const points = pinned.action.sheet.prep ?? [];
@@ -181,7 +181,7 @@ describe("Today's prep drop-down", () => {
 });
 
 describe("Today's day-of join row", () => {
-  const day = "2026-11-10";
+  const day = "2026-11-09";
   const intro = { emailId: "t-3", company: "min/Max", role: null, kind: "intro" as const, date: `${day}T09:00:00.000Z`, lane: "founder" as const };
   const [item] = todayItems([intro], DETAILS.sam, day);
   const html = renderToStaticMarkup(createElement(TodayList, { items: [item], isDone: () => false, pickedFor: () => undefined, onOpen: () => {} }));

@@ -7,9 +7,9 @@ import {
 } from "./fictional";
 import type { InboxEmail, Person, PersonKey } from "./types";
 
-/** The fixed "today" for sample inboxes, so the demo never drifts. */
+/** The reference day the overnight and pinned dates below are written against; the page shifts everything to the visitor's today. Tests and e2e use it as their fixed day. */
 export const INBOX_TODAY = "2026-11-07";
-const ANCHOR_MS = new Date(`${INBOX_TODAY}T12:00:00.000Z`).getTime();
+const anchorOf = (today: string) => new Date(`${today}T12:00:00.000Z`).getTime();
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
 
@@ -117,7 +117,7 @@ const NEWSLETTERS: Array<[string, string, string]> = [
   ["Campus Bookstore <deals@campusbookstore.example>", "Textbook swap this Friday", "Bring your used books and trade for credit."],
 ];
 
-function buildSchedule(person: Person, rng: Rng): Draft[] {
+function buildSchedule(person: Person, rng: Rng, anchorMs: number): Draft[] {
   const plan = PLANS[person.key];
   const first = person.profile.firstName;
   const drafts: Draft[] = [];
@@ -131,8 +131,8 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
     // One recent thread that is still alive: applied a week ago, assessment sent three days ago.
     const live = pairs.pop();
     if (live) {
-      drafts.push(jobsDraft("applied", live, first, ANCHOR_MS - 8 * DAY_MS));
-      drafts.push(jobsDraft("assessment", live, first, ANCHOR_MS - 3 * DAY_MS));
+      drafts.push(jobsDraft("applied", live, first, anchorMs - 8 * DAY_MS));
+      drafts.push(jobsDraft("assessment", live, first, anchorMs - 3 * DAY_MS));
     }
   }
   const founderPairs: Target[] = shuffle(
@@ -158,18 +158,18 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
       const path = (stagePaths[index] ?? []).filter((stage) => !(target.founder && stage === "assessment"));
       const deep = path.length > 0;
       const daysAgo = deep ? between(rng, 22, 89) : between(rng, 0, 89);
-      let when = ANCHOR_MS - daysAgo * DAY_MS - between(rng, 0, 9) * HOUR_MS;
+      let when = anchorMs - daysAgo * DAY_MS - between(rng, 0, 9) * HOUR_MS;
       const make = target.founder ? founderDraft : jobsDraft;
       drafts.push(make("applied", target, first, when));
       for (const stage of path) {
-        when = Math.min(ANCHOR_MS, when + between(rng, 3, 8) * DAY_MS + HOUR_MS);
+        when = Math.min(anchorMs, when + between(rng, 3, 8) * DAY_MS + HOUR_MS);
         drafts.push(make(stage, target, first, when));
       }
       const isOffer = path[path.length - 1] === "offer";
       const rejectChance = deep ? 0.65 : 0.35;
       const canReject = deep || daysAgo >= 10;
       if (!isOffer && canReject && rng() < rejectChance) {
-        when = Math.min(ANCHOR_MS, when + between(rng, 2, 7) * DAY_MS + 2 * HOUR_MS);
+        when = Math.min(anchorMs, when + between(rng, 2, 7) * DAY_MS + 2 * HOUR_MS);
         drafts.push(make("rejection", target, first, when));
       }
     });
@@ -177,7 +177,7 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
 
   const introCompanies = shuffle(rng, FICTIONAL_COMPANIES).slice(0, plan.intros);
   introCompanies.forEach((company) => {
-    const when = ANCHOR_MS - between(rng, 1, 60) * DAY_MS;
+    const when = anchorMs - between(rng, 1, 60) * DAY_MS;
     drafts.push({
       when,
       from: `Founders at ${company} <hello@${slug(company)}.com>`,
@@ -189,7 +189,7 @@ function buildSchedule(person: Person, rng: Rng): Draft[] {
   const newsletterCount = 3 + Math.round(person.volume / 40);
   for (let i = 0; i < newsletterCount; i += 1) {
     const [from, subject, body] = pick(rng, NEWSLETTERS);
-    drafts.push({ when: ANCHOR_MS - between(rng, 0, 80) * DAY_MS, from, subject, body });
+    drafts.push({ when: anchorMs - between(rng, 0, 80) * DAY_MS, from, subject, body });
   }
   return drafts;
 }
@@ -261,23 +261,25 @@ function introReplyDraft(company: string, first: string, when: number, booked = 
   };
 }
 
-function movesDrafts(moves: OvernightMove[], person: Person, base: Draft[]): Draft[] {
+function movesDrafts(moves: OvernightMove[], person: Person, base: Draft[], shiftMs: number): Draft[] {
   const first = person.profile.firstName;
   return moves.flatMap((move) => {
-    const at = Date.parse(move.at);
+    const at = Date.parse(move.at) + shiftMs;
     if (move.kind === "intro") return [introReplyDraft(move.company, first, at, move.booked)];
     if (!openApplication(base, move, first, at)) return [];
     return [(move.founder ? founderDraft : jobsDraft)(move.kind, move, first, at)];
   });
 }
 
-export function generateInbox(person: Person, seed = 1): InboxEmail[] {
+/** The person's made-up inbox as of `today`: every event keeps its distance from that day, so a later day only shifts the dates. */
+export function generateInbox(person: Person, seed = 1, today = INBOX_TODAY): InboxEmail[] {
   const rng = mulberry32(seed * 7919 + hashString(person.key));
-  const base = buildSchedule(person, rng);
+  const anchor = anchorOf(today);
+  const base = buildSchedule(person, rng, anchor);
   const sorted = [...base].sort((a, b) => a.when - b.when);
   // The overnight moves and the pinned events come last, so every other id stays where it was.
   const moves = seed === 1 ? [...(OVERNIGHT[person.key] ?? []), ...(PINNED[person.key] ?? [])] : [];
-  const drafts = [...sorted, ...movesDrafts(moves, person, base)];
+  const drafts = [...sorted, ...movesDrafts(moves, person, base, anchor - anchorOf(INBOX_TODAY))];
   return drafts.map((draft, index) => ({
     id: `${person.key}-${String(index + 1).padStart(4, "0")}`,
     from: draft.from,

@@ -4,10 +4,10 @@ import { useMemo, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
 import { briefAction } from "@/lib/speedrun/actions";
 import { briefSubject } from "@/lib/speedrun/brief";
+import { demoToday } from "@/lib/speedrun/today";
 import { briefEvents, roleIdsOf, sampleBrief, visitorBrief } from "@/lib/speedrun/briefSample";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
-import { DETAILS } from "@/lib/speedrun/details";
-import { INBOX_TODAY } from "@/lib/speedrun/inbox";
+import { detailsFor } from "@/lib/speedrun/details";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
 import { BriefLine } from "./BriefLine";
 import { BriefSend } from "./BriefSend";
@@ -27,17 +27,19 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
 
   // The role line comes from the visitor's own matches, the same ids the sent email is built from.
   const roleIds = useMemo(() => (result ? roleIdsOf(result) : []), [result]);
+  // The brief only renders once the visitor has results, long after mount, so the date never reaches server HTML.
+  const today = useMemo(() => demoToday(), []);
   const brief = useMemo(() => {
     if (!result) return null;
-    if (personKey) return sampleBrief(personKey, { connected, roleIds });
-    return visitorBrief(firstName, roleIds);
-  }, [personKey, connected, result, firstName, roleIds]);
+    if (personKey) return sampleBrief(personKey, { connected, roleIds, today });
+    return visitorBrief(firstName, roleIds, today);
+  }, [personKey, connected, result, firstName, roleIds, today]);
   const actions = useMemo(() => {
     if (!brief) return [];
-    const pipeline = buildPipeline(briefEvents(personKey, connected), INBOX_TODAY);
-    const details = personKey ? DETAILS[personKey] : undefined;
-    return brief.items.map((item) => briefAction(item, pipeline, details, INBOX_TODAY));
-  }, [brief, personKey, connected]);
+    const pipeline = buildPipeline(briefEvents(personKey, connected, today), today);
+    const details = personKey ? detailsFor(today)[personKey] : undefined;
+    return brief.items.map((item) => briefAction(item, pipeline, details, today));
+  }, [brief, personKey, connected, today]);
   if (!brief || !profile) return null;
 
   const subject = briefSubject(brief, name);

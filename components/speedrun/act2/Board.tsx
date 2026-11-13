@@ -6,13 +6,14 @@ import { introCards, needsYou, rowAction, todayItems, type Action } from "@/lib/
 import { boardMode, tileOfFilter, TILE_FILTER, type BoardFilter, type TileKey } from "@/lib/speedrun/board";
 import { classifyEmail } from "@/lib/speedrun/classify";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
-import { DETAILS } from "@/lib/speedrun/details";
+import { detailsFor } from "@/lib/speedrun/details";
 import { toFlow } from "@/lib/speedrun/funnel";
-import { generateInbox, INBOX_TODAY } from "@/lib/speedrun/inbox";
+import { generateInbox } from "@/lib/speedrun/inbox";
 import { rowKey } from "@/lib/speedrun/keys";
 import type { NetworkTab } from "@/lib/speedrun/phase";
 import { PEOPLE } from "@/lib/speedrun/people";
 import { buildPipeline } from "@/lib/speedrun/pipeline";
+import { demoToday } from "@/lib/speedrun/today";
 import { visitorFirstName } from "../visitorName";
 import { FlowChart } from "../FlowChart";
 import { BoardSection } from "./BoardSection";
@@ -44,21 +45,23 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
     headingRef.current?.focus();
   });
 
-  const events = useMemo(() => (connected && personKey ? generateInbox(PEOPLE[personKey]).map(classifyEmail) : []), [connected, personKey]);
-  const pipeline = useMemo(() => buildPipeline(events, INBOX_TODAY), [events]);
+  // The board's dates need a connected inbox, so they exist only after the visitor acts and never in server HTML.
+  const today = useMemo(() => demoToday(), []);
+  const events = useMemo(() => (connected && personKey ? generateInbox(PEOPLE[personKey], 1, today).map(classifyEmail) : []), [connected, personKey, today]);
+  const pipeline = useMemo(() => buildPipeline(events, today), [events, today]);
   const flow = useMemo(() => toFlow(pipeline), [pipeline]);
-  const details = personKey ? DETAILS[personKey] : undefined;
+  const details = useMemo(() => (personKey ? detailsFor(today)[personKey] : undefined), [personKey, today]);
   const actions = useMemo(() => {
     const byRow = new Map<string, Action>();
     for (const row of pipeline.rows) {
-      const action = rowAction(row, details, INBOX_TODAY);
+      const action = rowAction(row, details, today);
       if (action) byRow.set(rowKey(row), action);
     }
     return byRow;
-  }, [pipeline, details]);
-  const needs = useMemo(() => needsYou(pipeline, details, INBOX_TODAY), [pipeline, details]);
-  const todays = useMemo(() => todayItems(events, details, INBOX_TODAY), [events, details]);
-  const intros = useMemo(() => introCards(events, state.introRequest, details, INBOX_TODAY), [events, state.introRequest, details]);
+  }, [pipeline, details, today]);
+  const needs = useMemo(() => needsYou(pipeline, details, today), [pipeline, details, today]);
+  const todays = useMemo(() => todayItems(events, details, today), [events, details, today]);
+  const intros = useMemo(() => introCards(events, state.introRequest, details, today), [events, state.introRequest, details, today]);
   const sheet = useActionSheet(state, dispatch);
 
   const mode = boardMode(personKey, connected, pipeline.rows.length);

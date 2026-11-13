@@ -1,8 +1,9 @@
 import { introEvents } from "./board";
 import { composeBrief, type Brief, type BriefRole } from "./brief";
 import { classifyEmail } from "./classify";
-import { DETAILS } from "./details";
-import { generateInbox, INBOX_TODAY } from "./inbox";
+import { detailsFor } from "./details";
+import { generateInbox } from "./inbox";
+import { demoToday } from "./today";
 import { companyForRole, matchCompanyName, rankMatches, type MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
@@ -27,39 +28,40 @@ export function roleIdsOf(result: MatchResult): string[] {
 }
 
 /** The events a brief reads: nothing without an inbox, otherwise the sample person's made-up inbox (if any). */
-export function briefEvents(key: PersonKey | null, connected: boolean): InboxEvent[] {
+export function briefEvents(key: PersonKey | null, connected: boolean, today = demoToday()): InboxEvent[] {
   if (!connected || !key) return [];
-  return generateInbox(PEOPLE[key]).map(classifyEmail);
+  return generateInbox(PEOPLE[key], 1, today).map(classifyEmail);
 }
 
-type Options = { connected?: boolean; roleIds?: string[] };
+type Options = { connected?: boolean; roleIds?: string[]; today?: string };
 
 /** A sample person's brief from their made-up inbox. Without `roleIds` it ranks with the person's own intake (tests only). */
 export function sampleBrief(key: PersonKey, options: Options = {}): Brief {
   const person = PEOPLE[key];
   const connected = options.connected ?? true;
-  const events = briefEvents(key, connected);
+  const today = options.today ?? demoToday();
+  const events = briefEvents(key, connected, today);
   const roleIds = options.roleIds ?? roleIdsOf(rankMatches(person.profile, person.intake, getSnapshot()));
   return composeBrief({
     personKey: key,
     firstName: person.profile.firstName,
     cadence: person.cadence,
-    today: INBOX_TODAY,
-    pipeline: buildPipeline(events, INBOX_TODAY),
+    today,
+    pipeline: buildPipeline(events, today),
     roles: rolesFromIds(roleIds),
     intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
-    details: DETAILS[key],
+    details: detailsFor(today)[key],
   });
 }
 
 /** The brief for someone who uploaded their own resume: no sample inbox, so nothing has moved. */
-export function visitorBrief(firstName: string, roleIds: string[]): Brief {
+export function visitorBrief(firstName: string, roleIds: string[], today = demoToday()): Brief {
   const events: InboxEvent[] = [];
   return composeBrief({
     firstName,
     cadence: "daily",
-    today: INBOX_TODAY,
-    pipeline: buildPipeline(events, INBOX_TODAY),
+    today,
+    pipeline: buildPipeline(events, today),
     roles: rolesFromIds(roleIds),
     intros: introEvents(events).map((event) => ({ company: event.company, date: event.date })),
   });
