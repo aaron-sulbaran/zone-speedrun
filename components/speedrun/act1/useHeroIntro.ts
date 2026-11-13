@@ -53,6 +53,8 @@ function makeClone(root: HTMLElement, source: HTMLElement, rootRect: DOMRect, fr
 export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: () => boolean } {
   // The closing button is pressable from its own cue, not only once the whole intro has finished.
   const pressableAt = useRef<number | null>(null);
+  // Held in a ref: React Strict Mode runs the effect twice in dev, and the second run reads scrollY 0 while the first run's scroll is still on its way.
+  const returning = useRef(false);
   const settled = () => root.current?.dataset.intro === "done" || (pressableAt.current !== null && performance.now() >= pressableAt.current);
 
   useLayoutEffect(() => {
@@ -74,8 +76,8 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     // The intro plays from the top (a replay from a scrolled phase remounts this hero before the page returns to the top), and the scroll
     // this causes must not count as the reader's: measure from the top, and swallow the one scroll event that move delivers (it can land any
     // number of frames later) by its position, the top, instead of by a frame count.
-    let returning = window.scrollY > 0;
-    if (returning) window.scrollTo({ top: 0, behavior: "instant" });
+    returning.current ||= window.scrollY > 0;
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "instant" });
 
     const m = motion();
     const items = Array.from(el.querySelectorAll<HTMLElement>("[data-intro-el]"));
@@ -186,8 +188,8 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     }
     // "scroll" covers a scrollbar drag and a script that moves the page; the dim should not hold a reader who is already leaving it.
     function onScroll(event: Event) {
-      if (returning && window.scrollY === 0) {
-        returning = false;
+      if (returning.current && window.scrollY === 0) {
+        returning.current = false;
         return;
       }
       skip(event);
