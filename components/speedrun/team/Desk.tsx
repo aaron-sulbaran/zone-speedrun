@@ -83,7 +83,7 @@ export function Desk({ state, desk, step, onSide }: Props) {
         </h2>
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-sr-ink2">{copy.intro}</p>
         <div className="mt-4 space-y-3">
-          <Narration line={line} />
+          <Narration line={line} stepBack={desk.panel !== null} />
           <ActingAs who="team" />
         </div>
         <div className="mt-4">

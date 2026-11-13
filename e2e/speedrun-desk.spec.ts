@@ -908,3 +908,45 @@ test("founder panel: at 320 the chip stays on one line, as tall as at 1440, and 
   // Catches: the chip wrapping its own text inside the rounded pill beside Close on a 320 phone.
   expect(Math.abs(narrow - wide)).toBeLessThanOrEqual(1);
 });
+
+const barOpacity = (page: Page) => narration(page).locator("xpath=..").evaluate((el) => getComputedStyle(el).opacity);
+
+test("side panel at 1440: the scrim dims the desk, the desk's line steps back to one live region, and the scrim closes the panel", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  const scrim = page.locator("[data-desk-scrim]");
+  // Catches: the drawer floating on the desk with nothing between them.
+  await expect(scrim).toBeVisible();
+  await expect.poll(() => barOpacity(page)).toBe("0");
+  const same = await page.evaluate(() => {
+    const live = [...document.querySelectorAll('[role="status"], [aria-live]:not([aria-live="off"])')];
+    const line = document.querySelector("[data-narration]")?.textContent ?? "";
+    const bar = document.querySelector("[data-narration]")?.parentElement;
+    return {
+      line,
+      panel: document.querySelector("[data-panel-narration]")?.textContent ?? "",
+      opacity: bar ? getComputedStyle(bar).opacity : "missing",
+      liveCount: live.filter((node) => line !== "" && (node.textContent ?? "").includes(line)).length,
+    };
+  });
+  // Catches: the line showing twice (a visible copy in the desk's bar and at the panel's top).
+  expect(same.opacity).toBe("0");
+  expect(same.line).not.toBe("");
+  expect(same.line).toBe(same.panel);
+  // Catches: a screen reader announcing each beat twice.
+  expect(same.liveCount).toBe(1);
+  // Catches: the scrim not closing the panel.
+  await scrim.click({ position: { x: 40, y: 200 } });
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect.poll(() => barOpacity(page)).toBe("1");
+});
+
+test("side panel at 390: no scrim is visible", async ({ page }) => {
+  await deskWithTwo(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  // Catches: the scrim showing on a phone, where the panel already covers the desk.
+  await expect(page.locator("[data-desk-scrim]")).toBeHidden();
+});

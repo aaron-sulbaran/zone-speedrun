@@ -14,9 +14,10 @@ export function Prompt() {
   );
 }
 
-export function Narration({ line }: { line: string }) {
+// `stepBack` fades the bar while a side panel shows the same line. It keeps its box and stays in the accessibility tree.
+export function Narration({ line, stepBack = false }: { line: string; stepBack?: boolean }) {
   return (
-    <div className={NARRATION_LOOK}>
+    <div className={`${NARRATION_LOOK} transition-opacity duration-200 motion-reduce:transition-none ${stepBack ? "opacity-0" : ""}`}>
       <Prompt />
       <span role="status" aria-live="polite" data-narration="">
         {line}
