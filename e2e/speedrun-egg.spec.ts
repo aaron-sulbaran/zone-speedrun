@@ -13,10 +13,16 @@ test("while EGG_ENABLED is false, typing sux and five logo clicks open no dialog
   await playSwitch(page);
   await page.locator("#join").focus();
   await page.keyboard.type("sux");
-  // Catches: the typed word opening the egg (a dialog in the page, or the egg markup mounted at all).
+  // Catches: the typed word opening the placeholder dialog while the egg is off.
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator("[data-egg]")).toHaveCount(0);
   const logo = page.locator("#join").getByRole("img", { name: speedrunCopy.logoAlt });
+  await logo.scrollIntoViewIfNeeded();
+  for (let i = 0; i < 5; i++) await logo.click();
+  // Catches: five logo clicks opening the placeholder dialog while the egg is off.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Catches: the egg still mounted behind its flag (closed but in the page), where a later change could open it.
+  await expect(page.locator("[data-egg]")).toHaveCount(0);
+});
   await logo.scrollIntoViewIfNeeded();
   for (let i = 0; i < 5; i++) await logo.click();
   // Catches: five logo clicks opening the egg.

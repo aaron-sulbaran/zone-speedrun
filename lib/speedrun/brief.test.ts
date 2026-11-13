@@ -286,13 +286,10 @@ describe("each sample person's brief", () => {
         const said = subject.match(/(\d+) things? moved overnight/);
         // Catches: the subject counting the lines that moved while the brief also lists lines that did not, so it says 2 over 3 lines.
         if (said) expect(Number(said[1])).toBe(brief.items.length);
-        // Catches: the still-open subject naming a count different from the lines under it.
-        const open = subject.match(/(\d+) things still open/);
-        if (open) expect(Number(open[1])).toBe(brief.items.length);
         // Catches: a quiet subject over a brief that lists lines.
         if (brief.items.length === 0) expect(subject).toMatch(/nothing moved/i);
-        // Catches: a brief with no lines or still-open wording that the subject treats as moved.
-        if (brief.items.length > 0 && !said && !open) expect(subject).toContain("nothing new overnight");
+        // Catches: a brief that lists lines but whose subject neither counts them as moved nor says nothing new overnight.
+        if (brief.items.length > 0 && !said) expect(subject).toContain("nothing new overnight");
       });
     }
   }
