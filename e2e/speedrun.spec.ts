@@ -247,8 +247,9 @@ test("the Yes / No steps carry no developer note about tapping", async ({ page }
   await answerOnboarding(page, {
     onStep: async (step) => {
       if (step !== "student" && step !== "founding") return;
-      // Catches: the "single tap advances, no Continue click" note coming back under the pills, which reads as a build note to a visitor.
+      // Catches: this check running on a step with no Yes / No pills (a step reorder or a changed pill count), so the no-note line below passes on nothing.
       await expect(page.locator("#join").getByRole("radio")).toHaveCount(2);
+      // Catches: the "single tap advances, no Continue click" note coming back under the pills, which reads as a build note to a visitor.
       await expect(page.locator("#join")).not.toContainText(/tap advances|no continue click/i);
     },
   });
@@ -690,9 +691,11 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   const close = page.locator("[data-close]");
   await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
   await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
-  // Catches: the close card claiming a weekend build, or pointing readers at code nobody can read (the repo is private).
+  // Catches: the close card losing the corrected "Built in a week" opening (reverting to a weekend build or dropping the sentence).
   await expect(close).toContainText("Built in a week on my own site");
+  // Catches: the word weekend coming back anywhere in the close card.
   await expect(close).not.toContainText(/weekend/i);
+  // Catches: the close card pointing readers at code anyone can read, when the repo is private.
   await expect(close).not.toContainText(/code anyone can read/i);
   const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
