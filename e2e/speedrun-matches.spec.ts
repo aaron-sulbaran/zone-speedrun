@@ -755,3 +755,25 @@ test("intro request: the Board's Intros tile counts the request, and its list ag
   await expect(items).toHaveCount(before + 1);
   expect(Number(await tile.getAttribute("data-value"))).toBe(before + 1);
 });
+
+test("intro request: when #1 has no intro path, every other pick says so and the Board link switches tabs", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await watchMatches(page, (result) => {
+    const matches = result.matches.map((match) => ({ ...match }));
+    matches[0] = { ...matches[0], connect: matches[0].connect.filter((way) => way !== "intro") };
+    matches[1] = { ...matches[1], connect: [...new Set([...matches[1].connect, "intro" as const])] };
+    return { ...result, matches };
+  });
+  await joinAs(page, "sam");
+  await toMatches(page);
+  await bringForward(page, 0);
+  await bringForward(page, 1);
+  const note = detail(page).locator("#sr-intro-note");
+  // Catches: the "it goes to your #1" hint on a pick whose #1 can never take the request, a dead end with no way forward.
+  await expect(note).toContainText(INTRO.hintNoPathFirst.before.trim());
+  const link = note.locator("[data-intro-board]");
+  expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(43.95);
+  await link.click();
+  // Catches: the link doing nothing instead of opening the Board tab.
+  await expect(page.locator("[data-board]")).toBeVisible();
+});
