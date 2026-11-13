@@ -2,6 +2,8 @@ import { siteContent, speedrunCopy } from "../lib/content";
 import { rankMatches } from "../lib/speedrun/match";
 import { PEOPLE } from "../lib/speedrun/people";
 import { getSnapshot } from "../lib/speedrun/snapshot";
+import { INBOX_TODAY } from "../lib/speedrun/inbox";
+import { addDays } from "../lib/speedrun/today";
 import { shortDay } from "../lib/speedrun/when";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
@@ -113,7 +115,8 @@ const boardHeading = (page: Page) => page.locator("#sr-board-heading");
 const rows = (page: Page) => page.locator("[data-board-table] [data-row]");
 const rowNames = (page: Page) => rows(page).locator('[data-cell="company"]').allInnerTexts().then((names) => names.map((name) => name.split("\n")[0].trim()));
 const th = (page: Page, key: string) => page.locator(`[data-board-table] th[data-col="${key}"]`);
-// Sam's four, in the order the due dates and ranks give: Wrenfield (Nov 9), Lumora Health (Nov 10), Cindermoor Cloud (Nov 11), Quillbright (Nov 12).
+// Sam's four, in the order the due dates and ranks give: Wrenfield (today), Lumora Health (+1), Cindermoor Cloud (+2), Quillbright (+3); the suite pins today to the reference day.
+const dueOn = (offset: number) => shortDay(addDays(INBOX_TODAY, offset));
 const NEEDS = ["Wrenfield", "Lumora Health", "Cindermoor Cloud", "Quillbright"];
 const DATE = /^[A-Z][a-z]{2} \d{1,2}$/;
 
@@ -129,7 +132,7 @@ test("board top: at 1440 the four things that need Sam sit above the fold, each 
   // Catches: a button that names a different action from the item it sits on.
   await expect(needs(page).locator("[data-needs-action]")).toHaveText([ACTIONS.briefButtons.decideOffer, ACTIONS.briefButtons.pickTime, ACTIONS.briefButtons.confirmInterview, ACTIONS.briefButtons.decideOffer]);
   // Catches: a deadline that is not the pinned date.
-  await expect(needs(page).first().locator("[data-needs-due]")).toHaveText(COPY.needs.due(shortDay("2026-11-09")));
+  await expect(needs(page).first().locator("[data-needs-due]")).toHaveText(COPY.needs.due(dueOn(0)));
   for (let i = 0; i < 4; i++) {
     const item = needs(page).nth(i);
     // Catches: an item that does not say who it is with (the first glance offers nothing).
@@ -215,7 +218,7 @@ test("board top: pressing the Offers tile lists both offers with deadlines, filt
   await expect(panel.locator("[data-tile-item]")).toHaveCount(2);
   await expect(panel.locator("[data-tile-company]")).toHaveText(["Wrenfield", "Quillbright"]);
   // Catches: an offer listed without its deadline.
-  await expect(panel.locator("[data-tile-due]")).toHaveText([COPY.needs.due(shortDay("2026-11-09")), COPY.needs.due(shortDay("2026-11-12"))]);
+  await expect(panel.locator("[data-tile-due]")).toHaveText([COPY.needs.due(dueOn(0)), COPY.needs.due(dueOn(3))]);
   // Catches: the drop-down opening and the table staying unfiltered.
   await expect(rows(page)).toHaveCount(2);
   await expect(rows(page).locator('[data-cell="stage"]')).toHaveText([speedrunCopy.flow.stages.offer, speedrunCopy.flow.stages.offer]);
@@ -309,7 +312,7 @@ test("board table: the cells carry dates, and the Next step cell opens the very 
   await expect(wren.locator('[data-cell="applied"]')).toHaveText(DATE);
   await expect(wren.locator('[data-cell="lastUpdate"]')).toHaveText(DATE);
   // Catches: a Next step with no due date where one exists.
-  await expect(wren.locator('[data-cell="next"]')).toContainText(shortDay("2026-11-09"));
+  await expect(wren.locator('[data-cell="next"]')).toContainText(dueOn(0));
   await needs(page).first().locator("[data-needs-action]").click();
   const fromNeeds = await sheet(page).locator("#sr-sheet-title").innerText();
   await sheet(page).locator("[data-sheet-close]").click();
@@ -629,7 +632,7 @@ test("today: the Cindermoor interview is confirmed first, then joined, and every
   // Catches: the call's time missing from the interview row (Ruling 51).
   await expect(cinder.locator("[data-today-when]")).toHaveText(/Nov 16/);
   // Catches: the interview row still saying Due, when the visitor has to confirm by that day.
-  await expect(cinder.locator("[data-today-due]")).toHaveText(COPY.today.confirmBy(shortDay("2026-11-11")));
+  await expect(cinder.locator("[data-today-due]")).toHaveText(COPY.today.confirmBy(dueOn(2)));
   // Catches: Join offered before the interview is confirmed, so Today and Needs you disagree about what comes next.
   await expect(cinder.getByRole("button", { name: COPY.today.join })).toHaveCount(0);
   const needsSheetTitle = await needsTitle(page, "Cindermoor Cloud");
@@ -1058,4 +1061,21 @@ test("phones: the Needs you details, every tile panel and Show all reveal 44 px 
   // Catches: Show all revealing no more rows, so rows 9 and up and their Next-step links go unmeasured.
   expect(await page.locator("[data-board-table] [data-row]").count()).toBeGreaterThan(8);
   checkTouchSizes("show all", await measureShell(page));
+});
+
+test.describe("a visitor who opens the page on a later day", () => {
+  const LATER = "2026-12-03";
+  test.use({ today: LATER });
+
+  test("every due is today or later and Cindermoor's call is after today", async ({ page }) => {
+    await joinAs(page, "sam", true);
+    // Catches: Sam's dues staying pinned to November, so a visitor on a later day reads past-due dates (the stale-date bug).
+    await expect(needs(page).locator("[data-needs-due]")).toHaveText([0, 1, 2, 3].map((offset) => COPY.needs.due(shortDay(addDays(LATER, offset)))));
+    // Catches: the pinned call staying on its November day, which would sit before the visitor's today.
+    const callDay = shortDay(addDays(LATER, 7));
+    await expect(today(page).filter({ hasText: "Cindermoor Cloud" }).locator("[data-today-when]")).toContainText(callDay);
+    // Catches: the table's Next step still reading the November due after the dates moved with the day.
+    const wren = rows(page).filter({ hasText: "Wrenfield" }).first();
+    await expect(wren.locator('[data-cell="next"]')).toContainText(shortDay(LATER));
+  });
 });

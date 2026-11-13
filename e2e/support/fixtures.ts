@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { INBOX_TODAY } from "../../lib/speedrun/inbox";
 
 // The suite's test object. Every page is held to the local server: a request
 // to any other host is aborted and recorded, and a test that tried to reach
@@ -9,9 +10,24 @@ const FORBIDDEN = /vercel|aaronsulbaran\.com/i;
 
 type Fixtures = {
   offsite: string[];
+  pinnedClock: void;
 };
 
-export const test = base.extend<Fixtures>({
+type Options = {
+  /** The calendar day the page believes it is, as YYYY-MM-DD; local noon of it. The demo's dates follow the visitor's today. */
+  today: string;
+};
+
+export const test = base.extend<Fixtures & Options>({
+  today: [INBOX_TODAY, { option: true }],
+  // setFixedTime moves "now" and leaves every timer running, so the pill auto-advance, the build log and the count-ups keep their real pace.
+  pinnedClock: [
+    async ({ context, today }, provide) => {
+      await context.clock.setFixedTime(new Date(`${today}T12:00:00`));
+      await provide();
+    },
+    { auto: true },
+  ],
   offsite: [
     async ({ context }, provide) => {
       const blocked: string[] = [];
