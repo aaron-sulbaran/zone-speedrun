@@ -38,7 +38,7 @@ export const MatchDetail = forwardRef<HTMLDivElement, MatchDetailProps>(function
         type="button"
         data-detail-back=""
         onClick={onClose}
-        className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-sr-soft px-4 py-2 font-srcond text-xs uppercase tracking-wider text-sr-ink transition-colors duration-200 hover:bg-sr-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none lg:hidden"
+        className="mb-3 inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border border-sr-soft px-4 font-srcond text-xs uppercase tracking-wider text-sr-ink transition-colors duration-200 hover:bg-sr-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none lg:hidden"
       >
         <ArrowLeft aria-hidden="true" size={13} />
         {copy.back}

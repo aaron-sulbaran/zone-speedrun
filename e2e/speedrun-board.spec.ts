@@ -972,24 +972,34 @@ for (const width of [375, 390]) {
   });
 }
 
-test("phones: every link, button, tab and summary in the shell is a 44 px target on all four tabs at 390", async ({ page }) => {
+test("phones: every link, button, tab and summary in the shell is a 44 px target on all four tabs and in an open match at 390", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await joinAs(page, "sam", true);
-  for (const label of PHONE_TABS) {
-    await openTab(page, label);
-    const sizes = await page.locator("[data-shell]").evaluate((shell) => {
-      const found = [...shell.querySelectorAll<HTMLElement>("a, button, [role=tab], summary")].filter((el) => {
-        const box = el.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]");
-      });
-      return found.map((el) => ({ label: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }));
+  const measure = () => page.locator("[data-shell]").evaluate((shell) => {
+    const found = [...shell.querySelectorAll<HTMLElement>("a, button, [role=tab], summary")].filter((el) => {
+      const box = el.getBoundingClientRect();
+      return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]");
     });
+    return found.map((el) => ({ label: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), back: el.hasAttribute("data-detail-back"), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }));
+  });
+  const check = (label: string, sizes: Awaited<ReturnType<typeof measure>>) => {
     // Catches: the selector matching almost nothing on a tab, so the size loop below checks no controls at all.
     expect(sizes.length, `${label} controls`).toBeGreaterThan(5);
     for (const { label: name, width, height } of sizes) {
-      // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 28 px Show all, 36 px channel pills, the 40 px account button).
+      // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 40 px account button, Back to matches at 34 px).
       expect(width, `${label}: ${name} width`).toBeGreaterThanOrEqual(43.95);
       expect(height, `${label}: ${name} height`).toBeGreaterThanOrEqual(43.95);
     }
+  };
+  for (const label of PHONE_TABS) {
+    await openTab(page, label);
+    check(label, await measure());
   }
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await page.locator("[data-match-row]").nth(1).click();
+  await expect(page.locator("[data-match-detail]")).toBeVisible();
+  const open = await measure();
+  // Catches: Back to matches missing from the measured set, because the pin never opened a match.
+  expect(open.filter((control) => control.back)).toHaveLength(1);
+  check("open match", open);
 });
