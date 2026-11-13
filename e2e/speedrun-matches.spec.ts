@@ -776,4 +776,7 @@ test("intro request: when #1 has no intro path, every other pick says so and the
   await link.click();
   // Catches: the link doing nothing instead of opening the Board tab.
   await expect(page.locator("[data-board]")).toBeVisible();
+  // Catches: landing at the top of the Board when the hint is about the shortlist, with focus left on a hidden control.
+  await expect(page.locator("#sr-section-shortlist")).toBeFocused();
+  await expect(page.locator("#sr-section-shortlist")).toBeInViewport();
 });
