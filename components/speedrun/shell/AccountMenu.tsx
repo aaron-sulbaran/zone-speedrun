@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { speedrunCopy } from "@/lib/content";
 
 const copy = speedrunCopy.network.account;
-const ITEM = "block w-full rounded-lg px-3 py-2 text-left font-srcond text-sm uppercase tracking-wider text-sr-ink transition-colors duration-200 hover:bg-sr-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none";
+const ITEM = "flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left font-srcond text-sm uppercase tracking-wider text-sr-ink transition-colors duration-200 hover:bg-sr-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none";
 
 type AccountMenuProps = { name: string | null; onStartOver: () => void; onReplayTop: () => void };
 

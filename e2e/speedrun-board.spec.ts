@@ -5,7 +5,7 @@ import { getSnapshot } from "../lib/speedrun/snapshot";
 import { shortDay } from "../lib/speedrun/when";
 import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, probeFlowLabels, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
+import { answerOnboarding, openAccountMenu, probeFlowLabels, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.board;
 
@@ -940,9 +940,10 @@ for (const width of [375, 390]) {
   test(`phones: on Sam's board at ${width} nothing scrolls the page sideways, the sheet fits, and the last section clears the dock`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 });
     await joinAs(page, "sam", true);
-    // Catches: any board element wider than the phone, which would give the document its own sideways scroll.
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
-    // Catches: a table with no scroll container of its own, which would push the page wider than the phone.
+    // The tab panel scrolls on its own (overflow-y: auto makes its overflow-x auto too), so the document never sees a wide child; the panel is what has to be measured.
+    // Catches: the table or any board element wider than the tab panel, which would scroll the panel sideways while the document width stays at the phone's.
+    expect(await page.locator('[role="tabpanel"]:not([hidden])').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    // Catches: the table's own container losing overflow-x: auto (hidden would clip its columns, visible would widen the panel).
     await expect(page.locator("[data-table-scroll]")).toHaveCSS("overflow-x", "auto");
     const fade = page.locator("[data-table-fade]");
     const box = page.locator("[data-table-scroll]");
@@ -955,51 +956,76 @@ for (const width of [375, 390]) {
     // Catches: the fade staying on after the last column is reached, hiding its text for good.
     await expect(fade).toHaveCSS("opacity", "0");
     await needs(page).first().getByRole("button").first().click();
-    await expect(sheet(page)).toBeVisible();
+    await sheet(page).waitFor();
     // Catches: an action sheet narrower than the phone's content width (343 at 375), leaving a strip of page showing beside it.
     expect((await sheet(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
     await sheet(page).locator("[data-sheet-close]").first().click();
-    await expect(sheet(page)).toBeHidden();
+    await sheet(page).waitFor({ state: "hidden" });
     const panel = page.locator('[role="tabpanel"]:not([hidden])');
     await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
-    const gap = await page.evaluate(() => {
-      const sections = document.querySelectorAll("[data-board-section]");
-      const last = sections[sections.length - 1].getBoundingClientRect();
-      return document.querySelector('[role="tablist"]')!.getBoundingClientRect().top - last.bottom;
+    // The panel's last focusable control (today the Next button) is what the dock must never cover.
+    const probe = await page.evaluate(() => {
+      const panelEl = document.querySelector('[role="tabpanel"]:not([hidden])')!;
+      const controls = [...panelEl.querySelectorAll<HTMLElement>('a, button, summary, [tabindex]:not([tabindex="-1"])')].filter((el) => el.getBoundingClientRect().height > 0 && !el.closest("[hidden], [inert]"));
+      const last = controls[controls.length - 1];
+      const box = last.getBoundingClientRect();
+      const hit = (y: number) => { const at = document.elementFromPoint(box.left + box.width / 2, y); return !!at && last.contains(at); };
+      return { count: controls.length, bottom: box.bottom, dockTop: document.querySelector('[role="tablist"]')!.getBoundingClientRect().top, centerHit: hit(box.top + box.height / 2), edgeHit: hit(box.bottom - 2) };
     });
-    // Catches: the last board section ending under the dock, so its final controls can never be reached.
-    expect(gap).toBeGreaterThanOrEqual(0);
+    // Catches: the probe finding no controls in the panel, so the three checks below read nothing.
+    expect(probe.count).toBeGreaterThan(5);
+    // Catches: the panel's last control ending below the dock's top edge, with no slack to hide behind.
+    expect(probe.bottom).toBeLessThanOrEqual(probe.dockTop);
+    // Catches: the dock sitting over the middle of the last control, so a tap lands on the dock.
+    expect(probe.centerHit).toBe(true);
+    // Catches: the dock sitting over the last control's bottom edge, so its lowest 2 px belong to the dock.
+    expect(probe.edgeHit).toBe(true);
   });
+}
+
+const measureShell = (page: Page) => page.locator("[data-shell]").evaluate((shell) => {
+  const found = [...shell.querySelectorAll<HTMLElement>("a, button, [role=tab], summary")].filter((el) => {
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]");
+  });
+  return found.map((el) => ({ label: (el.getAttribute("aria-label") || el.textContent || "").trim().slice(0, 30), back: el.hasAttribute("data-detail-back"), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }));
+});
+
+function checkTouchSizes(label: string, sizes: Awaited<ReturnType<typeof measureShell>>) {
+  // Catches: the selector or the open state matching almost nothing on a view, so the size loop below checks no controls at all.
+  expect(sizes.length, `${label} controls`).toBeGreaterThan(5);
+  for (const { label: name, width, height } of sizes) {
+    // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 40 px account button, Back to matches at 34 px, menu items at 36 px).
+    expect(width, `${label}: ${name} width`).toBeGreaterThanOrEqual(43.95);
+    expect(height, `${label}: ${name} height`).toBeGreaterThanOrEqual(43.95);
+  }
 }
 
 test("phones: every link, button, tab and summary in the shell is a 44 px target on all four tabs and in an open match at 390", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await joinAs(page, "sam", true);
-  const measure = () => page.locator("[data-shell]").evaluate((shell) => {
-    const found = [...shell.querySelectorAll<HTMLElement>("a, button, [role=tab], summary")].filter((el) => {
-      const box = el.getBoundingClientRect();
-      return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], [inert]");
-    });
-    return found.map((el) => ({ label: (el.textContent ?? el.getAttribute("aria-label") ?? "").trim().slice(0, 30), back: el.hasAttribute("data-detail-back"), width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height }));
-  });
-  const check = (label: string, sizes: Awaited<ReturnType<typeof measure>>) => {
-    // Catches: the selector matching almost nothing on a tab, so the size loop below checks no controls at all.
-    expect(sizes.length, `${label} controls`).toBeGreaterThan(5);
-    for (const { label: name, width, height } of sizes) {
-      // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 40 px account button, Back to matches at 34 px).
-      expect(width, `${label}: ${name} width`).toBeGreaterThanOrEqual(43.95);
-      expect(height, `${label}: ${name} height`).toBeGreaterThanOrEqual(43.95);
-    }
-  };
   for (const label of PHONE_TABS) {
     await openTab(page, label);
-    check(label, await measure());
+    checkTouchSizes(label, await measureShell(page));
   }
   await openTab(page, speedrunCopy.network.tabs.matches);
   await page.locator("[data-match-row]").nth(1).click();
-  await expect(page.locator("[data-match-detail]")).toBeVisible();
-  const open = await measure();
+  await page.locator("[data-match-detail]").waitFor();
+  const open = await measureShell(page);
   // Catches: Back to matches missing from the measured set, because the pin never opened a match.
   expect(open.filter((control) => control.back)).toHaveLength(1);
-  check("open match", open);
+  checkTouchSizes("open match", open);
+});
+
+test("phones: a Today prep drop-down and the open account menu are 44 px targets at 390", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await joinAs(page, "dev", true);
+  await page.locator("[data-today-prep] > summary").first().click();
+  // Catches: the Today prep disclosure never opening, so its revealed links go unmeasured.
+  expect(await page.locator("[data-today-prep]").first().evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
+  checkTouchSizes("prep drop-down", await measureShell(page));
+  await openAccountMenu(page);
+  // Catches: the account menu's items missing from the measured set because the pin never opened it.
+  expect(await page.locator("[data-account-panel] button").count()).toBeGreaterThanOrEqual(2);
+  checkTouchSizes("account menu", await measureShell(page));
 });
