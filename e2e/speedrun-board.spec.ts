@@ -968,6 +968,7 @@ for (const width of [375, 390]) {
       const panelEl = document.querySelector('[role="tabpanel"]:not([hidden])')!;
       const controls = [...panelEl.querySelectorAll<HTMLElement>('a, button, summary, [tabindex]:not([tabindex="-1"])')].filter((el) => el.getBoundingClientRect().height > 0 && !el.closest("[hidden], [inert]"));
       const last = controls[controls.length - 1];
+      if (!last) return { count: 0, bottom: 0, dockTop: 0, centerHit: false, edgeHit: false };
       const box = last.getBoundingClientRect();
       const hit = (y: number) => { const at = document.elementFromPoint(box.left + box.width / 2, y); return !!at && last.contains(at); };
       return { count: controls.length, bottom: box.bottom, dockTop: document.querySelector('[role="tablist"]')!.getBoundingClientRect().top, centerHit: hit(box.top + box.height / 2), edgeHit: hit(box.bottom - 2) };
@@ -1026,6 +1027,6 @@ test("phones: a Today prep drop-down and the open account menu are 44 px targets
   checkTouchSizes("prep drop-down", await measureShell(page));
   await openAccountMenu(page);
   // Catches: the account menu's items missing from the measured set because the pin never opened it.
-  expect(await page.locator("[data-account-panel] button").count()).toBeGreaterThanOrEqual(2);
+  expect(await page.locator("[data-account-panel] button:visible").count()).toBeGreaterThanOrEqual(2);
   checkTouchSizes("account menu", await measureShell(page));
 });
