@@ -1,5 +1,6 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
 import type { CompanyDetail } from "./details";
+import { cleanUrl } from "./cleanUrl";
 import { introLineKind } from "./intros";
 import { roleMatchKey, rowKey } from "./keys";
 import type { SnapshotRole } from "./snapshot";
@@ -68,7 +69,7 @@ export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: 
   const eligible = roles.filter((role) => role.tier === "speedrun" && posted(role) < until);
   const overnight = eligible.find((role) => posted(role) >= since);
   if (overnight) {
-    const item: BriefItem = { kind: "new-role", text: copy.items.newRole(overnight.title, overnight.company), href: safeHref(overnight.url), company: overnight.companyName ?? overnight.company, actionKey: roleKey(overnight) };
+    const item: BriefItem = { kind: "new-role", text: copy.items.newRole(overnight.title, overnight.company), href: safeHref(cleanUrl(overnight.url)), company: overnight.companyName ?? overnight.company, actionKey: roleKey(overnight) };
     return { company: overnight.company, item };
   }
   if (cadence === "on-change") return null;
@@ -76,7 +77,7 @@ export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: 
   if (!freshest) return null;
   const thisWeek = posted(freshest) >= until - WEEK_MS;
   const text = thisWeek ? copy.items.newThisWeek(freshest.title, freshest.company) : copy.items.openRole(freshest.title, freshest.company);
-  return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(freshest.url), standing: true, company: freshest.companyName ?? freshest.company, actionKey: roleKey(freshest) } };
+  return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(cleanUrl(freshest.url)), standing: true, company: freshest.companyName ?? freshest.company, actionKey: roleKey(freshest) } };
 }
 
 /** A reply in the words of what it says: a no is a no, an interview is an interview. */

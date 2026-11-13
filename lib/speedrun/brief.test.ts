@@ -364,6 +364,15 @@ describe("renderBriefEmail", () => {
     expect(out.html).not.toContain("javascript:");
   });
 
+  // Catches: the snapshot's agent tags (utm_medium=agent) reaching a posting link in the brief or its email, which a person clicks.
+  it("carries a role's posting link without agent tags", () => {
+    const tagged = { ...role("2026-11-06T00:00:00.000Z"), url: "https://example.com/r?utm_source=portfolio-research&utm_medium=agent" };
+    const brief = composeBrief({ ...base, roles: [tagged] });
+    const item = brief.items.find((entry) => entry.kind === "new-role")!;
+    expect(item.href).toBe("https://example.com/r");
+    expect(renderBriefEmail(brief, "Sam").html).not.toContain("utm_medium=agent");
+  });
+
   it("calls the preview this morning's brief", () => {
     expect(copy.heading).toBe("this morning, 8:02\u00a0am");
   });
