@@ -54,15 +54,19 @@ test("switch: the candidate side returns exactly as left, with the same match se
   await expect(page.locator(`[data-match-row="${key}"][aria-current="true"]`)).toBeVisible();
 });
 
-test("switch: focus stays on the pressed button after a flip", async ({ page }) => {
+test("switch: focus stays on the pressed button after a keyboard flip", async ({ page }) => {
   await toNetwork(page);
-  await teamButton(page).click();
+  const focusedText = () => page.evaluate(() => document.activeElement?.textContent?.trim());
+  // WebKit never focuses a clicked button, so the pin flips with the keyboard, as a keyboard reader does.
+  await teamButton(page).focus();
+  await page.keyboard.press("Enter");
   await expect(desk(page)).toBeVisible();
-  // Catches: focus dropped to body when the panels swap.
-  expect(await page.evaluate(() => document.activeElement?.textContent?.trim())).toBe(SWITCH.team);
-  await candidateButton(page).click();
+  // Catches: a keyboard reader losing their place (focus dropped to body) when the panels swap.
+  expect(await focusedText()).toBe(SWITCH.team);
+  await candidateButton(page).focus();
+  await page.keyboard.press("Space");
   await expect(desk(page)).toHaveCount(0);
-  expect(await page.evaluate(() => document.activeElement?.textContent?.trim())).toBe(SWITCH.candidate);
+  expect(await focusedText()).toBe(SWITCH.candidate);
 });
 
 test("switch: Start over from the team side, then a rebuild, lands on the candidate side", async ({ page }) => {
@@ -480,11 +484,11 @@ test("desk walk: after a pass with one pick the pick is free, and another match 
   expect(await mineCompany(page)).not.toBe(first);
 });
 
-test("founder panel: Shift+Tab from the heading lands on Close", async ({ page }) => {
+test("founder panel: Shift+Tab from the heading lands on Close", async ({ page, browserName }) => {
   await deskWithTwo(page);
   await toFounderPanel(page);
   await expect(founderPanel(page).getByRole("heading", { level: 2 })).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press(`Shift+${tabKey(browserName)}`);
   // Catches: a hand-rolled wrap sending Shift+Tab from the heading to the last button instead of the Close before it.
   await expect(founderPanel(page).locator("[data-founder-close]")).toBeFocused();
 });
