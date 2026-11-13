@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
 import { DETAILS } from "../lib/speedrun/details";
 import { whenLabel } from "../lib/speedrun/when";
+import { PERSON_KEYS } from "../lib/speedrun/types";
 import { answerOnboarding, openTab, skipBuildLog, tabKey } from "./speedrun-flow";
 
 const COPY = speedrunCopy.brief;
@@ -40,12 +41,41 @@ test("a quiet person gets the short brief", async ({ page }) => {
   await expect(page.locator("[data-brief-quiet]")).toBeVisible();
 });
 
-test("with email off the page shows the off line and no address field", async ({ page }) => {
+test("with email off the page shows one channel line and no address field", async ({ page }) => {
   await joinAs(page, "sam");
-  await expect(page.locator("[data-brief-off]")).toHaveText(COPY.send.off);
+  // Catches: the old pair coming back (an "only email works" line over a separate "sending is off" line), which contradict each other.
+  const note = page.locator("[data-brief-channel-note]");
+  await expect(note).toHaveCount(1);
+  await expect(note).toHaveText(COPY.channelNote);
+  // Catches: the switched-off wording appearing a second time under the channel line.
+  expect((await page.locator("[data-brief]").innerText()).match(/switched off/g)).toHaveLength(1);
+  // Catches: the retired contradicting lines still rendering.
+  await expect(page.locator("[data-brief]")).not.toContainText(/only email works/i);
+  await expect(page.locator("[data-brief-off]")).toHaveCount(0);
   await expect(page.locator("[data-brief] input")).toHaveCount(0);
   await expect(page.locator("[data-brief-send]")).toHaveCount(0);
 });
+
+for (const connectGmail of [true, false]) {
+  for (const key of PERSON_KEYS) {
+    test(`the subject's count equals the lines shown: ${key}, ${connectGmail ? "Gmail connected" : "no Gmail"}`, async ({ page }) => {
+      await page.goto("/speedrun");
+      await answerOnboarding(page, { name: "Testy", person: key, connectGmail });
+      await skipBuildLog(page);
+      await openTab(page, speedrunCopy.network.tabs.brief);
+      await expect(page.locator("[data-brief]")).toBeVisible({ timeout: 20_000 });
+      const subject = await page.locator("[data-brief-subject]").innerText();
+      const shown = await page.locator("[data-brief-item]").count();
+      const said = subject.match(/(\d+) things? (?:moved overnight|still open)/);
+      // Catches: a subject that counts fewer (or more) things than the brief lists, such as "2 things moved overnight" over three lines.
+      if (said) expect(Number(said[1]), subject).toBe(shown);
+      // Catches: a quiet subject over lines, or lines missing under a subject that names a count.
+      else if (shown === 0) expect(subject).toMatch(/nothing moved/i);
+      // Catches: the single still-open form sitting over more than one line.
+      else expect(shown, subject).toBe(1);
+    });
+  }
+}
 
 const sheet = (page: Page) => page.locator("dialog[data-action-sheet]");
 const lines = (page: Page) => page.locator("[data-brief-item]");

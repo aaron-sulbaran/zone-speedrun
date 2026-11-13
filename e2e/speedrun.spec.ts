@@ -242,6 +242,18 @@ test("the student branch counts 03 / 07 before the answer and 04 / 08 after it, 
   await expectVisitorName(page, "Alex");
 });
 
+test("the Yes / No steps carry no developer note about tapping", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, {
+    onStep: async (step) => {
+      if (step !== "student" && step !== "founding") return;
+      // Catches: the "single tap advances, no Continue click" note coming back under the pills, which reads as a build note to a visitor.
+      await expect(page.locator("#join").getByRole("radio")).toHaveCount(2);
+      await expect(page.locator("#join")).not.toContainText(/tap advances|no continue click/i);
+    },
+  });
+});
+
 test("tapping Yes then No within the advance beat moves on once, on No", async ({ page }) => {
   await playSwitch(page);
   await page.locator("#join").getByLabel(join.steps.name.inputLabel).fill("Alex");
@@ -678,6 +690,10 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   const close = page.locator("[data-close]");
   await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
   await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
+  // Catches: the close card claiming a weekend build, or pointing readers at code nobody can read (the repo is private).
+  await expect(close).toContainText("Built in a week on my own site");
+  await expect(close).not.toContainText(/weekend/i);
+  await expect(close).not.toContainText(/code anyone can read/i);
   const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
   await expect(links).toHaveCount(3);
