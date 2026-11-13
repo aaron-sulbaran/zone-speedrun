@@ -1,4 +1,5 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
+import { INBOX_TODAY } from "../../lib/speedrun/inbox";
 
 // The suite's test object. Every page is held to the local server: a request
 // to any other host is aborted and recorded, and a test that tried to reach
@@ -10,6 +11,15 @@ const FORBIDDEN = /vercel|aaronsulbaran\.com/i;
 type Fixtures = {
   offsite: string[];
 };
+
+/**
+ * Pins the page's "now" to local noon of `day` (the demo's dates follow the visitor's today). Call it first in a test whose
+ * assertions read a demo date; every other test keeps the real clock. setFixedTime freezes Date.now, which skews hero and
+ * switch timings (a frozen clock broke the intro-replay and switch-floor pins), so pin only where a date is asserted.
+ */
+export async function pinToday(page: Page, day: string = INBOX_TODAY) {
+  await page.context().clock.setFixedTime(new Date(`${day}T12:00:00`));
+}
 
 export const test = base.extend<Fixtures>({
   offsite: [

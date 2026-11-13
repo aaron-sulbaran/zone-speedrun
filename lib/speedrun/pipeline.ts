@@ -11,8 +11,6 @@ function daysBetween(from: string, to: string): number {
 }
 
 const companyKey = (company: string) => company.toLowerCase().replace(/[^a-z0-9]+/g, "");
-// board.ts gives every pasted email an id that starts "pasted-"; sample ids start with the person's key.
-const fromPaste = (event: InboxEvent) => event.emailId.startsWith("pasted-");
 const roleKey = (role: string | null) => (role ?? "").toLowerCase().trim();
 
 type Group = { company: string; role: string | null; events: InboxEvent[] };
@@ -60,12 +58,10 @@ function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
   const sorted = events
     .filter((event) => ROW_KINDS.has(event.kind))
     .sort((a, b) => a.date.localeCompare(b.date));
-  // Folding stays within one source, so a pasted "Cobalt" never joins the sample's "Cobalt Meadow".
-  const pasted = foldedKeys(sorted.filter(fromPaste));
-  const sample = foldedKeys(sorted.filter((event) => !fromPaste(event)));
+  const folded = foldedKeys(sorted);
   for (const event of sorted) {
     const own = companyKey(event.company);
-    const key = (fromPaste(event) ? pasted : sample).get(own) ?? own;
+    const key = folded.get(own) ?? own;
     const groups = byCompany.get(key) ?? [];
     byCompany.set(key, groups);
     let target: Group | undefined;
@@ -91,7 +87,6 @@ function groupByApplication(events: InboxEvent[]): Map<string, Group[]> {
 }
 
 export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
-  const intros = events.filter((event) => event.kind === "intro").length;
   const rows: AppRow[] = [];
 
   for (const groups of groupByApplication(events).values()) {
@@ -113,6 +108,7 @@ export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
         lane,
         furthest,
         exit,
+        appliedAt: group.events.find((event) => event.kind === "applied")?.date ?? null,
         lastEventAt: last.date,
         next: exit === "open" ? speedrunCopy.board.next[furthest] : null,
       });
@@ -125,8 +121,7 @@ export function buildPipeline(events: InboxEvent[], today: string): Pipeline {
     stats: {
       applied: rows.length,
       inProcess: rows.filter((row) => row.exit === "open" && row.furthest !== "applied" && row.furthest !== "offer").length,
-      intros,
-      offers: rows.filter((row) => row.furthest === "offer").length,
+      offers: rows.filter((row) => row.exit === "open" && row.furthest === "offer").length,
     },
   };
 }

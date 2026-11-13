@@ -1,7 +1,8 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
-import type { BoardCard, InboxEvent, Intake, PersonKey, Profile, ReadError } from "./types";
+import { isLive, type IntroRequest } from "./introRequest";
+import type { Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
 
@@ -22,9 +23,13 @@ export type DemoState = {
   personKey: PersonKey | null;
   profile: Profile | null;
   result: MatchResult | null;
-  events: InboxEvent[];
-  boardOrder: BoardCard[];
-  hidden: BoardCard[];
+  /** matchKeys the visitor brought forward, in order. */
+  shortlist: string[];
+  introRequest: IntroRequest | null;
+  /** Ids of next steps marked done. */
+  done: string[];
+  /** The time tapped on a Pick a time sheet, by action id, so every done marker names the same one. */
+  picked: Record<string, string>;
   live: Live;
   /** Why the last upload failed; cleared by the next pick, upload or reset. */
   uploadError: UploadErrorKey | null;
@@ -42,14 +47,16 @@ export type DemoAction =
   /** The browser refused the file before any build began. */
   | { type: "uploadRejected"; error: UploadErrorKey }
   | { type: "built"; buildId: number; profile: Profile; result: MatchResult }
-  | { type: "addEvents"; events: InboxEvent[] }
-  | { type: "moveCard"; card: BoardCard; to: number }
-  | { type: "toggleCard"; card: BoardCard }
+  | { type: "bringForward"; key: string; on: boolean }
+  | { type: "moveShortlist"; key: string; direction: -1 | 1 }
+  | { type: "requestIntro"; request: IntroRequest }
+  | { type: "swapIntro"; request: IntroRequest }
+  | { type: "markDone"; id: string; slot?: string }
   | { type: "reset" };
 
 export const MAX_PLACES = 8;
 
-export const DEFAULT_BOARD_ORDER: BoardCard[] = ["today", "pipeline", "flow", "intros", "tools"];
+const NO_PICKS = { shortlist: [] as string[], introRequest: null, done: [] as string[], picked: {} as Record<string, string> };
 
 export function initialDemoState(live: Live): DemoState {
   return {
@@ -63,9 +70,10 @@ export function initialDemoState(live: Live): DemoState {
     personKey: null,
     profile: null,
     result: null,
-    events: [],
-    boardOrder: [...DEFAULT_BOARD_ORDER],
-    hidden: [],
+    shortlist: [],
+    introRequest: null,
+    done: [],
+    picked: {},
     live,
     uploadError: null,
   };
@@ -83,6 +91,15 @@ function hasAnswers(answers: Answers) {
 
 function clampStep(answers: Answers, joinStep: number) {
   return Math.max(0, Math.min(stepsFor(answers).length - 1, joinStep));
+}
+
+/** The request's key first, then the live shortlist in order (Ruling 45's `ranked`). */
+const rankedFor = (requestKey: string, shortlist: string[]) => [requestKey, ...shortlist.filter((key) => key !== requestKey)];
+
+/** Sets the shortlist and keeps the request's `ranked` in step with it. */
+function withShortlist(state: DemoState, shortlist: string[]): DemoState {
+  const request = state.introRequest;
+  return { ...state, shortlist, introRequest: request ? { ...request, ranked: rankedFor(request.matchKey, shortlist) } : null };
 }
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
@@ -111,15 +128,13 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
         intake: hasAnswers(state.answers) ? toIntake(state.answers) : person.intake,
         profile: null,
         result: null,
-        boardOrder: [...person.boardOrder],
-        hidden: [],
-        events: [],
+        ...NO_PICKS,
         uploadError: null,
       };
     }
     // The file is being read: no sample person, and the response fills the profile and result.
     case "uploaded":
-      return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, boardOrder: [...DEFAULT_BOARD_ORDER], hidden: [], events: [], uploadError: null };
+      return { ...state, step: "building", buildId: action.buildId, personKey: null, profile: null, result: null, ...NO_PICKS, uploadError: null };
     case "uploadFailed":
       return state.step === "building" && state.personKey === null && action.buildId === state.buildId ? { ...state, step: "join", uploadError: action.error } : state;
     case "uploadRejected":
@@ -127,30 +142,34 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
       return state.step === "join" ? { ...state, buildId: state.buildId + 1, uploadError: action.error } : state;
     case "built":
       if (state.step !== "building" || action.buildId !== state.buildId) return state;
-      return { ...state, step: "ready", profile: action.profile, result: action.result };
-    case "addEvents":
-      return { ...state, events: [...state.events, ...action.events] };
-    case "moveCard": {
-      if (!state.boardOrder.includes(action.card)) return state;
-      const rest = state.boardOrder.filter((card) => card !== action.card);
-      const to = Math.max(0, Math.min(rest.length, action.to));
-      return { ...state, boardOrder: [...rest.slice(0, to), action.card, ...rest.slice(to)] };
+      return { ...state, step: "ready", profile: action.profile, result: action.result, ...NO_PICKS };
+    case "bringForward": {
+      const has = state.shortlist.includes(action.key);
+      if (action.on === has) return state;
+      if (action.on) return withShortlist(state, [...state.shortlist, action.key]);
+      // Taking the requested match off the shortlist withdraws the request with it.
+      const requestGone = state.introRequest?.matchKey === action.key;
+      return withShortlist({ ...state, introRequest: requestGone ? null : state.introRequest }, state.shortlist.filter((key) => key !== action.key));
     }
-    case "toggleCard": {
-      if (state.boardOrder.includes(action.card)) {
-        return {
-          ...state,
-          boardOrder: state.boardOrder.filter((card) => card !== action.card),
-          hidden: [...state.hidden, action.card],
-        };
-      }
-      if (!state.hidden.includes(action.card)) return state;
-      return {
-        ...state,
-        boardOrder: [...state.boardOrder, action.card],
-        hidden: state.hidden.filter((card) => card !== action.card),
-      };
+    case "moveShortlist": {
+      const at = state.shortlist.indexOf(action.key);
+      const to = at + action.direction;
+      if (at < 0 || to < 0 || to >= state.shortlist.length) return state;
+      const shortlist = [...state.shortlist];
+      [shortlist[at], shortlist[to]] = [shortlist[to], shortlist[at]];
+      return withShortlist(state, shortlist);
     }
+    // One live request at a time (a passed one does not count), and only on a match that is on the shortlist.
+    case "requestIntro":
+      if (isLive(state.introRequest) || !state.shortlist.includes(action.request.matchKey)) return state;
+      return withShortlist({ ...state, introRequest: action.request }, state.shortlist);
+    // The swap moves the pick to #1 and the request with it, and only while the talent team has not picked it up.
+    case "swapIntro":
+      if (state.introRequest?.status !== "requested" || !state.shortlist.includes(action.request.matchKey)) return state;
+      return withShortlist({ ...state, introRequest: action.request }, [action.request.matchKey, ...state.shortlist.filter((key) => key !== action.request.matchKey)]);
+    case "markDone":
+      if (state.done.includes(action.id)) return state;
+      return { ...state, done: [...state.done, action.id], picked: action.slot ? { ...state.picked, [action.id]: action.slot } : state.picked };
     case "reset":
       return { ...initialDemoState(state.live), buildId: state.buildId + 1 };
   }

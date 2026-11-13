@@ -1,13 +1,30 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
+import type { CompanyDetail } from "./details";
+import { introLineKind } from "./intros";
+import { roleMatchKey, rowKey } from "./keys";
 import type { SnapshotRole } from "./snapshot";
 import type { AppRow, Person, PersonKey, Pipeline } from "./types";
 
-/** `standing` items are worth a line but did not change overnight, so the subject does not count them. */
-export type BriefItem = { kind: "reply" | "new-role" | "due" | "intro"; text: string; href: string | null; standing?: boolean };
+/**
+ * `standing` items are worth a line but did not change overnight, so the subject does not count them.
+ * `company` and `actionKey` name what the line is about so its action never comes from its words: a row's key
+ * (`rowKey`) for a reply or a due line, the match key for a new role, the intro's date for an intro.
+ */
+export type BriefItem = {
+  kind: "reply" | "new-role" | "due" | "intro";
+  text: string;
+  href: string | null;
+  standing?: boolean;
+  company: string | null;
+  actionKey: string | null;
+};
 export type Brief = { personKey: PersonKey | "you"; date: string; cadence: Person["cadence"]; items: BriefItem[] };
 
 /** The few role fields the brief reads; the page and the server both build these from the snapshot by id. */
-export type BriefRole = Pick<SnapshotRole, "id" | "title" | "company" | "tier" | "postedAt" | "url">;
+export type BriefRole = Pick<SnapshotRole, "id" | "title" | "company" | "tier" | "postedAt" | "url"> & {
+  /** The name the Matches tab shows (`matchCompanyName`); unset means the role's own company. */
+  companyName?: string;
+};
 
 export type BriefInput = {
   firstName: string;
@@ -17,8 +34,10 @@ export type BriefInput = {
   roles: BriefRole[];
   /** ISO date of the morning the brief goes out. */
   today: string;
-  /** Founders who wrote back, most recent first. */
+  /** Introductions of any status, in any order; only the newest per company is read, as the intro cards do. */
   intros?: { company: string; date: string }[];
+  /** What is pinned about each company; an intro is worded by its status here (a reply, gone quiet, or nothing to say). */
+  details?: Record<string, CompanyDetail>;
   personKey?: PersonKey | "you";
 };
 
@@ -40,20 +59,24 @@ function safeHref(href: string | null): string | null {
   return href && /^https:\/\//i.test(href) ? href : null;
 }
 
+/** The Matches tab's `matchKey` for a role match, so Bring forward adds the very key that tab reads. */
+const roleKey = (role: BriefRole) => roleMatchKey(role.companyName ?? role.company, role.id);
+
 /** One role line from the ranked list: speedrun tier only, never one dated after the brief goes out. */
 export function pickRole(roles: BriefRole[], cadence: Person["cadence"], since: number, until: number): { company: string; item: BriefItem } | null {
   const posted = (role: BriefRole) => Date.parse(role.postedAt);
   const eligible = roles.filter((role) => role.tier === "speedrun" && posted(role) < until);
   const overnight = eligible.find((role) => posted(role) >= since);
   if (overnight) {
-    return { company: overnight.company, item: { kind: "new-role", text: copy.items.newRole(overnight.title, overnight.company), href: safeHref(overnight.url) } };
+    const item: BriefItem = { kind: "new-role", text: copy.items.newRole(overnight.title, overnight.company), href: safeHref(overnight.url), company: overnight.companyName ?? overnight.company, actionKey: roleKey(overnight) };
+    return { company: overnight.company, item };
   }
   if (cadence === "on-change") return null;
   const [freshest] = [...eligible].sort((a, b) => posted(b) - posted(a));
   if (!freshest) return null;
   const thisWeek = posted(freshest) >= until - WEEK_MS;
   const text = thisWeek ? copy.items.newThisWeek(freshest.title, freshest.company) : copy.items.openRole(freshest.title, freshest.company);
-  return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(freshest.url), standing: true } };
+  return { company: freshest.company, item: { kind: "new-role", text, href: safeHref(freshest.url), standing: true, company: freshest.companyName ?? freshest.company, actionKey: roleKey(freshest) } };
 }
 
 /** A reply in the words of what it says: a no is a no, an interview is an interview. */
@@ -75,7 +98,7 @@ function replyText(row: AppRow): string {
 
 /**
  * Only what changed between today's midnight and the 8:02 send, the same day the board's Today card shows.
- * What moved goes first, then what is still open, at most three lines. A quiet night gives an empty list on purpose.
+ * What moved, at most three lines; on a night when nothing moved, what is still open instead. A quiet night gives an empty list on purpose.
  */
 export function composeBrief(input: BriefInput): Brief {
   const { pipeline, roles, cadence, today } = input;
@@ -92,15 +115,26 @@ export function composeBrief(input: BriefInput): Brief {
   };
   const moved = (iso: string) => Date.parse(iso) >= since && Date.parse(iso) < until;
 
-  const intro = (input.intros ?? []).find((entry) => Date.parse(entry.date) < until);
-  if (intro && moved(intro.date)) add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null });
+  // The newest intro with something to say: a founder who wrote back, or one that has gone quiet. A new, unanswered one has no line.
+  const lineKind = (entry: { company: string; date: string }) => introLineKind(input.details, entry.company, entry.date, today);
+  const newestPerCompany = new Map<string, { company: string; date: string }>();
+  for (const entry of input.intros ?? []) {
+    if (Date.parse(entry.date) >= until) continue;
+    const seenEntry = newestPerCompany.get(entry.company);
+    if (!seenEntry || entry.date > seenEntry.date) newestPerCompany.set(entry.company, entry);
+  }
+  const intro = [...newestPerCompany.values()].sort((a, b) => b.date.localeCompare(a.date)).find((entry) => lineKind(entry) !== null);
+  const introKind = intro ? lineKind(intro) : null;
+  if (intro && introKind === "replied" && moved(intro.date)) {
+    add(intro.company, { kind: "intro", text: copy.items.intro(intro.company), href: null, company: intro.company, actionKey: intro.date });
+  }
 
   // A rejection is a reply too: someone wrote back, and it is better heard in the morning than found later.
   const fresh = pipeline.rows
     .filter((row) => row.exit !== "noreply" && (REPLY_STAGES.has(row.furthest) || row.exit === "rejected") && moved(row.lastEventAt))
     // What needs an answer (an offer, an interview, a call, a take-home) comes before a pass, newest first within each.
     .sort((a, b) => Number(a.exit === "rejected") - Number(b.exit === "rejected") || b.lastEventAt.localeCompare(a.lastEventAt));
-  for (const row of fresh) add(row.company, { kind: "reply", text: replyText(row), href: null });
+  for (const row of fresh) add(row.company, { kind: "reply", text: replyText(row), href: null, company: row.company, actionKey: rowKey(row) });
 
   const role = pickRole(roles, cadence, since, until);
   if (role && !role.item.standing) add(role.company, role.item);
@@ -108,17 +142,22 @@ export function composeBrief(input: BriefInput): Brief {
   // What is still open, for people who asked to hear every morning: a recent intro, a role, a deadline.
   if (cadence !== "on-change") {
     if (intro && !moved(intro.date) && Date.parse(intro.date) >= until - STANDING_INTRO_MS) {
-      add(intro.company, { kind: "intro", text: copy.items.introStanding(intro.company), href: null, standing: true });
+      const text = introKind === "quiet" ? copy.items.introFollowUp(intro.company) : copy.items.introStanding(intro.company);
+      add(intro.company, { kind: "intro", text, href: null, standing: true, company: intro.company, actionKey: intro.date });
     }
     if (role?.item.standing) add(role.company, role.item);
     const [assessment] = pipeline.rows
       .filter((row) => row.exit === "open" && row.furthest === "assessment")
       .sort((a, b) => b.lastEventAt.localeCompare(a.lastEventAt));
-    if (assessment) add(assessment.company, { kind: "due", text: copy.items.due(copy.dueWhat, assessment.company, copy.dueWhen), href: null, standing: true });
+    if (assessment) add(assessment.company, { kind: "due", text: copy.items.due(copy.dueWhat, assessment.company, copy.dueWhen), href: null, standing: true, company: assessment.company, actionKey: rowKey(assessment) });
   }
 
-  items.splice(MAX_ITEMS);
-  return { personKey: input.personKey ?? "you", date: today, cadence, items };
+  // The subject says how many things moved overnight, so when anything did, only those lines are shown and the
+  // count is the line count. Standing lines are for a night when nothing moved (the subject then says "still open").
+  const movedItems = items.filter((item) => !item.standing);
+  const shown = movedItems.length > 0 ? movedItems : items;
+  shown.splice(MAX_ITEMS);
+  return { personKey: input.personKey ?? "you", date: today, cadence, items: shown };
 }
 
 const escapeHtml = (value: string) =>

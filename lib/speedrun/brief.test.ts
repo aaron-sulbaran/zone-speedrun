@@ -1,26 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content/speedrun";
-import { parsePasted, todayEvents } from "./board";
 import { composeBrief, renderBriefEmail, type BriefRole } from "./brief";
-import { rolesFromIds, sampleBrief } from "./briefSample";
+import { briefAction, introCards } from "./actions";
+import { briefEvents, rolesFromIds, sampleBrief } from "./briefSample";
+import { DETAILS } from "./details";
+import { rowKey } from "./keys";
+import { buildPipeline } from "./pipeline";
+import type { InboxEvent } from "./types";
 import { classifyEmail } from "./classify";
 import { FOUNDER_ORGS } from "./fictional";
 import { generateInbox, INBOX_TODAY, OVERNIGHT } from "./inbox";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
+import { companyForRole, matchCompanyName, rankMatches } from "./match";
+import { matchKey } from "./matchList";
 import { PERSON_KEYS, type AppRow } from "./types";
 
 const copy = speedrunCopy.brief;
-const NO_ROWS = { rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } };
+const NO_ROWS = { rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } };
 const role = (postedAt: string, tier: BriefRole["tier"] = "speedrun", id = "r1"): BriefRole => ({
   id, title: "Engineer", company: "Quillmark", tier, postedAt, url: "https://example.com/r",
 });
 const row = (company: string, furthest: AppRow["furthest"], exit: AppRow["exit"], lastEventAt: string, extra: Partial<AppRow> = {}): AppRow => ({
-  company, role: "Engineer", lane: "jobs", furthest, exit, lastEventAt, next: null, ...extra,
+  company, role: "Engineer", lane: "jobs", furthest, exit, appliedAt: null, lastEventAt, next: null, ...extra,
 });
 const assessment = (company: string) => row(company, "assessment", "open", "2026-11-01T12:00:00.000Z", { role: "Intern" });
-const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, intros: 0, offers: 0 } });
-const base = { firstName: "Sam", cadence: "daily" as const, today: INBOX_TODAY, pipeline: NO_ROWS, roles: [] as BriefRole[] };
+const rows = (list: AppRow[]) => ({ rows: list, stats: { applied: list.length, inProcess: list.length, offers: 0 } });
+// Cobalt Meadow's founder has written back, so an intro there is a reply.
+const REPLIED = { "Cobalt Meadow": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Cobalt Meadow" }, introStatus: "replied" as const } };
+const base = { firstName: "Sam", cadence: "daily" as const, today: INBOX_TODAY, pipeline: NO_ROWS, roles: [] as BriefRole[], details: REPLIED };
 const OVERNIGHT_AT = "2026-11-07T03:00:00.000Z";
 const OLD_INTRO = { company: "Cobalt Meadow", date: "2026-10-03T12:00:00.000Z" };
 const RECENT_INTRO = { company: "Cobalt Meadow", date: "2026-11-01T12:00:00.000Z" };
@@ -109,18 +117,19 @@ describe("composeBrief", () => {
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "new-role"]);
   });
 
-  it("lists what moved first, then the standing intro, role and deadline, at most three", () => {
+  it("lists the standing intro, role and deadline only when nothing moved, at most three", () => {
     const standing = { ...base, intros: [RECENT_INTRO], roles: [role("2026-10-15T00:00:00.000Z")] };
     const quiet = composeBrief({ ...standing, pipeline: rows([assessment("Nightfold")]) });
     expect(quiet.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["intro", true], ["new-role", true], ["due", true]]);
     const moved = composeBrief({ ...standing, pipeline: rows([assessment("Nightfold"), row("Halcyon Works", "applied", "rejected", OVERNIGHT_AT)]) });
-    expect(moved.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["reply", false], ["intro", true], ["new-role", true]]);
+    // Catches: standing lines (intro, role, deadline) appended under moved ones again, so the brief lists more lines than the subject counts as moved.
+    expect(moved.items.map((item) => [item.kind, Boolean(item.standing)])).toEqual([["reply", false]]);
     expect(renderBriefEmail(moved, "Sam").subject).toBe("Sam, 1 thing moved overnight");
   });
 
   it("never lets a standing intro hide a moved reply from the same company", () => {
     const brief = composeBrief({ ...base, intros: [RECENT_INTRO], pipeline: rows([row("Cobalt Meadow", "interview", "open", OVERNIGHT_AT)]) });
-    expect(brief.items).toEqual([{ kind: "reply", text: "Cobalt Meadow wants to interview you for Engineer.", href: null }]);
+    expect(brief.items).toEqual([{ kind: "reply", text: "Cobalt Meadow wants to interview you for Engineer.", href: null, company: "Cobalt Meadow", actionKey: "Cobalt Meadow:Engineer" }]);
   });
 
   it("agrees with its own body when only standing items remain", () => {
@@ -128,6 +137,102 @@ describe("composeBrief", () => {
     expect(renderBriefEmail(one, "Sam").subject).toBe("Sam, nothing new overnight. one role worth a look.");
     expect(renderBriefEmail(one, "").subject).toBe("Nothing new overnight. one role worth a look.");
     expect(Object.keys(copy.stillOpen)).not.toContain("reply");
+  });
+});
+
+describe("brief line identity", () => {
+  // Catches: lines with no company or key, so no button can find its action.
+  it("carries the company and an action key on every line", () => {
+    const overnight = composeBrief({ ...base, roles: [role(OVERNIGHT_AT)], intros: [{ company: "Cobalt Meadow", date: OVERNIGHT_AT }], pipeline: rows([row("Zephyr Row", "interview", "open", OVERNIGHT_AT, { role: "Intern" })]) });
+    expect(overnight.items.map((item) => [item.kind, item.company, item.actionKey])).toEqual([
+      ["intro", "Cobalt Meadow", OVERNIGHT_AT],
+      ["reply", "Zephyr Row", "Zephyr Row:Intern"],
+      ["new-role", "Quillmark", "Quillmark-r1"],
+    ]);
+  });
+
+  // Catches: a due line whose key cannot find its assessment row.
+  it("keys a due line by its row", () => {
+    const due = composeBrief({ ...base, pipeline: rows([assessment("Vantablue")]) }).items.find((item) => item.kind === "due");
+    expect(due?.company).toBe("Vantablue");
+    expect(due?.actionKey).toBe("Vantablue:Intern");
+  });
+
+  // Catches: a Bring forward that adds a key the Matches tab never uses, so the shortlist shows nothing. 54 speedrun roles
+  // shown under a different company name than the role's own (for example "Runware (Picfinder)" under "Runware") broke it.
+  it("keys every speedrun-tier role exactly as the Matches tab keys the match it builds", () => {
+    const snapshot = getSnapshot();
+    const seen = new Map<string, string>();
+    for (const key of PERSON_KEYS) {
+      const person = PEOPLE[key];
+      for (const match of rankMatches(person.profile, person.intake, snapshot, 5000).matches) {
+        if (match.role && match.role.tier === "speedrun") seen.set(match.role.id, matchKey(match));
+      }
+    }
+    expect(seen.size).toBeGreaterThan(30);
+    for (const [id, expected] of seen) {
+      const found = snapshot.roles.find((entry) => entry.id === id)!;
+      const [line] = composeBrief({ ...base, roles: rolesFromIds([id]), cadence: "daily" }).items;
+      // A role not posted overnight still gets its standing line, so the key can be read off any of them.
+      expect(line?.actionKey, `${found.company} / ${id}`).toBe(expected);
+    }
+    const differing = [...seen.keys()].filter((id) => {
+      const role = snapshot.roles.find((entry) => entry.id === id)!;
+      return matchCompanyName(role, companyForRole(role, snapshot.companies)) !== role.company;
+    });
+    expect(differing.length, "the cases where the two names differ are in the sample").toBeGreaterThan(0);
+  });
+
+  // Catches: the brief and the matcher resolving a company's name by different rules.
+  it("names a company as the matcher does, for every role", () => {
+    const { roles, companies } = getSnapshot();
+    for (const entry of roles) {
+      const company = companies.find((c) => c.slug === entry.companySlug && c.slug !== "speedrun");
+      expect(matchCompanyName(entry, companyForRole(entry, companies))).toBe(company?.name ?? entry.company);
+    }
+  });
+});
+
+describe("every brief line is something to do", () => {
+  for (const key of PERSON_KEYS) {
+    // Catches: a line that says "pick a time" and carries Follow up, or an intro line with no button at all.
+    it(`${key}: every line but a pass has an action, and an intro's words match it`, () => {
+      const pipeline = buildPipeline(briefEvents(key, true), INBOX_TODAY);
+      for (const item of sampleBrief(key).items) {
+        const action = briefAction(item, pipeline, DETAILS[key], INBOX_TODAY);
+        const row = pipeline.rows.find((entry) => entry.company === item.company && rowKey(entry) === item.actionKey);
+        const pass = item.kind === "reply" && row?.exit === "rejected";
+        if (!pass) expect(action, `${key}: ${item.text}`).not.toBeNull();
+        if (item.kind !== "intro") continue;
+        const words = action?.kind === "pickTime" ? [copy.items.intro(item.company!), copy.items.introStanding(item.company!)] : action?.kind === "followUp" ? [copy.items.introFollowUp(item.company!)] : [];
+        expect(words, `${key}: ${item.text}`).toContain(item.text);
+      }
+    });
+  }
+
+  // Catches: an overnight intro nobody answered being called a reply.
+  it("says nothing about an intro that is waiting and new, and follows up one that is waiting and quiet", () => {
+    const details = { "Quiet Co": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Quiet Co" } } };
+    const old = composeBrief({ ...base, details, intros: [{ company: "Quiet Co", date: "2026-11-01T12:00:00.000Z" }] }).items;
+    expect(old.map((item) => item.text)).toEqual([copy.items.introFollowUp("Quiet Co")]);
+    const fresh = composeBrief({ ...base, details, intros: [{ company: "Quiet Co", date: OVERNIGHT_AT }] }).items;
+    expect(fresh).toEqual([]);
+  });
+});
+
+describe("two intros from one company", () => {
+  const intro = (daysAgo: number): InboxEvent => ({ emailId: `i${daysAgo}`, company: "Quiet Co", role: null, kind: "intro", date: new Date(Date.parse(`${INBOX_TODAY}T12:00:00.000Z`) - daysAgo * 86_400_000).toISOString(), lane: "jobs" });
+  const details = { "Quiet Co": { contact: { name: "Aaron Sulbaran" as const, title: "Founder, Quiet Co" } } };
+
+  // Catches: the brief using an older intro the card has moved past (Ruling 58: one company, one intro, everywhere).
+  it("reads the newest one in the brief and on the card, whatever order they arrive in", () => {
+    const events = [intro(1), intro(7)];
+    const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "Quiet Co");
+    expect(card?.action, "the newest intro is a day old, so nothing is due").toBeNull();
+    for (const order of [events, [...events].reverse()]) {
+      const brief = composeBrief({ ...base, details, intros: order.map((event) => ({ company: event.company, date: event.date })) });
+      expect(brief.items).toEqual([]);
+    }
   });
 });
 
@@ -167,11 +272,27 @@ describe("each sample person's brief", () => {
     });
 
     it(`${key}: every moved item names a company on the Today card above it`, () => {
-      const today = todayEvents(generateInbox(PEOPLE[key]).map(classifyEmail), INBOX_TODAY).slice(0, 6);
+      const today = generateInbox(PEOPLE[key]).map(classifyEmail).filter((event) => event.kind !== "other" && event.date.startsWith(INBOX_TODAY));
       for (const item of sampleBrief(key).items.filter((entry) => !entry.standing)) {
         expect(today.some((event) => item.text.includes(event.company)), item.text).toBe(true);
       }
     });
+  }
+
+  for (const connected of [true, false]) {
+    for (const key of PERSON_KEYS) {
+      it(`${key} (${connected ? "inbox connected" : "no inbox"}): the number in the subject is the number of lines`, () => {
+        const brief = sampleBrief(key, { connected });
+        const subject = renderBriefEmail(brief, PEOPLE[key].profile.firstName).subject;
+        const said = subject.match(/(\d+) things? moved overnight/);
+        // Catches: the subject counting the lines that moved while the brief also lists lines that did not, so it says 2 over 3 lines.
+        if (said) expect(Number(said[1])).toBe(brief.items.length);
+        // Catches: a brief with no lines whose subject is not the quiet "nothing moved" one.
+        if (brief.items.length === 0) expect(subject).toMatch(/nothing moved/i);
+        // Catches: a brief that lists lines but whose subject neither counts them as moved nor says nothing new overnight.
+        if (brief.items.length > 0 && !said) expect(subject).toContain("nothing new overnight");
+      });
+    }
   }
 
   it("gives the five people subjects that do not all share a shape", () => {
@@ -188,7 +309,7 @@ describe("each sample person's brief", () => {
     const intro = (OVERNIGHT.sam ?? []).find((move) => move.kind === "intro");
     expect(intro).toBeDefined();
     const brief = sampleBrief("sam");
-    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null });
+    expect(brief.items[0]).toEqual({ kind: "intro", text: copy.items.intro(intro?.company ?? ""), href: null, company: intro?.company, actionKey: expect.any(String) });
     expect(brief.items.map((item) => item.kind)).toEqual(["intro", "reply", "reply"]);
   });
 
@@ -203,13 +324,6 @@ describe("each sample person's brief", () => {
   it("gives Dev a moved line from his founder lane", () => {
     const moved = sampleBrief("dev").items.filter((item) => !item.standing);
     expect(moved.some((item) => FOUNDER_ORGS.some((org) => item.text.startsWith(org)))).toBe(true);
-  });
-
-  it("hears a pasted reply in this morning's brief, as the preview does", () => {
-    const email = parsePasted("From: Halcyon Works Hiring <hiring@halcyonworks.example>\nSubject: Interview invitation: Software Engineer\n\nWe would like to invite you to a final round interview.\nRole: Software Engineer");
-    expect(email).not.toBeNull();
-    const brief = sampleBrief("maya", { extraEvents: email ? [classifyEmail(email)] : [], roleIds: [] });
-    expect(brief.items.map((item) => item.text)).toEqual(["Halcyon Works wants to interview you for Software Engineer."]);
   });
 });
 
@@ -235,7 +349,7 @@ describe("renderBriefEmail", () => {
 
   it("escapes markup in any name or company", () => {
     const out = renderBriefEmail(
-      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "reply", text: "<b>x</b> replied.", href: null }] },
+      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "reply", text: "<b>x</b> replied.", href: null, company: null, actionKey: null }] },
       "<i>Ada</i>",
     );
     expect(out.html).not.toContain("<b>x");
@@ -244,13 +358,13 @@ describe("renderBriefEmail", () => {
 
   it("only links to https addresses", () => {
     const out = renderBriefEmail(
-      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "new-role", text: "Role.", href: "javascript:alert(1)" }] },
+      { personKey: "you", date: INBOX_TODAY, cadence: "daily", items: [{ kind: "new-role", text: "Role.", href: "javascript:alert(1)", company: null, actionKey: null }] },
       "Ada",
     );
     expect(out.html).not.toContain("javascript:");
   });
 
   it("calls the preview this morning's brief", () => {
-    expect(copy.heading).toBe("this morning, 8:02 am");
+    expect(copy.heading).toBe("this morning, 8:02\u00a0am");
   });
 });

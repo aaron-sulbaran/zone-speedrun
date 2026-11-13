@@ -3,7 +3,7 @@ import { toFlow } from "./funnel";
 import type { AppRow, Pipeline, Stage, Exit } from "./types";
 
 function row(i: number, furthest: Stage, exit: Exit, lane: AppRow["lane"] = "jobs"): AppRow {
-  return { company: `Co${i}`, role: "Engineer", lane, furthest, exit, lastEventAt: "2026-10-01", next: null };
+  return { company: `Co${i}`, role: "Engineer", lane, furthest, exit, appliedAt: null, lastEventAt: "2026-10-01", next: null };
 }
 
 const rows: AppRow[] = [
@@ -17,7 +17,7 @@ const rows: AppRow[] = [
   row(8, "offer", "open"),
   row(9, "applied", "open", "founder"),
 ];
-const pipeline: Pipeline = { rows, stats: { applied: 9, inProcess: 3, intros: 0, offers: 1 } };
+const pipeline: Pipeline = { rows, stats: { applied: 9, inProcess: 3, offers: 1 } };
 
 describe("toFlow", () => {
   const flow = toFlow(pipeline);
@@ -74,6 +74,6 @@ describe("toFlow", () => {
   });
 
   it("returns an empty flow for an empty pipeline", () => {
-    expect(toFlow({ rows: [], stats: { applied: 0, inProcess: 0, intros: 0, offers: 0 } })).toEqual({ nodes: [], links: [] });
+    expect(toFlow({ rows: [], stats: { applied: 0, inProcess: 0, offers: 0 } })).toEqual({ nodes: [], links: [] });
   });
 });

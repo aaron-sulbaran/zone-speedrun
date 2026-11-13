@@ -23,13 +23,8 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
 
-  if (!live) {
-    return (
-      <p data-brief-off="" className="mt-6 text-sm text-sr-ink2">
-        {copy.send.off}
-      </p>
-    );
-  }
+  // The channel line above already says sending is off, so there is nothing more to show.
+  if (!live) return null;
   // An uploaded visitor has no sample brief for the server to send.
   if (!personKey) {
     return (
@@ -87,7 +82,6 @@ export function BriefSend({ live, personKey, connected, roleIds }: { live: boole
       </div>
       <p className="mt-2 text-xs text-sr-ink2">{copy.send.note}</p>
       <p data-brief-list-note="" className="mt-1 text-xs text-sr-ink2">{copy.send.listNote}</p>
-      <p className="mt-1 text-xs text-sr-ink2">{copy.send.pastedNote}</p>
       <p data-brief-status="" role="status" className="mt-2 text-sm text-sr-ink">
         {STATUS_COPY[status]}
       </p>

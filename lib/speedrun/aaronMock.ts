@@ -60,6 +60,7 @@ export const AARON_ENTRIES: AaronEntry[] = tracks.map((track, i) => {
       role: roles[i % roles.length],
       lane: "jobs",
       ...outcome,
+      appliedAt: null,
       lastEventAt: "2026-10-15",
       next: null,
     },

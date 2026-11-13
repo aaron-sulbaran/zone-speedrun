@@ -167,7 +167,7 @@ function toMatch(scored: Scored): Match {
   const { role, company } = scored;
   return {
     company: {
-      name: company?.name ?? role.company,
+      name: matchCompanyName(role, company),
       slug: company?.slug ?? role.companySlug,
       logo: company?.logo ?? null,
       cohort: company?.cohort ?? role.cohort,
@@ -202,6 +202,16 @@ function capOwnWords(cards: { score: number; reasons: Reason[] }[], seen: Map<st
       return false;
     });
   }
+}
+
+/** The company a role belongs to, by its slug; the fund itself is no company. */
+export function companyForRole<C extends Pick<SnapshotCompany, "slug">>(role: Pick<SnapshotRole, "companySlug">, companies: C[]): C | undefined {
+  return role.companySlug && role.companySlug !== FUND_SLUG ? companies.find((entry) => entry.slug === role.companySlug) : undefined;
+}
+
+/** The company name a match shows for a role: its company's name, else the role's own. The brief keys its Bring forward by this. */
+export function matchCompanyName(role: Pick<SnapshotRole, "company">, company: Pick<SnapshotCompany, "name"> | undefined): string {
+  return company?.name ?? role.company;
 }
 
 /** What the visitor said about being a student wins over the level the profile implies. */

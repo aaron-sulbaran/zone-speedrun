@@ -8,7 +8,7 @@ export function FounderRoute({ routes, mentioned = false }: { routes: Route[]; m
   const copy = speedrunCopy.matches.founder;
   if (routes.length === 0) return null;
   return (
-    <div data-founder-route="" className="rounded-xl border border-sr-soft bg-sr-surface p-6">
+    <div data-founder-route="" className="rounded-xl border border-sr-soft bg-sr-surface p-6 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
       <h3 data-detail-heading="" tabIndex={-1} className="text-xl font-semibold leading-tight focus:outline-none md:text-2xl">
         {mentioned ? copy.mentioned : copy.heading}
       </h3>

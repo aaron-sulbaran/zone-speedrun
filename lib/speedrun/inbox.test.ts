@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { classifyEmail } from "./classify";
 import { FICTIONAL_COMPANIES, FOUNDER_FUNDS, FOUNDER_ORGS } from "./fictional";
-import { INBOX_TODAY, OVERNIGHT, generateInbox } from "./inbox";
+import { INBOX_TODAY, OVERNIGHT, PINNED, generateInbox } from "./inbox";
 import { PEOPLE } from "./people";
 import { buildPipeline } from "./pipeline";
 import { getSnapshot } from "./snapshot";
@@ -35,7 +36,7 @@ describe("generateInbox", () => {
     expect(count("interview")).toBeGreaterThanOrEqual(6);
     expect(count("interview")).toBeLessThanOrEqual(10);
     expect(count("offer")).toBe(2);
-    expect(pipelineFor("sam").stats.intros).toBe(3);
+    expect(count("intro")).toBe(4);
   });
 
   it("keeps each person's applied count where the overnight moves found it", () => {
@@ -70,6 +71,37 @@ describe("generateInbox", () => {
         expect(Date.parse(move.at) - Date.parse(applied?.date ?? move.at), label).toBeGreaterThanOrEqual(3 * 86_400_000);
       }
     }
+  });
+
+  // Catches: a pinned event that never lands on its application, or one that leaks into another person's inbox.
+  it("lands Sam's pinned events and leaves everyone else's inbox as it was", () => {
+    expect(Object.keys(PINNED)).toEqual(["sam"]);
+    const events = generateInbox(PEOPLE.sam).map(classifyEmail);
+    const quiet = buildPipeline(events, INBOX_TODAY).rows.find((row) => row.company === "Vantablue" && row.role === "Full Stack Engineer");
+    expect(quiet).toMatchObject({ furthest: "screen", exit: "open", lastEventAt: "2026-10-29T10:00:00.000Z" });
+    expect(events.find((event) => event.company === "min/Max")).toMatchObject({ kind: "intro", date: "2026-11-05T16:20:00.000Z" });
+    // sha256 of each inbox as generateInbox(PEOPLE[key]) built it at 61552bb, before PINNED existed.
+    const before: Record<string, string> = {
+      maya: "618acad58593744cfa9a7b71289e6fb9103776e67151223a400d34436ee68bb4",
+      ravi: "997f60816a01e77f284fdd4f327465d4cf16005c0000c8d37d2dbb0df710beb0",
+      lena: "3d342a8ab52396a3a2483fd56b21b09b117d217e8dd11c28dfe3b7a51c808ff8",
+      dev: "b3e76052be07622c8a7f25b463c00298da5c18223034e24ae7dc55ed00a05eac",
+    };
+    for (const [key, digest] of Object.entries(before)) {
+      const now = createHash("sha256").update(JSON.stringify(generateInbox(PEOPLE[key as PersonKey]))).digest("hex");
+      expect(now, key).toBe(digest);
+      expect(PINNED[key as PersonKey]).toBeUndefined();
+    }
+  });
+
+  // Catches: appending the pinned events shifting an id the seeded generator already handed out.
+  it("keeps every earlier id where it was when the pinned events are added", () => {
+    const sam = generateInbox(PEOPLE.sam);
+    const ids = sam.map((email) => email.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const pinnedEmails = sam.slice(-(PINNED.sam?.length ?? 0));
+    expect(pinnedEmails.map((email) => email.date)).toEqual((PINNED.sam ?? []).map((move) => move.at));
+    expect(generateInbox(PEOPLE.sam, 2).some((email) => email.date === PINNED.sam?.[0].at)).toBe(false);
   });
 
   it("gives Dev a founder lane with accelerator and fund threads", () => {

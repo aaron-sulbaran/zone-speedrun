@@ -1,10 +1,11 @@
+import { roleMatchKey } from "./keys";
 import type { Match, MatchResult } from "./match";
 
 export type ListItem = { key: string; kind: "founder" } | { key: string; kind: "match"; match: Match };
 
 export const FOUNDER_KEY = "founder";
 
-export const matchKey = (match: Match): string => `${match.company.name}-${match.role?.id ?? "company"}`;
+export const matchKey = (match: Match): string => roleMatchKey(match.company.name, match.role?.id ?? null);
 
 /** The founder route leads the list when there is one, then one item per match. */
 export function listItems(result: MatchResult): ListItem[] {

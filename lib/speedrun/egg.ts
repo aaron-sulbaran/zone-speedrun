@@ -1,4 +1,6 @@
 // Triggers for the Act 2 Easter egg: a typed word and a burst of logo clicks.
+// Off until Aaron's meme lands: while false neither trigger is wired and the dialog never mounts.
+export const EGG_ENABLED = false;
 export const EGG_WORD = "sux";
 export const EGG_CLICKS = 5;
 export const EGG_CLICK_WINDOW_MS = 2000;

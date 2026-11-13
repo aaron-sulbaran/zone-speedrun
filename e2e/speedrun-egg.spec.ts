@@ -1,19 +1,31 @@
 import { speedrunCopy } from "../lib/content";
-import type { Page } from "@playwright/test";
 import { test, expect } from "./support/fixtures";
-import { answerOnboarding, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
+import { EGG_ENABLED } from "../lib/speedrun/egg";
+import { playSwitch } from "./speedrun-flow";
 
 const COPY = speedrunCopy.egg;
+const SKIP_REASON = "EGG_ENABLED is false until Aaron's meme lands";
 
-async function reachPasteBox(page: Page) {
+// Catches: the placeholder dialog still opening from the typed word or five logo clicks while EGG_ENABLED is false, showing visitors "a meme goes here".
+test("while EGG_ENABLED is false, typing sux and five logo clicks open no dialog", async ({ page }) => {
+  test.skip(EGG_ENABLED, "the egg is on, so its own tests cover the triggers");
   await page.goto("/speedrun");
-  await answerOnboarding(page, { name: "Sam", connectGmail: true });
-  await skipBuildLog(page);
-  await openTab(page, speedrunCopy.network.tabs.board);
-  await expect(page.locator("[data-board]")).toBeVisible({ timeout: 20_000 });
-}
+  await playSwitch(page);
+  await page.locator("#join").focus();
+  await page.keyboard.type("sux");
+  // Catches: the typed word opening the placeholder dialog while the egg is off.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const logo = page.locator("#join").getByRole("img", { name: speedrunCopy.logoAlt });
+  await logo.scrollIntoViewIfNeeded();
+  for (let i = 0; i < 5; i++) await logo.click();
+  // Catches: five logo clicks opening the placeholder dialog while the egg is off.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Catches: the egg still mounted behind its flag (closed but in the page), where a later change could open it.
+  await expect(page.locator("[data-egg]")).toHaveCount(0);
+});
 
 test("typing sux on Act 2 opens the placeholder, and Escape closes it and returns focus", async ({ page }) => {
+  test.skip(!EGG_ENABLED, SKIP_REASON);
   await page.goto("/speedrun");
   const dialog = page.locator("[data-egg]");
   await expect(dialog).toHaveCount(0);
@@ -34,6 +46,7 @@ test("typing sux on Act 2 opens the placeholder, and Escape closes it and return
 });
 
 test("clicking the logo five times opens it, and the Close button closes it", async ({ page }) => {
+  test.skip(!EGG_ENABLED, SKIP_REASON);
   await page.goto("/speedrun");
   await playSwitch(page);
   const logo = page.locator("#join").getByRole("img", { name: speedrunCopy.logoAlt });
@@ -46,16 +59,20 @@ test("clicking the logo five times opens it, and the Close button closes it", as
   await expect(page.locator("[data-egg]")).toBeHidden();
 });
 
-test("typing sux inside the paste box does not open it", async ({ page }) => {
-  await reachPasteBox(page);
-  const paste = page.getByLabel(speedrunCopy.board.paste.label);
-  await paste.click();
+// Catches: the typing-target guard lapsing, so a visitor typing the word into a form field gets the egg instead of their text.
+test("typing sux inside a text field does not open it", async ({ page }) => {
+  test.skip(!EGG_ENABLED, SKIP_REASON);
+  await page.goto("/speedrun");
+  await playSwitch(page);
+  const field = page.locator("#join").getByLabel(speedrunCopy.join.steps.name.inputLabel);
+  await field.click();
   await page.keyboard.type("sux");
-  await expect(paste).toHaveValue("sux");
+  await expect(field).toHaveValue("sux");
   await expect(page.locator("[data-egg]")).toBeHidden();
 });
 
 test("typing sux on the opener (Act 1) does not open it", async ({ page }) => {
+  test.skip(!EGG_ENABLED, SKIP_REASON);
   await page.goto("/speedrun");
   await expect(page.locator('section[data-act="1"]')).toBeVisible();
   await page.keyboard.type("sux");
@@ -70,6 +87,7 @@ test("typing sux on the opener (Act 1) does not open it", async ({ page }) => {
 test.describe("reduced motion", () => {
   test.use({ reducedMotion: "reduce" });
   test("the placeholder appears with no animation", async ({ page }) => {
+    test.skip(!EGG_ENABLED, SKIP_REASON);
     await page.goto("/speedrun");
     await playSwitch(page);
     await page.locator("#join").focus();

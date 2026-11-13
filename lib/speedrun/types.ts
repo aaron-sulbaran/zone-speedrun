@@ -56,18 +56,18 @@ export type AppRow = {
   lane: Lane;
   furthest: Stage;
   exit: Exit;
+  /** The first application email's date; null when the row began with a later email (an invite with no application on file). */
+  appliedAt: string | null;
   lastEventAt: string;
   next: string | null;
 };
 
 export type Pipeline = {
   rows: AppRow[];
-  stats: { applied: number; inProcess: number; intros: number; offers: number };
+  stats: { applied: number; inProcess: number; offers: number };
 };
 
 export type PersonKey = (typeof PERSON_KEYS)[number];
-
-export type BoardCard = "today" | "pipeline" | "flow" | "intros" | "tools";
 
 export type Person = {
   key: PersonKey;
@@ -76,5 +76,4 @@ export type Person = {
   volume: number;
   cadence: "on-change" | "daily" | "digest";
   profile: Profile;
-  boardOrder: BoardCard[];
 };

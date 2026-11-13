@@ -3,6 +3,9 @@
 import type { Arrangement } from "@/lib/speedrun/onboarding";
 import type { Fn } from "@/lib/speedrun/types";
 
+// Two board lines say the same thing in a row's next step and in an action's name.
+const BOARD_WORDS = { decideOffer: "Decide on the offer", finishAssessment: "Finish the assessment" };
+
 export const speedrunCopy = {
   meta: {
     title: "Splits: a concept for the speedrun talent team \u00b7 Aaron Sulbaran",
@@ -117,7 +120,6 @@ export const speedrunCopy = {
     yes: "Yes",
     no: "No",
     startOver: "Start over",
-    tapAdvances: "Single tap advances, no Continue click.",
     pressEnter: "Press Enter",
     nothingSent: "Your name stays in this browser. Nothing you type is saved.",
     connect: {
@@ -168,17 +170,29 @@ export const speedrunCopy = {
     badge: "Concept \u00b7 not affiliated",
     account: { label: "Your account", startOver: "Start over", replayTop: "Replay from the top" },
     tabsLabel: "Your network",
-    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why" },
-    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why" },
+    tabs: { matches: "Matches", board: "Board", brief: "Brief", decisions: "Why I built this" },
+    nextTo: { matches: "Next: Board", board: "Next: Brief", brief: "Next: Why I built this" },
   },
   matches: {
     listHeading: (name: string | null) => (name ? `${name}'s matches` : "Your matches"),
     listCount: (n: number) => `${n} worth your time first`,
     founderRow: "Founder route",
     back: "Back to matches",
-    connect: { intro: "Ask for a warm intro", apply: "Apply", follow: "Follow" },
+    connect: { apply: "Apply", follow: "Follow" },
+    // Drafts: the intro request is a one-per-person pick on the #1 match (Rulings 42 to 45).
+    intro: {
+      bring: "Bring forward",
+      rank: (rank: number) => `#${rank}`,
+      bringRow: (company: string) => `Bring ${company} forward`,
+      request: "Request a warm intro",
+      swap: "Move my request here",
+      hintBring: "Bring this match forward first, then ask for an intro.",
+      hintFirst: (rank: number) => `You get one intro request, and it goes to your #1 pick. This one is #${rank}.`,
+      hintNoPath: "There is no warm intro path here yet. Apply or follow instead.",
+      on: (company: string) => `Your intro request is on ${company}`,
+      here: "Intro requested. The talent team reviews it next.",
+    },
     connectSheet: {
-      intro: "The talent team would see your profile and this match, and reach out to the founder if it fits. Nothing is sent from this demo.",
       apply: "Opens the role on the speedrun jobs board in a new tab.",
       follow: "You'd hear about it in your morning brief when they post something new.",
     },
@@ -221,48 +235,100 @@ export const speedrunCopy = {
   board: {
     next: {
       applied: "Wait for a reply",
-      assessment: "Finish the assessment",
+      assessment: BOARD_WORDS.finishAssessment,
       screen: "Prepare for the screen",
       interview: "Prepare for the interview",
-      offer: "Decide on the offer",
+      offer: BOARD_WORDS.decideOffer,
     },
-    heading: "your board",
-    subhead: "Built from your inbox. Every row came from an email.",
+    // A sample person's board names them; anyone else gets "Your board".
+    heading: (name: string | null) => (name ? `${name}'s board` : "Your board"),
+    count: (open: number) => (open === 1 ? "1 thing needs you today" : `${open} things need you today`),
+    allClear: "Nothing needs you today. Quiet is fine, and I'll tell you when that changes.",
+    needs: {
+      label: "What needs you",
+      team: (company: string) => `The ${company} recruiting team`,
+      who: (name: string, title: string) => `${name}, ${title}`,
+      due: (day: string) => `Due ${day}`,
+      quiet: (days: number) => (days === 0 ? "Heard today" : `Quiet ${days} ${days === 1 ? "day" : "days"}`),
+      details: "Details",
+      detailsLabel: (company: string) => `Details, ${company}`,
+      row: (role: string | null, stage: string) => (role ? `${role}, ${stage}` : stage),
+    },
+    // The short words on a Next step link and on a tile's list; the sheet it opens says the rest.
+    nextStep: {
+      decideOffer: BOARD_WORDS.decideOffer,
+      pickTime: "Pick a time",
+      replyTimes: "Reply with times",
+      confirmInterview: "Confirm the interview",
+      prepare: "Prepare",
+      finishAssessment: BOARD_WORDS.finishAssessment,
+      finishApplication: "Finish the application",
+      followUp: "Follow up",
+      joinMeeting: "Join the call",
+      bringForward: "Bring forward",
+      apply: "Apply",
+    },
+    tilePanels: {
+      applied: "My newest applications",
+      inProcess: "Companies in process",
+      intros: "Warm intros",
+      offers: "Offers to decide",
+    },
+    tileNone: "Nothing here yet.",
+    tileMore: (shown: number, total: number) => `Showing ${shown} of ${total}. The table below has the rest.`,
+    listMore: (shown: number, total: number) => `Showing ${shown} of ${total}.`,
+    appliedOn: (day: string) => `Applied ${day}`,
+    requestNote: "The talent team reviews it next.",
+    introStatus: { requested: "Requested", withFounder: "With the founder", connected: "Connected", replied: "Founder replied", scheduled: "Scheduled", waiting: "Waiting" },
+    // Shown when there is no inbox and no sample person: one line, two ways forward.
+    empty: {
+      before: "Nothing is on your board yet. ",
+      connect: "Connect your inbox",
+      middle: " and it builds itself, or ",
+      matches: "look through your matches",
+      after: " and bring some forward.",
+      connectedBefore: "Your inbox is connected, and nothing has landed from it yet. Meanwhile, ",
+      connectedAfter: " and bring some forward.",
+    },
     statLabels: { applied: "applied", inProcess: "in process", intros: "intros", offers: "offers" },
     flowTitle: (name: string) => `${name}'s search as a flow from applications to offers`,
     flowTitleFallback: "Your search as a flow from applications to offers",
-    emptyBody: "Your board fills in as your inbox does. Paste an email to try it.",
     connectPrompt: "Connect your inbox and your board builds itself from it.",
     connectButton: "Connect Gmail",
-    cardNames: { today: "Today", pipeline: "Table", flow: "Flow chart", intros: "Warm intros", tools: "Tools" },
     table: {
-      headers: { company: "company", role: "role", stage: "stage", next: "next" },
+      headers: { company: "company", role: "role", stage: "stage", applied: "applied", lastUpdate: "last update", next: "next step" },
+      filtersLabel: "Show by stage",
+      filters: { all: "All", inProcess: "In process", offers: "Offers", closed: "Closed" },
+      noRows: "No rows in this stage yet.",
+      noApplied: "No application email",
       noRole: "Not listed",
       closed: "Closed",
       quiet: "Send a short follow-up",
+      noDate: "-",
       showAll: (count: number) => `show all ${count}`,
       showFewer: "show fewer",
-    },
-    kindLabels: {
-      applied: "an application",
-      assessment: "an assessment",
-      screen: "a phone screen",
-      interview: "an interview",
-      offer: "an offer",
-      rejection: "a rejection",
-      intro: "an intro",
-      noreply: "a no-reply notice",
-      other: "a message",
     },
     today: {
       heading: "today",
       empty: "Nothing moved today. Quiet is fine.",
-      item: (kind: string, company: string) => `${company}: ${kind}`,
+      join: "Join",
+      calendar: "Add to calendar",
+      prep: "What to know",
+      prepLabel: (company: string) => `What to know for ${company}`,
+      confirmBy: (day: string) => `Confirm by ${day}`,
     },
     intros: {
       heading: "warm intros",
-      empty: "No intros yet. Ask for one from a match above.",
-      item: (company: string) => `Intro to a founder at ${company}`,
+      empty: { before: "No intros yet. Ask for one from a match in the ", link: "Matches tab", after: "." },
+      x: (name: string) => `${name} on X`,
+    },
+    shortlist: {
+      heading: "your shortlist",
+      empty: { before: "Bring matches forward from the ", link: "Matches tab", after: " and they land here." },
+      toMatches: "Back to Matches",
+      rank: (rank: number) => `#${rank}`,
+      moveUp: (company: string) => `Move ${company} up`,
+      moveDown: (company: string) => `Move ${company} down`,
     },
     tools: {
       heading: "speedrun tools, where they help you",
@@ -347,33 +413,138 @@ export const speedrunCopy = {
         },
       ],
     },
-    paste: {
-      label: "Paste an email",
-      placeholder: "Paste a confirmation, an interview invite, a rejection, anything from a company.",
-      button: "Add to my board",
-      found: (kind: string, company: string) => `Added: ${kind} from ${company}.`,
-      unknown: "I could not tell what that one was, so the board stayed the same.",
-      unknownSender: "I couldn't tell who sent this one. Paste it with the From line.",
-      duplicate: "Already on your board.",
-      note: "Pasted text stays in this tab. Nothing is sent.",
+  },
+  // Every line is a draft in Aaron's voice. Each note says plainly that the demo sends nothing.
+  actions: {
+    founderTitle: (company: string) => `Founder, ${company}`,
+    linkedin: (name: string) => `${name} on LinkedIn`,
+    siteLink: (company: string) => `${company}'s site`,
+    postingLink: "See the posting",
+    // The short words on a brief line's button; the sheet it opens says the rest.
+    briefButtons: {
+      decideOffer: "Decide",
+      pickTime: "Pick a time",
+      replyTimes: "Reply with times",
+      confirmInterview: "Confirm",
+      prepare: "Prepare",
+      finishAssessment: "Open assessment",
+      finishApplication: "Finish",
+      followUp: "Follow up",
+      joinMeeting: "Join",
+      bringForward: "Bring forward",
+      apply: "Apply",
     },
-    arrange: {
-      button: "Arrange",
-      done: "Done",
-      up: "Move up",
-      down: "Move down",
-      hide: "Hide",
-      show: "Show",
-      moved: (card: string, position: number, total: number) => `${card} moved to position ${position} of ${total}.`,
-      hidden: (card: string) => `${card} hidden.`,
-      shown: (card: string) => `${card} shown.`,
+    sheetUi: {
+      drafted: "Splits drafted this",
+      slots: "Times I'm offering",
+      pickSlot: "Tap a time to send it",
+      prep: "Prep",
+      meeting: "The call",
+      meetingLink: "Link (an example, not a real call)",
+      close: "Not now",
+    },
+    defaultPrep: [
+      "Read their site and their latest post",
+      "Write down two questions to ask them",
+      "Pick one project to talk through",
+    ],
+    labels: {
+      decideOffer: (company: string) => `Decide on the offer from ${company}`,
+      pickTime: (company: string) => `Pick a time with the founder at ${company}`,
+      replyTimes: (company: string) => `Send ${company} times for a call`,
+      confirmInterview: (company: string) => `Confirm your interview with ${company}`,
+      prepare: (company: string) => `Prepare for ${company}`,
+      finishAssessment: (company: string) => `Finish the ${company} assessment`,
+      finishApplication: (company: string) => `Finish your application to ${company}`,
+      followUp: (company: string) => `Follow up with ${company}`,
+      joinMeeting: (company: string) => `Join the call with ${company}`,
+      bringForward: () => "Bring forward",
+      apply: (company: string) => `Apply to ${company}`,
+    },
+    sheets: {
+      decideOffer: {
+        done: "Done",
+        title: (company: string, role: string | null) => (role ? `Your ${role} offer from ${company}` : `Your offer from ${company}`),
+        draft: (_company: string, role: string | null) =>
+          `Thank you for the offer${role ? ` for the ${role} role` : ""}. I'm excited about it. I have one or two questions before I answer, and I'll reply before the deadline. Do you have 15 minutes this week?`,
+        confirm: "Mark the offer as decided",
+        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+      },
+      pickTime: {
+        done: "Sent",
+        title: (company: string) => `Reply to the founder at ${company}`,
+        draft: () => "Thanks for writing back. I'd love to talk. Does this time work for you?",
+        note: "This demo sends nothing. The real version would open this reply in Gmail and add the call to your calendar.",
+      },
+      replyTimes: {
+        done: "Sent",
+        title: (company: string, role: string | null) => (role ? `Reply to ${company} about ${role}` : `Reply to ${company}`),
+        draft: () => "Thanks for reaching out. I'm happy to do a quick call. These times work for me, and I can move things around if none suit you.",
+        confirm: "Send these times",
+        note: "This demo sends nothing. The real version would open this reply in Gmail.",
+      },
+      confirmInterview: {
+        done: "Sent",
+        title: (company: string, role: string | null) => (role ? `Confirm the ${company} interview for ${role}` : `Confirm the ${company} interview`),
+        draft: (_company: string, role: string | null) =>
+          `Thanks for the invitation. I can make the interview${role ? ` for ${role}` : ""}. Please send the calendar invite and tell me who I'll be speaking with.`,
+        confirm: "Send the confirmation",
+        note: "This demo sends nothing. The real version would open this reply in Gmail and add the interview to your calendar.",
+      },
+      prepare: {
+        done: "Done",
+        title: (company: string) => `Get ready for ${company}`,
+        confirm: "Mark as prepared",
+        note: "These notes stay in this tab. This demo sends nothing; the real version would put a reminder on your calendar.",
+      },
+      finishAssessment: {
+        done: "Done",
+        title: (company: string, role: string | null) => (role ? `The ${company} assessment for ${role}` : `The ${company} assessment`),
+        confirm: "Mark as submitted",
+        note: "This demo sends nothing. The real version would open their assessment page in a new tab.",
+      },
+      finishApplication: {
+        done: "Done",
+        title: (company: string, role: string | null) => (role ? `Your ${company} application for ${role}` : `Your ${company} application`),
+        confirm: "Mark as submitted",
+        note: "This demo sends nothing. The real version would open their application page in a new tab.",
+      },
+      followUp: {
+        done: "Sent",
+        title: (company: string) => `Follow up with ${company}`,
+        draft: (_company: string, role: string | null) =>
+          role
+            ? `I wanted to check in on the ${role} role. I'm still very interested and happy to share anything that helps. Thanks for your time.`
+            : "I wanted to check in on the introduction. I'm still keen to talk and happy to work around your schedule. Thanks for making time.",
+        confirm: "Send the follow-up",
+        note: "This demo sends nothing. The real version would open this draft in Gmail.",
+      },
+      joinMeeting: {
+        done: "Done",
+        title: (company: string) => `Your call with ${company}`,
+        confirm: "Mark as joined",
+        note: "This demo sends nothing. When it's live, the real version opens Meet or Zoom at the time of the call.",
+      },
+      bringForward: {
+        done: "Added",
+        title: (company: string) => `Bring ${company} forward`,
+        summary: (company: string) => `This adds the role at ${company} to your shortlist. Your board keeps it there, and you can ask for an intro from it.`,
+        confirm: "Add to my shortlist",
+        note: "This demo sends nothing. Adding it only changes your shortlist, which stays in this tab.",
+      },
+      apply: {
+        done: "Done",
+        title: (company: string, role: string | null) => (role ? `Apply to ${company} for ${role}` : `Apply to ${company}`),
+        confirm: "Mark as applied",
+        note: "This demo sends nothing. The real version would open the role's page in a new tab.",
+      },
     },
   },
   brief: {
-    heading: "this morning, 8:02 am",
+    heading: "this morning, 8:02\u00a0am",
     subhead: "The brief you'd get. It only says what changed for you, so it never reads like a newsletter.",
     from: "a concept for the speedrun talent network",
-    time: "8:02 am",
+    time: "8:02\u00a0am",
     subject: (name: string, count: number) => `${name}, ${count} ${count === 1 ? "thing" : "things"} moved overnight`,
     quietSubject: (name: string) => `${name}, nothing moved. that's fine.`,
     subjectAnon: (count: number) => `${count} ${count === 1 ? "thing" : "things"} moved overnight`,
@@ -390,7 +561,10 @@ export const speedrunCopy = {
       text: "Text",
       agent: "Your own agent (MCP)",
     },
-    channelNote: "Only email works in this demo. Text and agents use the same brief.",
+    channelNote: "Email, text or your own agent get the same brief. Sending is switched off in this concept.",
+    // The same line once sending is on, so it never claims it is off.
+    channelNoteLive: "Email, text or your own agent get the same brief.",
+    cadenceLabel: "When it reaches you",
     cadence: {
       "on-change": "Only when something moves",
       daily: "Every morning",
@@ -415,6 +589,7 @@ export const speedrunCopy = {
       newThisWeek: (title: string, company: string) => `${title} at ${company} is new this week and fits you.`,
       openRole: (title: string, company: string) => `${title} at ${company} is open and fits you.`,
       introStanding: (company: string) => `Pick a time with the founder at ${company}.`,
+      introFollowUp: (company: string) => `Your intro at ${company} has gone quiet. A short follow-up keeps it moving.`,
     },
     dueWhat: "The assessment",
     dueWhen: "this week",
@@ -422,11 +597,9 @@ export const speedrunCopy = {
       button: "Send it to me",
       emailLabel: "Your email address",
       note: "One email, now. This site doesn't keep your address. Resend, the email service, keeps a delivery record of the one email it sends.",
-      off: "Email sending is switched off in this concept.",
       sent: "If that address is on the demo's list, the brief is on its way.",
       failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
-      pastedNote: "Emails you paste stay in this tab and are not in the sent copy.",
       sampleOnly: "Only the sample briefs can be sent in this demo.",
       listNote: "This demo only emails addresses on its list.",
     },
@@ -436,18 +609,27 @@ export const speedrunCopy = {
   decisions: {
     eyebrow: "Product decisions",
     heading: "what I decided, and why.",
+    refresher: "I've sent 84 applications this fall, and some of my friends have sent 400. Splits is the tool I wanted on the other side of that.",
     cards: [
       {
         title: "The brief comes first.",
         body: "Nobody opens a dashboard every morning. A short brief that only says what changed is the reason to come back, and the board is where it lands.",
       },
       {
-        title: "The board arranges itself.",
-        body: "It starts from who you are: depth for five applications, triage for five hundred. Rearranging is there for people who want it, never required.",
+        title: "Every screen ends in a next step.",
+        body: "Today, the intros and the board each carry their next action.",
       },
       {
         title: "AI suggests. You decide.",
         body: "Matches come with reasons you can check, and nothing applies on your behalf. Apply better to fewer.",
+      },
+      {
+        title: "One tap for the human.",
+        body: "Agents draft the reply, find the times and open the prep. You confirm.",
+      },
+      {
+        title: "No pasting.",
+        body: "Hunting for an email to paste is friction. The board builds from your inbox, or from the matches you bring forward.",
       },
       {
         title: "Your inbox is read-only.",
@@ -456,6 +638,10 @@ export const speedrunCopy = {
       {
         title: "Intros stay human.",
         body: "The system tees up a warm intro when a founder's role fits your pipeline. The talent team still makes the call and the introduction.",
+      },
+      {
+        title: "One intro, your top pick.",
+        body: "The cap keeps intros meaningful, for founders and for the talent team.",
       },
       {
         title: "Founders get routed, not buried.",
@@ -472,7 +658,7 @@ export const speedrunCopy = {
   },
   close: {
     eyebrow: "Built by Aaron Sulbaran",
-    body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read. Reading your own resume and emailing the brief are built but switched off: that's my 80/20, enough to show the product. If I were on the team, I'd finish the rest. The inbox and the people are made up; the decisions are mine.",
+    body: "Built in a week on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Reading your own resume and emailing the brief are built but switched off: that's my 80/20, enough to show the product. If I were on the team, I'd finish the rest. The inbox and the people are made up; the decisions are mine.",
     // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
     links: [
       { key: "site", label: "My site", href: "/" },
@@ -512,7 +698,7 @@ export const speedrunCopy = {
     },
     sam: {
       name: "Sam",
-      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and three founder intros.",
+      line: "Senior in ECE and product engineer, co-op or new grad, ninety applications and four founder intros.",
       mode: "Pipeline",
     },
     lena: {

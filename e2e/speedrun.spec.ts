@@ -242,6 +242,19 @@ test("the student branch counts 03 / 07 before the answer and 04 / 08 after it, 
   await expectVisitorName(page, "Alex");
 });
 
+test("the Yes / No steps carry no developer note about tapping", async ({ page }) => {
+  await page.goto("/speedrun");
+  await answerOnboarding(page, {
+    onStep: async (step) => {
+      if (step !== "student" && step !== "founding") return;
+      // Catches: this check running on a step with no Yes / No pills (a step reorder or a changed pill count), so the no-note line below passes on nothing.
+      await expect(page.locator("#join").getByRole("radio")).toHaveCount(2);
+      // Catches: the "single tap advances, no Continue click" note coming back under the pills, which reads as a build note to a visitor.
+      await expect(page.locator("#join")).not.toContainText(/tap advances|no continue click/i);
+    },
+  });
+});
+
 test("tapping Yes then No within the advance beat moves on once, on No", async ({ page }) => {
   await playSwitch(page);
   await page.locator("#join").getByLabel(join.steps.name.inputLabel).fill("Alex");
@@ -673,10 +686,17 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   await openTab(page, network.tabs.decisions);
   const section = page.locator("[data-decisions]");
   await expect(section.getByRole("heading", { name: speedrunCopy.decisions.heading })).toBeVisible();
-  await expect(section.locator("[data-decision-card]")).toHaveCount(6);
+  // Catches: a card dropped or left behind in the Rulings 61 to 64 rewrite (five kept, one replaced, three added makes nine).
+  await expect(section.locator("[data-decision-card]")).toHaveCount(9);
   const close = page.locator("[data-close]");
   await expect(close.getByRole("heading", { name: speedrunCopy.close.eyebrow })).toBeAttached();
   await expect(close.getByText(speedrunCopy.affiliation)).toBeAttached();
+  // Catches: the close card losing the corrected "Built in a week" opening (reverting to a weekend build or dropping the sentence).
+  await expect(close).toContainText("Built in a week on my own site");
+  // Catches: the word weekend coming back anywhere in the close card.
+  await expect(close).not.toContainText(/weekend/i);
+  // Catches: the close card pointing readers at code anyone can read, when the repo is private.
+  await expect(close).not.toContainText(/code anyone can read/i);
   const linkedin = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
   const links = page.locator("[data-close] a");
   await expect(links).toHaveCount(3);
@@ -694,6 +714,118 @@ test("the Why tab holds the decisions, then the close card with the affiliation 
   });
   expect(order).toEqual({ sameParent: true, after: true });
 });
+
+test("the last tab is named Why I built this, with the refresher above the cards and the old self-arranging card gone", async ({ page }) => {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const tabs = page.getByRole("tablist", { name: network.tabsLabel });
+  // Catches: the last tab keeping its bare "Why" label (exact name match, so "Why I built this" would not satisfy "Why").
+  await expect(tabs.getByRole("tab").last()).toHaveAccessibleName("Why I built this");
+  await openTab(page, network.tabs.brief);
+  // Catches: the Brief tab's Next link still reading "Next: Why" after the tab was renamed.
+  await expect(page.getByRole("button", { name: "Next: Why I built this", exact: true })).toBeVisible();
+  await openTab(page, network.tabs.decisions);
+  const section = page.locator("[data-decisions]");
+  const refresher = section.locator("[data-why-refresher]");
+  // Catches: the refresher paragraph missing from the tab, or the hook rendering another field's text.
+  await expect(refresher).toHaveText(speedrunCopy.decisions.refresher);
+  // Catches: the refresher reworded away from the ruling's draft.
+  await expect(refresher).toContainText("84 applications this fall");
+  // Catches: the refresher rendered below the cards, where it no longer sets up the decisions.
+  const tops = await page.evaluate(() => ({
+    refresher: document.querySelector("[data-why-refresher]")!.getBoundingClientRect().top,
+    firstCard: document.querySelector("[data-decision-card]")!.getBoundingClientRect().top,
+  }));
+  expect(tops.refresher).toBeLessThan(tops.firstCard);
+  const titles = await section.locator("[data-decision-card] h3").allTextContents();
+  // Catches: the retired "The board arranges itself." card surviving the rewrite.
+  expect(titles).not.toContain("The board arranges itself.");
+  // Catches: any of the four ruled cards missing, or its title drifting from the ruling.
+  for (const title of ["Every screen ends in a next step.", "One tap for the human.", "No pasting.", "One intro, your top pick."]) {
+    expect(titles, title).toContain(title);
+  }
+});
+
+test("the Why tab keeps its reading text to a comfortable measure at 1440", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await openTab(page, network.tabs.decisions);
+  const closeBody = await page.locator("[data-close] p").first().evaluate((el) => ({ width: el.getBoundingClientRect().width }));
+  // Catches: the close paragraph running past its 36rem (576px) cap, about 110 characters a line in the full 66rem column.
+  expect(closeBody.width).toBeLessThanOrEqual(576);
+});
+
+for (const width of [1024, 1100, 1280, 1440]) {
+  test(`desktop header ${width}: every tab on one line, clear of the switch slot and the avatar, the badge on one line`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const list = page.getByRole("tablist", { name: network.tabsLabel });
+    await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(40);
+    const lineCount = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return new Set(Array.from(range.getClientRects()).map((r) => Math.round(r.top))).size;
+      });
+    const box = (selector: string) => page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const avatarBox = () => accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const overlaps = (a: { left: number; right: number; top: number; bottom: number }, b: { left: number; right: number; top: number; bottom: number }) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    for (const id of ["matches", "board", "brief", "decisions"] as const) {
+      const selector = `#sr-tab-${id}`;
+      // Catches: a tab label wrapping to two or three lines and overflowing the header.
+      expect(await lineCount(selector), `${id} lines`).toBe(1);
+      const tab = await box(selector);
+      // Read inside the loop so a switch that mounts late is never measured as zero-sized.
+      const slot = await box("[data-shell-switch-slot]");
+      const avatar = await avatarBox();
+      // Catches: a tab sitting over the switch slot, so a click lands on the slot (skipped only while the slot has no area).
+      if (slot.right > slot.left && slot.bottom > slot.top) expect(overlaps(tab, slot), `${id} over the slot`).toBe(false);
+      // Catches: a tab sitting over the avatar, so a click opens the account menu instead of the tab.
+      expect(overlaps(tab, avatar), `${id} over the avatar`).toBe(false);
+      // Catches: a tab whose centre is covered by another element, so a mouse click misses it.
+      const hit = await page.evaluate(({ x, y, sel }) => !!document.elementFromPoint(x, y)?.closest(sel), { x: (tab.left + tab.right) / 2, y: (tab.top + tab.bottom) / 2, sel: selector });
+      expect(hit, `${id} hit target`).toBe(true);
+    }
+    // Catches: the concept badge hidden when the header is made to fit (it is the disclaimer).
+    await expect(page.locator("[data-concept-badge]")).toBeVisible();
+    // Catches: the concept badge wrapped onto two lines or cut, so the disclaimer is not whole.
+    expect(await lineCount("[data-concept-badge]")).toBe(1);
+  });
+}
+
+for (const width of [375, 390]) {
+  test(`phone dock ${width}: the last label balances onto at most two lines with no orphan word`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const lines = await page.locator("#sr-tab-decisions").evaluate((el) => {
+      const text = Array.from(el.childNodes).find((n) => n.nodeType === Node.TEXT_NODE)!;
+      const words: { word: string; top: number }[] = [];
+      const content = text.textContent ?? "";
+      const re = /\S+/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(content))) {
+        const range = document.createRange();
+        range.setStart(text, m.index);
+        range.setEnd(text, m.index + m[0].length);
+        words.push({ word: m[0], top: Math.round(range.getBoundingClientRect().top) });
+      }
+      const byLine = new Map<number, number>();
+      for (const w of words) byLine.set(w.top, (byLine.get(w.top) ?? 0) + 1);
+      return Array.from(byLine.values());
+    });
+    // Catches: the dock label wrapping to three lines and growing the dock.
+    expect(lines.length).toBeLessThanOrEqual(2);
+    // Catches: a lone word on a line (WHY I BUILT / THIS) because the label is not balanced.
+    if (lines.length === 2) expect(Math.min(...lines)).toBeGreaterThan(1);
+  });
+}
 
 const TABS = Object.values(network.tabs);
 /** Wide panel content scrolls sideways inside its panel (overflow-y:auto makes overflow-x auto) and never reaches the document's scrollWidth, so read the scrollers too. */
@@ -757,6 +889,106 @@ test("tabs sit at the bottom on a phone and in the top bar on desktop", async ({
   await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
+});
+
+// Rulings 36 to 41: from lg the shell reads as one product row, not the phone layout stretched.
+for (const size of [
+  { width: 1440, height: 900 },
+  { width: 1280, height: 800 },
+]) {
+  test(`desktop shell ${size.width}: one top row, text tabs, avatar top right, one width, Next as a link`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await page.goto("/speedrun");
+    await skipToSam(page);
+    await skipBuildLog(page);
+    const list = page.getByRole("tablist", { name: network.tabsLabel });
+    const rect = (selector: string) => page.locator(selector).first().evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    // The phase entrance slides the frame for a moment, so measure once the row has settled.
+    // Catches: the 80 px logo band left above the bar, so the tabs and avatar sit two rows down from the site logo.
+    await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(40);
+    expect((await accountButton(page).evaluate((el) => el.getBoundingClientRect().top))).toBeLessThan(40);
+
+    // Catches: the avatar sitting between the badge and the tabs instead of at the bar's right edge.
+    const shell = await rect("[data-shell]");
+    const avatar = await accountButton(page).evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; });
+    expect(shell.right - avatar.right).toBeLessThanOrEqual(32);
+    expect(avatar.left).toBeGreaterThan((await list.evaluate((el) => el.getBoundingClientRect().right)));
+
+    // Catches: the PR 7 team switch has no mount point, or it lands away from the avatar, or it renders something now.
+    const slot = page.locator("[data-shell-switch-slot]");
+    await expect(slot).toHaveCount(1);
+    const slotBox = await rect("[data-shell-switch-slot]");
+    expect(slotBox.right).toBeLessThanOrEqual(avatar.left);
+    expect(avatar.left - slotBox.right).toBeLessThanOrEqual(16);
+    expect(slotBox.right - slotBox.left).toBeGreaterThan(80);
+    expect(await slot.evaluate((el) => el.childElementCount + (el.textContent ?? "").length)).toBe(0);
+
+    // Catches: pill tabs, a filled selected tab (the old black pill) or a selected state with no underline.
+    const selectedTab = list.getByRole("tab", { selected: true });
+    const tabStyle = await selectedTab.evaluate((el) => { const s = getComputedStyle(el); return { background: s.backgroundColor, underline: s.borderBottomWidth }; });
+    expect(tabStyle.background).toBe("rgba(0, 0, 0, 0)");
+    expect(tabStyle.underline).toBe("2px");
+    // Catches: unselected tabs keeping the HUD fill, which makes the row a set of pills again.
+    const otherBackground = await list.getByRole("tab", { selected: false }).first().evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(otherBackground).toBe("rgba(0, 0, 0, 0)");
+
+    // Catches: Next dressed like the selected tab (a filled ink control).
+    const ink = await page.locator("[data-speedrun]").first().evaluate((root) => { const probe = document.createElement("div"); probe.className = "bg-sr-ink"; root.appendChild(probe); const color = getComputedStyle(probe).backgroundColor; probe.remove(); return color; });
+    expect(ink).not.toBe("rgba(0, 0, 0, 0)");
+    const nextBackground = await page.getByRole("button", { name: network.nextTo.matches }).evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(nextBackground).not.toBe(ink);
+    expect(nextBackground).toBe("rgba(0, 0, 0, 0)");
+    // Catches: Next losing its arrow at lg (Ruling 40: a secondary text link with an arrow).
+    for (const id of ["matches", "board", "brief"] as const) {
+      await openTab(page, network.tabs[id]);
+      await expect(page.getByRole("button", { name: network.nextTo[id] }).locator("svg"), id).toBeVisible();
+    }
+
+    // Catches: three content widths, with each panel centering its own max width so the left edges wander between tabs.
+    const lefts: number[] = [];
+    for (const id of ["matches", "board", "brief", "decisions"] as const) {
+      await openTab(page, network.tabs[id]);
+      lefts.push(await page.locator("[role=tabpanel]:not([hidden])").evaluate((panel) => (panel.firstElementChild as HTMLElement).getBoundingClientRect().left));
+    }
+    expect(Math.max(...lefts) - Math.min(...lefts)).toBeLessThanOrEqual(1);
+    // Catches: panels inset differently from the bar, so the brand and the content do not share one left edge.
+    const brandLeft = await page.locator("[data-shell] header img").first().evaluate((el) => el.getBoundingClientRect().left);
+    expect(Math.abs(lefts[0] - brandLeft)).toBeLessThanOrEqual(1);
+  });
+}
+
+// Catches: the framed detail pane shrinking to its content, or taking the page tone, so the two panes do not share an edge.
+test("desktop shell: the Matches detail pane runs the list's full height, selected row and pane share one surface", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const list = page.locator("[data-match-list]");
+  await expect.poll(() => list.evaluate((el) => el.getBoundingClientRect().top)).toBeLessThan(200);
+  const bottoms = await page.evaluate(() => ({ list: document.querySelector("[data-match-list]")!.getBoundingClientRect().bottom, detail: document.querySelector("[data-match-detail]")!.getBoundingClientRect().bottom }));
+  expect(Math.abs(bottoms.list - bottoms.detail)).toBeLessThanOrEqual(2);
+  const tones = await page.evaluate(() => {
+    const background = (el: Element) => getComputedStyle(el).backgroundColor;
+    const rows = [...document.querySelectorAll("[data-match-row]")];
+    return { detail: background(document.querySelector("[data-match-detail]")!), selected: background(rows.find((row) => row.getAttribute("aria-current") === "true")!), other: background(rows.find((row) => row.getAttribute("aria-current") !== "true")!), edge: getComputedStyle(rows.find((row) => row.getAttribute("aria-current") === "true")!).borderTopColor };
+  });
+  // Catches: the detail on the page tone while the selected row is the solid surface, so the pair reads as two unrelated boxes.
+  expect(tones.detail).toBe(tones.selected);
+  // Catches: every row the same tone, so the selected one is told apart by its border alone.
+  expect(tones.other).not.toBe(tones.selected);
+});
+
+// Catches: the lg changes leaking below it: the icon dock must stay at the bottom, the switch slot must not take space on a phone.
+test("desktop shell: the 390 phone keeps the bottom dock with icons and no switch slot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+  const list = page.getByRole("tablist", { name: network.tabsLabel });
+  await expect.poll(() => list.evaluate((el) => Math.abs(el.getBoundingClientRect().bottom - window.innerHeight))).toBeLessThanOrEqual(2);
+  await expect(list.locator("svg")).toHaveCount(4);
+  await expect(page.locator("[data-shell-switch-slot]")).toBeHidden();
+  expect(await list.getByRole("tab", { selected: true }).evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 // Catches: the disclaimer truncated, clipped or pushed off screen (text-overflow ellipsis keeps toHaveText green), or the pinned pill still floating over the shell.

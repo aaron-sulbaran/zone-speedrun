@@ -3,12 +3,12 @@
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
+import type { IntroSlot } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
+import { BringForwardToggle, FILLED, IntroButton, IntroNote, SECONDARY } from "./IntroControls";
 
 const copy = speedrunCopy.matches;
 const CHIP = "rounded-full bg-sr-hud px-2.5 py-1 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2";
-const BUTTON =
-  "rounded-full border border-sr-soft px-4 py-2 font-srcond text-xs uppercase tracking-wider text-sr-ink transition-[background-color,transform] duration-200 ease-sr hover:bg-sr-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple active:scale-[.97] motion-reduce:transition-none motion-reduce:active:scale-100";
 
 // Role links carry the snapshot's agent tracking; a person's click is not agent traffic.
 function cleanUrl(url: string): string {
@@ -34,19 +34,27 @@ export function CompanyLogo({ name, logo }: { name: string; logo: string | null 
   );
 }
 
-export function MatchCard({ match }: { match: Match }) {
+export type MatchIntro = {
+  slot: IntroSlot;
+  /** 1-based place on the shortlist, or null when it is not brought forward. */
+  rank: number | null;
+  onBring: (on: boolean) => void;
+  onRequest: () => void;
+  onSwap: () => void;
+};
+
+export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro }) {
   const { company, role, reasons, connect } = match;
-  const [sheet, setSheet] = useState<"intro" | "follow" | null>(null);
+  const [sheet, setSheet] = useState<"follow" | null>(null);
   const sheetId = useId();
   const applyNoteId = useId();
-  const introRef = useRef<HTMLButtonElement>(null);
   const followRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLParagraphElement>(null);
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !sheet) return;
     // The detail around the card closes on an Escape nobody has handled; this one is the sheet's.
     event.preventDefault();
-    (sheet === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
+    followRef.current?.focus({ preventScroll: true });
     setSheet(null);
   };
   // The sheet is not a live region: focus lands on it, so it is announced once.
@@ -55,13 +63,17 @@ export function MatchCard({ match }: { match: Match }) {
   useEffect(() => {
     if (sheet) sheetRef.current?.focus({ preventScroll: true });
   }, [sheet]);
-  const toggle = (kind: "intro" | "follow") => {
-    if (sheet === kind) (kind === "intro" ? introRef : followRef).current?.focus({ preventScroll: true });
-    setSheet(sheet === kind ? null : kind);
+  const toggleFollow = () => {
+    if (sheet === "follow") followRef.current?.focus({ preventScroll: true });
+    setSheet(sheet === "follow" ? null : "follow");
   };
+  // The request is the pane's one filled action when it can be made; otherwise Apply is.
+  const requestReady = intro.slot.kind === "request" && intro.slot.enabled;
+  const applyAvailable = connect.includes("apply") && role !== null;
+  const applyClass = `${requestReady ? SECONDARY : FILLED} no-underline`;
 
   return (
-    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5">
+    <div data-match="" data-match-card="" onKeyDown={onKeyDown} className="rounded-xl border border-sr-soft bg-sr-surface p-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0">
       <div className="flex items-center gap-3">
         <CompanyLogo name={company.name} logo={company.logo} />
         <div className="min-w-0">
@@ -90,14 +102,10 @@ export function MatchCard({ match }: { match: Match }) {
         ))}
       </ul>
       <div className="mt-5 flex flex-wrap gap-2">
-        {connect.includes("intro") && (
-          <button ref={introRef} type="button" aria-expanded={sheet === "intro"} aria-controls={sheetId} onClick={() => toggle("intro")} className={BUTTON}>
-            {copy.connect.intro}
-          </button>
-        )}
+        <IntroButton slot={intro.slot} onRequest={intro.onRequest} onSwap={intro.onSwap} />
         {connect.includes("apply") && role && (
           <>
-            <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} className={`${BUTTON} inline-flex items-center gap-1`}>
+            <a href={cleanUrl(role.url)} target="_blank" rel="noopener noreferrer" aria-describedby={applyNoteId} className={applyClass}>
               {copy.connect.apply}
               <ArrowUpRight aria-hidden="true" size={13} />
             </a>
@@ -107,11 +115,13 @@ export function MatchCard({ match }: { match: Match }) {
           </>
         )}
         {connect.includes("follow") && (
-          <button ref={followRef} type="button" aria-expanded={sheet === "follow"} aria-controls={sheetId} onClick={() => toggle("follow")} className={BUTTON}>
+          <button ref={followRef} type="button" aria-expanded={sheet === "follow"} aria-controls={sheetId} onClick={toggleFollow} className={SECONDARY}>
             {copy.connect.follow}
           </button>
         )}
+        <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} />
       </div>
+      <IntroNote slot={intro.slot} />
       <div id={sheetId}>
         {sheet && (
           <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">
