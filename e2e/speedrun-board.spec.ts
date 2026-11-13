@@ -1024,7 +1024,7 @@ test("phones: a Today prep drop-down and the open account menu are 44 px targets
   await joinAs(page, "dev", true);
   const prep = page.locator("[data-today-prep]").first();
   await prep.locator(":scope > summary").click();
-  // Catches: the Today prep disclosure never opening, so its revealed links go unmeasured.
+  // Catches: the Today prep disclosure never opening, so its revealed points go unmeasured.
   expect(await prep.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
   // Dev's prepare rows carry points and no links, so the reveal is proved by the points.
   // Catches: the disclosure opening onto nothing (its points list not rendering), so the size check runs on a view that revealed nothing.
@@ -1045,19 +1045,17 @@ test("phones: the Needs you details, every tile panel and Show all reveal 44 px 
   // Catches: the details opening with no LinkedIn or posting link to tap.
   expect(await page.locator("[data-needs-details] a:visible").count()).toBeGreaterThanOrEqual(1);
   checkTouchSizes("needs details", await measureShell(page));
-  let tileActions = 0;
   for (const key of ["applied", "inProcess", "intros", "offers"]) {
     await stat(page, key).click();
     // Catches: a stat tile that opens no panel, so what it reveals goes unmeasured.
     await expect(page.locator(`[data-tile-panel="${key}"]`)).toBeVisible();
-    tileActions += await page.locator(`[data-tile-panel="${key}"] [data-tile-action]:visible`).count();
+    // Catches: this tile's panel revealing no Next-step button, so its ActionSlot goes unmeasured (another tile's buttons must not cover for it).
+    expect(await page.locator(`[data-tile-panel="${key}"] [data-tile-action]:visible`).count(), `${key} tile actions`).toBeGreaterThanOrEqual(1);
     checkTouchSizes(`${key} tile`, await measureShell(page));
   }
-  // Catches: the tile panels revealing no Next-step button at all, so the sweep never measures an ActionSlot.
-  expect(tileActions).toBeGreaterThanOrEqual(2);
   await stat(page, "offers").click();
   await page.locator("[data-board-table] button[aria-expanded]").click();
-  // Catches: Show all revealing no more rows, so rows 9 and up and their links go unmeasured.
+  // Catches: Show all revealing no more rows, so rows 9 and up and their Next-step links go unmeasured.
   expect(await page.locator("[data-board-table] [data-row]").count()).toBeGreaterThan(8);
   checkTouchSizes("show all", await measureShell(page));
 });
