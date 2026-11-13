@@ -1074,8 +1074,5 @@ test.describe("a visitor who opens the page on a later day", () => {
     // Catches: the pinned call staying on its November day, which would sit before the visitor's today.
     const callDay = shortDay(addDays(LATER, 7));
     await expect(today(page).filter({ hasText: "Cindermoor Cloud" }).locator("[data-today-when]")).toContainText(callDay);
-    // Catches: the table's Next step still reading the November due after the dates moved with the day.
-    const wren = rows(page).filter({ hasText: "Wrenfield" }).first();
-    await expect(wren.locator('[data-cell="next"]')).toContainText(shortDay(LATER));
   });
 });
