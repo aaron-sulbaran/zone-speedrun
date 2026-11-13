@@ -1,6 +1,7 @@
 import { useMemo, type Dispatch } from "react";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
 import { createRequest, swapRequest, type IntroRequest } from "@/lib/speedrun/introRequest";
+import { eligible } from "@/lib/speedrun/introRequest";
 import { introSlot } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
 import { matchKey } from "@/lib/speedrun/matchList";
@@ -18,7 +19,7 @@ function candidateFor(state: DemoState): IntroRequest["candidate"] {
 }
 
 /** Wires the shortlist and the one intro request to the matches on screen. */
-export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>) {
+export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onBoard: () => void) {
   const { shortlist, introRequest } = state;
   const shortlisted = useMemo(() => {
     const byKey = new Map((state.result?.matches ?? []).map((match) => [matchKey(match), match]));
@@ -35,7 +36,8 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>) {
   const forMatch = (match: Match): MatchIntro => {
     const key = matchKey(match);
     return {
-      slot: introSlot(match, shortlist, introRequest),
+      slot: introSlot(match, shortlist, introRequest, !shortlisted[0] || eligible(shortlisted[0])),
+      onBoard,
       rank: rankOf(key),
       onBring: (on) => bring(key, on),
       onRequest: () => {

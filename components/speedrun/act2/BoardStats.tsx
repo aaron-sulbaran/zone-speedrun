@@ -19,7 +19,6 @@ export function BoardStats({ stats, introCount, open, onToggle }: Props) {
           type="button"
           data-stat={key}
           data-value={values[key]}
-          aria-pressed={open === key}
           aria-expanded={open === key}
           aria-controls={open === key ? `sr-tile-${key}` : undefined}
           onClick={() => onToggle(key)}

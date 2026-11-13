@@ -2,7 +2,7 @@
 
 import { speedrunCopy } from "@/lib/content";
 import type { Action, TodayItem } from "@/lib/speedrun/actions";
-import { deadlineText } from "@/lib/speedrun/boardLabels";
+import { deadlineText, whoLine } from "@/lib/speedrun/boardLabels";
 import { shortDay } from "@/lib/speedrun/when";
 import { ActionSlot } from "./ActionSlot";
 import { SECONDARY } from "./IntroControls";
@@ -42,9 +42,9 @@ function Prep({ action }: { action: Action }) {
   );
 }
 
-/** An interview with a booked call: confirm it, then join it. Add to calendar opens the call's sheet either way. */
+/** An interview with a booked call: confirm it, then join it. Add to calendar is its own action and never settles the row. */
 function Buttons({ item, shared }: { item: TodayItem; shared: Shared }) {
-  const { action, join } = item;
+  const { action, join, calendar } = item;
   if (!join) return <ActionSlot action={action} slot="today" label={copy.nextStep[action.kind]} done={shared.isDone(action)} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} />;
   if (shared.isDone(join)) return <ActionSlot action={join} slot="today" label="" done picked={shared.pickedFor(join)} className="" onOpen={shared.onOpen} />;
   // Joining is for after the confirmation; until then the row carries the very action Needs you carries.
@@ -52,9 +52,15 @@ function Buttons({ item, shared }: { item: TodayItem; shared: Shared }) {
   return (
     <div className="flex flex-wrap gap-2 lg:justify-end">
       <ActionSlot action={first} slot="today" label={first === join ? copy.today.join : speedrunCopy.actions.briefButtons.confirmInterview} done={false} className={SECONDARY} onOpen={shared.onOpen} />
-      <button type="button" data-today-calendar="" onClick={(event) => shared.onOpen(join, event.currentTarget)} className={SECONDARY}>
-        {copy.today.calendar}
-      </button>
+      {calendar && shared.isDone(calendar) ? (
+        <ActionSlot action={calendar} slot="today" label="" done className="" onOpen={shared.onOpen} />
+      ) : (
+        calendar && (
+          <button type="button" data-today-calendar="" onClick={(event) => shared.onOpen(calendar, event.currentTarget)} className={SECONDARY}>
+            {copy.today.calendar}
+          </button>
+        )
+      )}
     </div>
   );
 }
@@ -73,7 +79,7 @@ function Row({ item, shared }: { item: TodayItem; shared: Shared }) {
           {action.role && <p className="text-sm text-sr-ink2">{action.role}</p>}
         </div>
         <p data-today-who="" className="min-w-0 break-words text-sm [overflow-wrap:anywhere]">
-          {action.who ? copy.needs.who(action.who.name, action.who.title) : copy.needs.team(action.company)}
+          {whoLine(action)}
         </p>
         <div className="text-sm font-semibold text-sr-ink">
           {when && <p data-today-when="">{when}</p>}

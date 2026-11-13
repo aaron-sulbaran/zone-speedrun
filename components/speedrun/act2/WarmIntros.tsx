@@ -53,16 +53,20 @@ function Card({ card, ...shared }: { card: IntroCard } & Omit<Props, "cards" | "
         {meeting && <p data-intro-when="" className="text-sm text-sr-ink2">{meeting.when}</p>}
       </div>
       {/* From lg the column is always drawn, so every card's status column starts at the same x; below lg it is drawn only when it has content. */}
-      <div data-intro-actions="" className={`flex-wrap gap-2 lg:flex lg:w-60 lg:justify-end ${action || card.call ? "flex" : "hidden"}`}>
+      <div data-intro-actions="" className={`flex-wrap gap-2 lg:flex lg:w-60 lg:justify-end ${action || card.calendar ? "flex" : "hidden"}`}>
         {settled ? (
           <ActionSlot action={settled} slot="intro" label="" done picked={shared.pickedFor(settled)} className="" onOpen={shared.onOpen} />
         ) : (
           <>
             {action && <ActionSlot action={action} slot="intro" label={copy.nextStep[action.kind]} done={false} className={SECONDARY} onOpen={shared.onOpen} />}
-            {card.call && (
-              <button type="button" data-intro-calendar="" onClick={(event) => shared.onOpen(card.call as Action, event.currentTarget)} className={SECONDARY}>
-                {copy.today.calendar}
-              </button>
+            {card.calendar && shared.isDone(card.calendar) ? (
+              <ActionSlot action={card.calendar} slot="intro" label="" done className="" onOpen={shared.onOpen} />
+            ) : (
+              card.calendar && (
+                <button type="button" data-intro-calendar="" onClick={(event) => shared.onOpen(card.calendar as Action, event.currentTarget)} className={SECONDARY}>
+                  {copy.today.calendar}
+                </button>
+              )
             )}
           </>
         )}

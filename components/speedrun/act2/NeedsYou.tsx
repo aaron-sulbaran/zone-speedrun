@@ -6,7 +6,7 @@ import { speedrunCopy } from "@/lib/content";
 import type { Action } from "@/lib/speedrun/actions";
 import type { AppRow } from "@/lib/speedrun/types";
 import { ActionSlot } from "./ActionSlot";
-import { deadlineText, stageLabel } from "@/lib/speedrun/boardLabels";
+import { deadlineText, stageLabel, whoLine } from "@/lib/speedrun/boardLabels";
 import { FILLED } from "./IntroControls";
 import { LIST_GRID } from "./listGrid";
 
@@ -41,7 +41,7 @@ export function NeedsYou({ actions, rows, isDone, pickedFor, onOpen }: Props) {
                   <p data-needs-what="" className="text-sm text-sr-ink2">{copy.nextStep[action.kind]}</p>
                 </div>
                 <p data-needs-who="" className="min-w-0 break-words text-sm text-sr-ink [overflow-wrap:anywhere]">
-                  {action.who ? copy.needs.who(action.who.name, action.who.title) : copy.needs.team(action.company)}
+                  {whoLine(action)}
                 </p>
                 <p data-needs-due="" className="text-sm font-semibold text-sr-ink">{deadlineText(action)}</p>
                 <div className="flex items-center gap-1 lg:justify-self-end">

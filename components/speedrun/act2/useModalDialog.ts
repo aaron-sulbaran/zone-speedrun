@@ -13,7 +13,8 @@ function keepTabInside(dialog: HTMLDialogElement, event: KeyboardEvent) {
   const first = controls[0];
   const last = controls[controls.length - 1];
   const at = document.activeElement;
-  if (event.shiftKey && (at === first || at === dialog)) {
+  // The heading takes focus on open and is not a tab stop, so a Shift+Tab from it wraps like one from the first control.
+  if (event.shiftKey && (at === first || at === dialog || (at instanceof HTMLElement && !controls.includes(at)))) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && at === last) {
@@ -25,7 +26,7 @@ function keepTabInside(dialog: HTMLDialogElement, event: KeyboardEvent) {
 /**
  * The one place a native modal dialog opens and closes (ActionSheet today, PR 7's sheets next).
  * Mount the dialog to open it and unmount it to close it. showModal puts it in the top layer (so no Portal),
- * traps focus, closes on Escape and makes the page inert; this adds the body scroll lock, the opening motion
+ * traps focus, focuses the heading named by aria-labelledby, closes on Escape and makes the page inert; this adds the body scroll lock, the opening motion
  * (none under reduced motion) and the hand-back of focus to whatever opened it.
  */
 export function useModalDialog(onClose: () => void, returnFocus?: () => HTMLElement | null) {
@@ -44,6 +45,12 @@ export function useModalDialog(onClose: () => void, returnFocus?: () => HTMLElem
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     dialog.showModal();
+    // A reader hears what the dialog is before reaching a control, and Enter cannot open a link by accident.
+    const heading = document.getElementById(dialog.getAttribute("aria-labelledby") ?? "");
+    if (heading && dialog.contains(heading)) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
     const entrance = prefersReducedMotion()
       ? null
       : dialog.animate(

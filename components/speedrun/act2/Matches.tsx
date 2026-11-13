@@ -23,7 +23,7 @@ type MatchesProps = { result: MatchResult; state: DemoState; dispatch: Dispatch<
 // Two panes from lg: the list on the left, the selected match on the right. Below lg the detail slides over the list.
 export function Matches({ result, state, dispatch, name, mentionedFounding = false, nextLabel, onNext }: MatchesProps) {
   const items = listItems(result);
-  const intro = useIntro(state, dispatch);
+  const intro = useIntro(state, dispatch, onNext);
   const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
   const [detailOpen, setDetailOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);

@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import { speedrunCopy } from "@/lib/content";
 import type { Action } from "@/lib/speedrun/actions";
 import type { BriefItem } from "@/lib/speedrun/brief";
+import { cleanUrl } from "@/lib/speedrun/cleanUrl";
 
 const copy = speedrunCopy.actions;
 const BUTTON = "inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-sr-hud px-4 text-sm font-semibold text-sr-ink transition-colors duration-200 hover:bg-sr-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none";
@@ -27,7 +28,7 @@ export function BriefLine({ item, action, done, picked, onOpen }: Props) {
           )
         )}
         {item.kind === "new-role" && item.href && (
-          <a href={item.href} data-brief-apply="" target="_blank" rel="noopener noreferrer" className={BUTTON}>
+          <a href={cleanUrl(item.href)} data-brief-apply="" target="_blank" rel="noopener noreferrer" className={BUTTON}>
             {copy.briefButtons.apply}
           </a>
         )}
