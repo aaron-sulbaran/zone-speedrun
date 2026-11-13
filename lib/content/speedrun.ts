@@ -120,7 +120,6 @@ export const speedrunCopy = {
     yes: "Yes",
     no: "No",
     startOver: "Start over",
-    tapAdvances: "Single tap advances, no Continue click.",
     pressEnter: "Press Enter",
     nothingSent: "Your name stays in this browser. Nothing you type is saved.",
     connect: {
@@ -562,7 +561,9 @@ export const speedrunCopy = {
       text: "Text",
       agent: "Your own agent (MCP)",
     },
-    channelNote: "Only email works in this demo. Text and agents use the same brief.",
+    channelNote: "Email, text or your own agent get the same brief. Sending is switched off in this concept.",
+    // The same line once sending is on, so it never claims it is off.
+    channelNoteLive: "Email, text or your own agent get the same brief.",
     cadenceLabel: "When it reaches you",
     cadence: {
       "on-change": "Only when something moves",
@@ -596,7 +597,6 @@ export const speedrunCopy = {
       button: "Send it to me",
       emailLabel: "Your email address",
       note: "One email, now. This site doesn't keep your address. Resend, the email service, keeps a delivery record of the one email it sends.",
-      off: "Email sending is switched off in this concept.",
       sent: "If that address is on the demo's list, the brief is on its way.",
       failed: "That didn't go through. Try again later.",
       slowDown: "Too many sends just now. Try again later.",
@@ -658,7 +658,7 @@ export const speedrunCopy = {
   },
   close: {
     eyebrow: "Built by Aaron Sulbaran",
-    body: "Built in a weekend on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Matching runs in code anyone can read. Reading your own resume and emailing the brief are built but switched off: that's my 80/20, enough to show the product. If I were on the team, I'd finish the rest. The inbox and the people are made up; the decisions are mine.",
+    body: "Built in a week on my own site with Next.js. Real roles come from a snapshot of your public jobs API. Reading your own resume and emailing the brief are built but switched off: that's my 80/20, enough to show the product. If I were on the team, I'd finish the rest. The inbox and the people are made up; the decisions are mine.",
     // The component resolves the LinkedIn address from the site's own socials (href null here), so it lives in one place.
     links: [
       { key: "site", label: "My site", href: "/" },

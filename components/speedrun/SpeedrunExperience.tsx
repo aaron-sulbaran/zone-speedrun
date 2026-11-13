@@ -10,6 +10,7 @@ import { SplitsHero } from "./act1/SplitsHero";
 import { Switch } from "./Shift";
 import { SrZone } from "./SrZone";
 import type { DemoStats } from "./act2/Hero";
+import { EGG_ENABLED } from "@/lib/speedrun/egg";
 import { Egg } from "./act2/Egg";
 import { BuildingPhase } from "./phases/BuildingPhase";
 import { JoinPhase } from "./phases/JoinPhase";
@@ -104,7 +105,7 @@ export function SpeedrunExperience({ live, stats, themeClassName }: ExperiencePr
             {phase === "join" && <JoinPhase state={state} dispatch={dispatch} stats={stats} onUpload={readUpload} onSkip={skip} held={held} arrivalKey={arrivalKey} />}
             {phase === "building" && <BuildingPhase name={visitorName(state)} skipped={skipped} state={state} lines={lines} failed={failed} onRetry={retry} onStartOver={startOver} onDone={() => go({ type: "logDone" })} />}
             {phase === "network" && <NetworkPhase state={state} dispatch={dispatch} tab={tab} onTab={(next) => dispatchPhase({ type: "tab", tab: next })} onStartOver={startOver} onReplayTop={replayTop} />}
-            <Egg />
+            {EGG_ENABLED && <Egg />}
           </div>
           {phase !== "network" && <PinnedAffiliation />}
         </section>

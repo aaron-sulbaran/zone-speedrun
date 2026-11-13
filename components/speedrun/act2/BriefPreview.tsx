@@ -107,7 +107,9 @@ export function BriefPreview({ state, dispatch, name }: { state: DemoState; disp
             </button>
           ))}
         </div>
-        <p className="mt-3 text-sm text-sr-ink2">{copy.channelNote}</p>
+        <p data-brief-channel-note="" className="mt-3 text-sm text-sr-ink2">
+          {live.email ? copy.channelNoteLive : copy.channelNote}
+        </p>
       </div>
 
       {channel === "email" && <BriefSend live={live.email} personKey={personKey} connected={connected} roleIds={roleIds} />}

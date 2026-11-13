@@ -50,7 +50,6 @@ export function ChoicePills({ value, onChoose, label }: { value: boolean | null;
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-sr-ink2">{copy.tapAdvances}</p>
     </div>
   );
 }
