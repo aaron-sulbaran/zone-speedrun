@@ -558,7 +558,7 @@ test("intro request: one request on #1 puts the line on every other match", asyn
   await requestButton(page).click();
   // Catches: the request button staying live on the match that holds it, so a second request can be made.
   await expect(requestButton(page)).toHaveCount(0);
-  await expect(detail(page)).toContainText(INTRO.here);
+  await expect(detail(page)).toContainText(speedrunCopy.team.earned.line);
   // Catches: focus dropped to the body when the pressed button is replaced by the line.
   await expect(detail(page).locator("[data-intro-here]")).toBeFocused();
   await pick(page, b);
@@ -591,7 +591,7 @@ test("intro request: Move my request here makes that match #1 and moves the line
   await expect(rankText(page)).toHaveText("#1");
   // Catches: a swap that leaves the line on the old match, or two live requests.
   await expect(introOn(page)).toHaveCount(0);
-  await expect(detail(page)).toContainText(INTRO.here);
+  await expect(detail(page)).toContainText(speedrunCopy.team.earned.line);
   // Catches: focus dropped to the body when the swap button is replaced by the line.
   await expect(detail(page).locator("[data-intro-here]")).toBeFocused();
   await pick(page, a);

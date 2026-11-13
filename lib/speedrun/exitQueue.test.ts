@@ -20,7 +20,7 @@ describe("the exit queue", () => {
     exit.resolve();
     await tick();
     expect(applied).toEqual([{ type: "build" }, { type: "buildFailed" }]);
-    const end = applied.reduce<PhaseState>((s, e) => phaseReducer(s, e), { phase: "join", tab: "matches" });
+    const end = applied.reduce<PhaseState>((s, e) => phaseReducer(s, e), { phase: "join", tab: "matches", side: "candidate" });
     expect(end.phase).toBe("join");
   });
 

@@ -24,6 +24,7 @@ type MatchListProps = {
   onNext: () => void;
   registerRow: (key: string, node: HTMLButtonElement | null) => void;
   rankOf: (key: string) => number | null;
+  lockedOf: (key: string) => boolean;
   onBring: (key: string, on: boolean) => void;
 };
 
@@ -62,7 +63,7 @@ function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFoundin
 
 // The rows are plain buttons: Up and Down move the selection and the focus with it, so focus never leaves the list.
 export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function MatchList(
-  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow, inert, nextLabel, onNext, rankOf, onBring },
+  { items, selectedKey, name, matchCount, mentionedFounding, onSelect, onMove, registerRow, inert, nextLabel, onNext, rankOf, lockedOf, onBring },
   ref,
 ) {
   const onKeyDown = (event: KeyboardEvent) => {
@@ -99,7 +100,7 @@ export const MatchList = forwardRef<HTMLDivElement, MatchListProps>(function Mat
               <RowBody item={item} mentionedFounding={mentionedFounding} />
               <ChevronRight aria-hidden="true" size={18} className="absolute right-3 top-3 h-[18px] w-[18px] text-sr-ink2" />
             </button>
-            {item.kind === "match" && <RowBringForward company={item.match.company.name} rank={rankOf(item.key)} onChange={(on) => onBring(item.key, on)} />}
+            {item.kind === "match" && <RowBringForward company={item.match.company.name} rank={rankOf(item.key)} locked={lockedOf(item.key)} onChange={(on) => onBring(item.key, on)} />}
           </li>
         ))}
       </ul>

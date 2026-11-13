@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_PHASE, NETWORK_TABS, nextTab, phaseEventFor, phaseReducer, type PhaseState } from "./phase";
 
-const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches"): PhaseState => ({ phase, tab });
+const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches", side: PhaseState["side"] = "candidate"): PhaseState => ({ phase, tab, side });
 
 describe("phaseReducer", () => {
   it("starts at the opener on matches", () => {
@@ -39,6 +39,28 @@ describe("phaseReducer", () => {
   it("replays the top from anywhere", () => {
     expect(phaseReducer(at("building"), { type: "replayTop" })).toEqual(at("opener"));
     expect(phaseReducer(at("network", "board"), { type: "replayTop" })).toEqual(at("opener", "matches"));
+  });
+});
+
+describe("side", () => {
+  it("flips only in the network phase, and returns the same object elsewhere", () => {
+    expect(phaseReducer(at("network", "board"), { type: "side", side: "team" })).toEqual(at("network", "board", "team"));
+    for (const phase of ["opener", "join", "building"] as const) {
+      const state = at(phase);
+      expect(phaseReducer(state, { type: "side", side: "team" })).toBe(state);
+    }
+  });
+  it("sets the tab too when the event carries one (back to Matches)", () => {
+    expect(phaseReducer(at("network", "brief", "team"), { type: "side", side: "candidate", tab: "matches" })).toEqual(at("network", "matches", "candidate"));
+  });
+  it("keeps the tab when the event carries none", () => {
+    expect(phaseReducer(at("network", "decisions", "team"), { type: "side", side: "candidate" })).toEqual(at("network", "decisions", "candidate"));
+  });
+  it("resets to the candidate side on logDone, startOver and replayTop", () => {
+    expect(phaseReducer(at("building"), { type: "logDone" }).side).toBe("candidate");
+    expect(phaseReducer(at("network", "brief", "team"), { type: "startOver" })).toEqual(at("join", "matches", "candidate"));
+    expect(phaseReducer(at("network", "board", "team"), { type: "replayTop" })).toEqual(at("opener", "matches", "candidate"));
+    expect(phaseReducer(at("opener"), { type: "enterJoin" }).side).toBe("candidate");
   });
 });
 

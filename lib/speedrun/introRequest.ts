@@ -1,6 +1,8 @@
-import type { Match } from "./match";
+import type { Match, MatchResult } from "./match";
 import { matchKey } from "./matchList";
 import type { Intake } from "./types";
+
+export type PassedBy = "team" | "founder";
 
 export type IntroStatus = "requested" | "withFounder" | "connected" | "passed";
 
@@ -13,7 +15,7 @@ export type IntroRequest = {
   fit: { whyThem: string; whyRole: string };
   status: IntroStatus;
   introSent: boolean;
-  passedBy: "team" | "founder" | null;
+  passedBy: PassedBy | null;
 };
 
 /** At most one request is live; a passed one stays stored but blocks nothing. */
@@ -50,7 +52,7 @@ export function swapRequest(request: IntroRequest, to: Match, shortlist: Match[]
 /** A pass hands the request to the next eligible match after it in `ranked`, if any. */
 export function pass(
   request: IntroRequest,
-  by: "team" | "founder",
+  by: PassedBy,
   shortlist: Match[],
   intake: Intake,
 ): { passed: IntroRequest; live: IntroRequest | null } {
@@ -62,4 +64,18 @@ export function pass(
     if (next && eligible(next)) return { passed, live: build(request.candidate, next, request.ranked.slice(i), intake) };
   }
   return { passed, live: null };
+}
+
+/** The talent team takes the request to the founder; only a fresh request can go. */
+export const sendToFounder = (r: IntroRequest): IntroRequest | null => (r.status === "requested" ? { ...r, status: "withFounder" } : null);
+
+/** The founder says yes; gate 1 (the team's send) can't be skipped. */
+export const founderYes = (r: IntroRequest): IntroRequest | null => (r.status === "withFounder" ? { ...r, status: "connected" } : null);
+
+export const markIntroSent = (r: IntroRequest): IntroRequest | null => (r.status === "connected" && !r.introSent ? { ...r, introSent: true } : null);
+
+/** The matches for these keys, in the keys' order; a key with no match is dropped. */
+export function resolveShortlist(result: MatchResult, keys: string[]): Match[] {
+  const byKey = new Map(result.matches.map((m) => [matchKey(m), m]));
+  return keys.flatMap((key) => byKey.get(key) ?? []);
 }

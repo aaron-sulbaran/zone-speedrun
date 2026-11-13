@@ -18,12 +18,12 @@ const MAX_STAGGERED = 8;
 const LOGO_CLEARANCE = 80;
 const isDesktop = () => window.matchMedia("(min-width: 1024px)").matches;
 
-type MatchesProps = { result: MatchResult; state: DemoState; dispatch: Dispatch<DemoAction>; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void };
+type MatchesProps = { result: MatchResult; state: DemoState; dispatch: Dispatch<DemoAction>; name: string | null; mentionedFounding?: boolean; nextLabel: string; onNext: () => void; onDoor: () => void };
 
 // Two panes from lg: the list on the left, the selected match on the right. Below lg the detail slides over the list.
-export function Matches({ result, state, dispatch, name, mentionedFounding = false, nextLabel, onNext }: MatchesProps) {
+export function Matches({ result, state, dispatch, name, mentionedFounding = false, nextLabel, onNext, onDoor }: MatchesProps) {
   const items = listItems(result);
-  const intro = useIntro(state, dispatch);
+  const intro = useIntro(state, dispatch, onDoor);
   const [selectedKey, setSelectedKey] = useState<string | null>(items[0]?.key ?? null);
   const [detailOpen, setDetailOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -131,6 +131,7 @@ export function Matches({ result, state, dispatch, name, mentionedFounding = fal
         onMove={move}
         registerRow={registerRow}
         rankOf={intro.rankOf}
+        lockedOf={intro.lockedOf}
         onBring={intro.bring}
         inert={!wide && detailOpen}
         nextLabel={nextLabel}
