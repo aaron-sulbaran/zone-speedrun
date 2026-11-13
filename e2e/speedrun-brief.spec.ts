@@ -1,4 +1,5 @@
 import { speedrunCopy } from "../lib/content";
+import { cleanUrl } from "../lib/speedrun/cleanUrl";
 import { renderBriefEmail } from "../lib/speedrun/brief";
 import { sampleBrief } from "../lib/speedrun/briefSample";
 import { getSnapshot } from "../lib/speedrun/snapshot";
@@ -181,7 +182,9 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   const apply = line.locator("[data-brief-apply]");
   const href = await apply.getAttribute("href");
   // Catches: Apply drawn as a button that goes nowhere.
-  expect(getSnapshot().roles.some((role) => role.url === href), `${href}`).toBe(true);
+  expect(getSnapshot().roles.some((role) => cleanUrl(role.url) === href), `${href}`).toBe(true);
+  // Catches: a person's click carrying the snapshot's agent tags (utm_medium=agent).
+  expect(href).not.toContain("utm_medium=agent");
   // Catches: a posting link that leaves this tab behind or leaks the opener.
   await expect(apply).toHaveAttribute("target", "_blank");
   await expect(apply).toHaveAttribute("rel", "noopener noreferrer");
