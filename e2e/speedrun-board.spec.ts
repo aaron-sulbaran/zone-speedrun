@@ -937,7 +937,7 @@ test("board lower sections: on a phone every control is 44 px and the page never
 const PHONE_TABS = [speedrunCopy.network.tabs.matches, speedrunCopy.network.tabs.board, speedrunCopy.network.tabs.brief, speedrunCopy.network.tabs.decisions];
 
 for (const width of [375, 390]) {
-  test(`phones: on Sam's board at ${width} nothing scrolls the page sideways, the sheet fits, and the last section clears the dock`, async ({ page }) => {
+  test(`phones: on Sam's board at ${width} nothing scrolls the page sideways, the sheet fits, and its last control clears the dock`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 });
     await joinAs(page, "sam", true);
     // The tab panel scrolls on its own (overflow-y: auto makes its overflow-x auto too), so the document never sees a wide child; the panel is what has to be measured.
@@ -993,11 +993,12 @@ const measureShell = (page: Page) => page.locator("[data-shell]").evaluate((shel
 });
 
 function checkTouchSizes(label: string, sizes: Awaited<ReturnType<typeof measureShell>>) {
-  // Catches: the selector or the open state matching almost nothing on a view, so the size loop below checks no controls at all.
+  // Catches: the selector matching almost nothing on a view, so the size loop below checks no controls at all.
   expect(sizes.length, `${label} controls`).toBeGreaterThan(5);
   for (const { label: name, width, height } of sizes) {
     // Catches: a control under the 44 px touch size on a phone (the Close's 24 px links, the 40 px account button, Back to matches at 34 px, menu items at 36 px).
     expect(width, `${label}: ${name} width`).toBeGreaterThanOrEqual(43.95);
+    // Catches: a control under the 44 px touch size in height on a phone, with the width alone passing.
     expect(height, `${label}: ${name} height`).toBeGreaterThanOrEqual(43.95);
   }
 }
@@ -1021,12 +1022,42 @@ test("phones: every link, button, tab and summary in the shell is a 44 px target
 test("phones: a Today prep drop-down and the open account menu are 44 px targets at 390", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await joinAs(page, "dev", true);
-  await page.locator("[data-today-prep] > summary").first().click();
+  const prep = page.locator("[data-today-prep]").first();
+  await prep.locator(":scope > summary").click();
   // Catches: the Today prep disclosure never opening, so its revealed links go unmeasured.
-  expect(await page.locator("[data-today-prep]").first().evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
+  expect(await prep.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true);
+  // Dev's prepare rows carry points and no links, so the reveal is proved by the points.
+  // Catches: the disclosure opening onto nothing (its points list not rendering), so the size check runs on a view that revealed nothing.
+  expect(await prep.locator("[data-today-prep-points] li:visible").count()).toBeGreaterThanOrEqual(1);
   checkTouchSizes("prep drop-down", await measureShell(page));
   await openAccountMenu(page);
   // Catches: the account menu's items missing from the measured set because the pin never opened it.
   expect(await page.locator("[data-account-panel] button:visible").count()).toBeGreaterThanOrEqual(2);
   checkTouchSizes("account menu", await measureShell(page));
+});
+
+test("phones: the Needs you details, every tile panel and Show all reveal 44 px controls at 390", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await joinAs(page, "sam", true);
+  await page.locator("[data-needs-toggle]").first().click();
+  // Catches: the Needs you Details toggle opening nothing, so its revealed links go unmeasured.
+  await expect(page.locator("[data-needs-details]")).toHaveCount(1);
+  // Catches: the details opening with no LinkedIn or posting link to tap.
+  expect(await page.locator("[data-needs-details] a:visible").count()).toBeGreaterThanOrEqual(1);
+  checkTouchSizes("needs details", await measureShell(page));
+  let tileActions = 0;
+  for (const key of ["applied", "inProcess", "intros", "offers"]) {
+    await stat(page, key).click();
+    // Catches: a stat tile that opens no panel, so what it reveals goes unmeasured.
+    await expect(page.locator(`[data-tile-panel="${key}"]`)).toBeVisible();
+    tileActions += await page.locator(`[data-tile-panel="${key}"] [data-tile-action]:visible`).count();
+    checkTouchSizes(`${key} tile`, await measureShell(page));
+  }
+  // Catches: the tile panels revealing no Next-step button at all, so the sweep never measures an ActionSlot.
+  expect(tileActions).toBeGreaterThanOrEqual(2);
+  await stat(page, "offers").click();
+  await page.locator("[data-board-table] button[aria-expanded]").click();
+  // Catches: Show all revealing no more rows, so rows 9 and up and their links go unmeasured.
+  expect(await page.locator("[data-board-table] [data-row]").count()).toBeGreaterThan(8);
+  checkTouchSizes("show all", await measureShell(page));
 });
