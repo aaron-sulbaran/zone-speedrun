@@ -11,6 +11,12 @@ export function deadlineText(action: Action): string {
   return copy.needs.quiet(action.quietDays ?? 0);
 }
 
+/** Who an action is with: the named person, else the company's team, or a fund's team (a fund has no recruiting team). */
+export function whoLine(action: Action): string {
+  if (action.who) return copy.needs.who(action.who.name, action.who.title);
+  return action.lane === "founder" ? copy.needs.fundTeam(action.company) : copy.needs.team(action.company);
+}
+
 /** A date for a table or list cell; the dash (with its plain words for a screen reader) stands in for one that does not exist. */
 export function dayCell(iso: string | null): { text: string; hint: string | null } {
   return iso ? { text: shortDay(iso), hint: null } : { text: copy.table.noDate, hint: copy.table.noApplied };

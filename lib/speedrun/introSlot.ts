@@ -8,9 +8,10 @@ export type IntroSlot =
   | { kind: "elsewhere"; company: string; canSwap: boolean }
   /** No intro path: no button, only the line. */
   | { kind: "noPath" }
-  | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | null };
+  | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | { reason: "leadNoPath" } | null };
 
-export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null): IntroSlot {
+/** `leadHasPath` is whether the shortlist's #1 can take an intro; a #1 that cannot leaves every other pick with no way to request one. */
+export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, leadHasPath = true): IntroSlot {
   const key = matchKey(match);
   if (isLive(request)) {
     if (request.matchKey === key) return { kind: "here" };
@@ -19,6 +20,7 @@ export function introSlot(match: Match, shortlist: string[], request: IntroReque
   if (!eligible(match)) return { kind: "noPath" };
   const at = shortlist.indexOf(key);
   if (at < 0) return { kind: "request", enabled: false, hint: { reason: "bring" } };
+  if (at > 0 && !leadHasPath) return { kind: "request", enabled: false, hint: { reason: "leadNoPath" } };
   if (at > 0) return { kind: "request", enabled: false, hint: { reason: "first", rank: at + 1 } };
   return { kind: "request", enabled: true, hint: null };
 }

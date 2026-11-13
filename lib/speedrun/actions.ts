@@ -1,5 +1,6 @@
 import { siteContent, speedrunCopy } from "@/lib/content";
 import type { BriefItem } from "./brief";
+import { cleanUrl } from "./cleanUrl";
 import type { CompanyDetail, Contact } from "./details";
 import type { IntroRequest } from "./introRequest";
 import { daysFrom, detailFor, introStatusOf, QUIET_INTRO_DAYS } from "./intros";
@@ -7,7 +8,7 @@ import { rowKey } from "./keys";
 import { STAGES } from "./pipeline";
 import { getSnapshot } from "./snapshot";
 import { clockLabel, dayLabel, whenLabel } from "./when";
-import type { AppRow, InboxEvent, Pipeline, Stage } from "./types";
+import type { AppRow, InboxEvent, Lane, Pipeline, Stage } from "./types";
 
 export type ActionKind =
   | "decideOffer"
@@ -19,6 +20,7 @@ export type ActionKind =
   | "finishApplication"
   | "followUp"
   | "joinMeeting"
+  | "addToCalendar"
   | "bringForward"
   | "apply";
 
@@ -50,6 +52,8 @@ export type Action = {
   kind: ActionKind;
   company: string;
   role: string | null;
+  /** A fund or an accelerator has a round, not a role, so its actions read without the role. */
+  lane: Lane;
   who: Contact | null;
   due: string | null;
   quietDays: number | null;
@@ -64,14 +68,18 @@ export type IntroCard = {
   who: Contact;
   status: "requested" | "withFounder" | "connected" | "replied" | "scheduled" | "waiting";
   action: Action | null;
-  /** The booked call, for Add to calendar. */
+  /** The booked call, for Join. */
   call: Action | null;
+  /** The same call as Add to calendar, an action of its own that never settles the card. */
+  calendar: Action | null;
 };
 
 type Details = Record<string, CompanyDetail> | undefined;
 type SheetCopy = {
   title: (company: string, role: string | null) => string;
   draft?: (company: string, role: string | null) => string;
+  /** Replaces the draft for a fund or an accelerator, where even the role-less draft reads wrong. */
+  founderDraft?: () => string;
   summary?: (company: string, role: string | null) => string;
   confirm?: string;
   done: string;
@@ -92,6 +100,7 @@ const STAGE_RANK: Record<Stage, number> = { offer: 0, interview: 1, assessment: 
 const QUIET_RANK = 4;
 const LINKEDIN = siteContent.menu.socials.find((social) => social.key === "linkedin")?.href;
 
+const LANE_ROLE_FREE: Lane = "founder";
 const snapshotPosting = (company: string, role: string | null) => (role ? (getSnapshot().roles.find((entry) => entry.company === company && entry.title === role)?.url ?? null) : null);
 const dayOf = (iso: string) => Math.floor(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / DAY_MS);
 const daysUntil = (iso: string, today: string) => dayOf(iso) - dayOf(today);
@@ -110,14 +119,17 @@ export function slotsFor(today: string): string[] {
   return slots;
 }
 
-type Extras = { posting?: string | null; matchKey?: string; id?: string };
+type Extras = { posting?: string | null; matchKey?: string; id?: string; lane?: Lane };
 
-function sheetFor(kind: ActionKind, company: string, role: string | null, who: Contact | null, detail: CompanyDetail | undefined, today: string, postingUrl?: string | null): SheetContent {
+function sheetFor(kind: ActionKind, company: string, role: string | null, who: Contact | null, detail: CompanyDetail | undefined, today: string, postingUrl?: string | null, lane: Lane = "jobs"): SheetContent {
   const text = sheetCopy[kind];
-  const sheet: SheetContent = { title: text.title(company, role), done: text.done, note: text.note };
+  // A fund's row names a round ("Seed intro"), not a job, so its sheet uses the role-less words.
+  const fund = lane === LANE_ROLE_FREE;
+  const named = fund ? null : role;
+  const sheet: SheetContent = { title: text.title(company, named), done: text.done, note: text.note };
   if (text.confirm) sheet.confirm = text.confirm;
-  if (text.draft) sheet.draft = text.draft(company, role);
-  if (text.summary) sheet.summary = text.summary(company, role);
+  if (text.draft) sheet.draft = fund && text.founderDraft ? text.founderDraft() : text.draft(company, named);
+  if (text.summary) sheet.summary = text.summary(company, named);
   if (kind === "pickTime" || kind === "replyTimes") sheet.slots = slotsFor(today);
   // Prep notes belong to someone with a pinned detail; a generic row gets none. The interview line is a confirmation plus prep.
   const preps = kind === "prepare" || kind === "joinMeeting" || kind === "confirmInterview";
@@ -130,7 +142,7 @@ function sheetFor(kind: ActionKind, company: string, role: string | null, who: C
   if (who && LINKEDIN) links.push({ label: copy.linkedin(who.name), href: LINKEDIN });
   const site = preps ? httpsOnly(detail?.site) : null;
   if (site) links.push({ label: copy.siteLink(company), href: site });
-  const posting = httpsOnly(postingUrl);
+  const posting = httpsOnly(postingUrl ? cleanUrl(postingUrl) : null);
   if (posting) links.push({ label: copy.postingLink, href: posting });
   if (links.length > 0) sheet.links = links;
   return sheet;
@@ -144,11 +156,12 @@ function build(kind: ActionKind, company: string, role: string | null, detail: C
     kind,
     company,
     role,
+    lane: extras.lane ?? "jobs",
     who,
     due,
     quietDays: due ? null : quietDays,
     label: copy.labels[kind](company),
-    sheet: sheetFor(kind, company, role, who, detail, today, extras.posting === undefined ? snapshotPosting(company, role) : extras.posting),
+    sheet: sheetFor(kind, company, role, who, detail, today, extras.posting === undefined ? snapshotPosting(company, role) : extras.posting, extras.lane),
   };
   if (extras.matchKey) action.matchKey = extras.matchKey;
   return action;
@@ -186,7 +199,7 @@ export function rowAction(row: AppRow, details: Details, today: string): Action 
   // An offer is decided, not nudged; anything else that has gone quiet is a follow-up.
   const nudge = reachedScreen && row.furthest !== "offer" && !detail?.due && !detail?.meeting && quietDays >= QUIET_APPLICATION_DAYS;
   const kind = nudge ? "followUp" : kindForStage(row.furthest, detail, today);
-  return kind ? build(kind, row.company, row.role, detail, quietDays, today) : null;
+  return kind ? build(kind, row.company, row.role, detail, quietDays, today, detail?.contact ?? null, { lane: row.lane }) : null;
 }
 
 type Ranked = { action: Action; rank: number; last: string };
@@ -220,8 +233,10 @@ export function needsYou(pipeline: Pipeline, details: Details, today: string): A
 
 export type TodayItem = {
   action: Action;
-  /** An interview with a booked call: Join and Add to calendar both open this one sheet. */
+  /** An interview with a booked call: Join opens this sheet. */
   join: Action | null;
+  /** The same call as its own Add to calendar action; it never settles the row. */
+  calendar: Action | null;
 };
 
 /** The call an action points at: the same company and role, as a joinMeeting with the call's time and mock link. */
@@ -232,9 +247,18 @@ export function callFor(action: Action, details: Details, today: string): Action
   return detail?.meeting ? build("joinMeeting", action.company, action.role, detail, 0, today, action.who) : null;
 }
 
+/** Add to calendar for a booked call: its own action and id, so adding it never marks the call joined. */
+export function calendarFor(call: Action | null, details: Details, today: string): Action | null {
+  if (!call) return null;
+  return build("addToCalendar", call.company, call.role, detailFor(details, call.company, call.role), 0, today, null);
+}
+
 /** Today's actions. An interview with a booked call also carries that call: confirm first, then join. */
 export function todayItems(events: InboxEvent[], details: Details, today: string): TodayItem[] {
-  return todayActions(events, details, today).map((action) => ({ action, join: action.kind === "prepare" ? null : callFor(action, details, today) }));
+  return todayActions(events, details, today).map((action) => {
+    const join = action.kind === "prepare" ? null : callFor(action, details, today);
+    return { action, join, calendar: calendarFor(join, details, today) };
+  });
 }
 
 const todayKind: Partial<Record<InboxEvent["kind"], Stage>> = { assessment: "assessment", screen: "screen", interview: "interview", offer: "offer" };
@@ -251,7 +275,7 @@ export function todayActions(events: InboxEvent[], details: Details, today: stri
       const stage = todayKind[event.kind];
       const detail = detailFor(details, event.company, event.role);
       const kind = stage ? kindForStage(stage, detail, today) : null;
-      if (kind) action = build(kind, event.company, event.role, detail, 0, today);
+      if (kind) action = build(kind, event.company, event.role, detail, 0, today, detail?.contact ?? null, { lane: event.lane });
     }
     if (!action || seen.has(action.id)) continue;
     seen.add(action.id);
@@ -286,7 +310,7 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
   const cards: IntroCard[] = [];
   if (request && request.status !== "passed") {
     const company = request.match.company.name;
-    cards.push({ company, who: detailFor(details, company, null)?.contact ?? defaultContact(company), status: request.status, action: null, call: null });
+    cards.push({ company, who: detailFor(details, company, null)?.contact ?? defaultContact(company), status: request.status, action: null, call: null, calendar: null });
   }
   const latest = new Map<string, InboxEvent>();
   for (const event of events) {
@@ -301,7 +325,8 @@ export function introCards(events: InboxEvent[], request: IntroRequest | null, d
     const status = introStatusOf(detail);
     const who = detail?.contact ?? defaultContact(event.company);
     const action = introAction(event.company, detail, status, daysFrom(event.date, today), today, who);
-    cards.push({ company: event.company, who, status, action, call: action ? callFor(action, details, today) : null });
+    const call = action ? callFor(action, details, today) : null;
+    cards.push({ company: event.company, who, status, action, call, calendar: calendarFor(call, details, today) });
   }
   return cards;
 }
@@ -334,4 +359,30 @@ export function briefAction(item: BriefItem, pipeline: Pipeline, details: Detail
   if (item.kind === "new-role") return item.actionKey ? bringForwardAction(item.company, item.actionKey, item.href, today) : null;
   const row = pipeline.rows.find((entry) => entry.company === item.company && rowKey(entry) === item.actionKey);
   return row ? rowAction(row, details, today) : null;
+}
+
+type Shown = { needs: Action[]; today: TodayItem[]; intros: IntroCard[] };
+
+/**
+ * What is still open in Today and Warm intros, once each. A Today row is open until its call is joined (a confirmation
+ * comes first); an intro card is open until its own action or its call is settled. Needs you is not in this list.
+ */
+export function openBelow({ today, intros }: Pick<Shown, "today" | "intros">, isDone: (action: Action) => boolean): Action[] {
+  const open: Action[] = [];
+  for (const { action, join } of today) {
+    if (isDone(join ?? action)) continue;
+    open.push(action.kind === "confirmInterview" && !isDone(action) ? action : (join ?? action));
+  }
+  for (const card of intros) if (card.action && !settledAction(card, isDone)) open.push(card.action);
+  const seen = new Set<string>();
+  return open.filter((action) => !seen.has(action.id) && seen.add(action.id));
+}
+
+/** The heading's state: things need you, nothing urgent but more is open below, or all clear. */
+export function boardHeadline(shown: Shown, isDone: (action: Action) => boolean): { kind: "count"; open: number } | { kind: "urgentDone"; more: number } | { kind: "clear" } {
+  const open = shown.needs.filter((action) => !isDone(action)).length;
+  if (open > 0) return { kind: "count", open };
+  const needsIds = new Set(shown.needs.map((action) => action.id));
+  const more = openBelow(shown, isDone).filter((action) => !needsIds.has(action.id)).length;
+  return more > 0 ? { kind: "urgentDone", more } : { kind: "clear" };
 }

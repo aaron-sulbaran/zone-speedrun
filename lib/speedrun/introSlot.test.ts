@@ -28,6 +28,13 @@ describe("introSlot", () => {
     expect(introSlot(C, keys(A, C), null)).toEqual({ kind: "noPath" });
   });
 
+  // Catches: "Bring this match forward"/"it goes to your #1" hints on a pick when #1 has no intro path, a dead end with no way forward.
+  it("tells every other pick that #1 has no path, instead of asking for a request that cannot be made", () => {
+    expect(introSlot(B, keys(C, B), null, false)).toEqual({ kind: "request", enabled: false, hint: { reason: "leadNoPath" } });
+    expect(introSlot(B, keys(C, B), null, true)).toEqual({ kind: "request", enabled: false, hint: { reason: "first", rank: 2 } });
+    expect(introSlot(C, keys(C, B), null, false)).toEqual({ kind: "noPath" });
+  });
+
   it("shows the line on every other match, and a swap only on a brought-forward eligible one", () => {
     const request = requestOn([A, B, C])!;
     expect(introSlot(A, keys(A, B, C), request)).toEqual({ kind: "here" });
