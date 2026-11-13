@@ -980,7 +980,11 @@ for (const width of [375, 390]) {
     await sheet(page).locator("[data-sheet-close]").first().click();
     await sheet(page).waitFor({ state: "hidden" });
     const panel = page.locator('[role="tabpanel"]:not([hidden])');
-    await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    // Catches: measuring before the scroll holds (WebKit's closing sheet restores the scroll lock's offset after the test sets scrollTop, which left the last control at y 5092 against a dock top of 729 about 1 run in 10).
+    const atBottom = () => panel.evaluate((el) => { el.scrollTop = el.scrollHeight; return el.scrollHeight - el.clientHeight - el.scrollTop <= 1; });
+    await expect.poll(atBottom).toBe(true);
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    await expect.poll(atBottom).toBe(true);
     // The panel's last focusable control (today the Next button) is what the dock must never cover.
     const probe = await page.evaluate(() => {
       const panelEl = document.querySelector('[role="tabpanel"]:not([hidden])')!;
@@ -1092,6 +1096,7 @@ test.describe("a visitor who opens the page on a later day", () => {
 });
 
 test("today: Add to calendar before Confirm leaves Confirm live, the row undimmed and the count alone", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
   await cinder.getByRole("button", { name: COPY.today.calendar }).click();
@@ -1108,6 +1113,7 @@ test("today: Add to calendar before Confirm leaves Confirm live, the row undimme
 });
 
 test("board top: with Sam's four done the calm line stays away while Today and Warm intros still hold open actions", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   for (let i = 0; i < 4; i += 1) {
     await needs(page).nth(i).locator("[data-needs-action]").click();
