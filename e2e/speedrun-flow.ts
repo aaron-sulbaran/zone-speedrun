@@ -271,3 +271,38 @@ export async function probeFlowLabels(page: Page, root: string): Promise<LabelPr
     { rootSelector: root },
   );
 }
+
+/**
+ * Spends the visitor's one intro request from Matches: brings forward the first `picks` matches that take an intro
+ * (in list order), then requests on #1. Ends on Matches, candidate side, with the request live.
+ */
+export async function spendIntro(page: Page, picks = 1) {
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  const rows = page.locator("[data-match-row]");
+  const detail = page.locator("[data-match-detail]");
+  const back = page.locator("[data-detail-back]");
+  await expect(rows.first()).toBeVisible();
+  const total = await rows.count();
+  // On a phone the detail covers the list; Back reveals it again.
+  const closeDetail = async () => {
+    if (!(await back.isVisible())) return;
+    await back.click();
+    await expect(back).toBeHidden();
+  };
+  const brought: number[] = [];
+  for (let i = 0; i < total && brought.length < picks; i++) {
+    await closeDetail();
+    await rows.nth(i).click();
+    // Only a match with an intro path renders a request button.
+    if ((await detail.locator("[data-request-intro]").count()) === 0) continue;
+    await detail.locator("[data-bring-forward]").click();
+    await expect(detail.locator("[data-bring-forward]")).toHaveAttribute("aria-pressed", "true");
+    brought.push(i);
+  }
+  expect(brought.length, "the fixture needs enough matches that take an intro").toBe(picks);
+  await closeDetail();
+  await rows.nth(brought[0]).click();
+  await expect(detail.locator("[data-request-intro]")).toBeVisible();
+  await detail.locator("[data-request-intro]").click();
+  await expect(detail.locator("[data-intro-here]")).toBeVisible();
+}

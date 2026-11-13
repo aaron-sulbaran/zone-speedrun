@@ -1,7 +1,7 @@
 import type { MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { EMPTY_ANSWERS, stepsFor, toIntake, type Answers } from "./onboarding";
-import { isLive, type IntroRequest } from "./introRequest";
+import { founderYes, isLive, markIntroSent, pass, resolveShortlist, sendToFounder, type IntroRequest, type PassedBy } from "./introRequest";
 import type { Intake, PersonKey, Profile, ReadError } from "./types";
 
 export type UploadErrorKey = ReadError | "network";
@@ -26,6 +26,8 @@ export type DemoState = {
   /** matchKeys the visitor brought forward, in order. */
   shortlist: string[];
   introRequest: IntroRequest | null;
+  /** Matches the team or the founder passed; a request never goes back to one. */
+  passed: { key: string; by: PassedBy }[];
   /** Ids of next steps marked done. */
   done: string[];
   /** The time tapped on a Pick a time sheet, by action id, so every done marker names the same one. */
@@ -51,12 +53,15 @@ export type DemoAction =
   | { type: "moveShortlist"; key: string; direction: -1 | 1 }
   | { type: "requestIntro"; request: IntroRequest }
   | { type: "swapIntro"; request: IntroRequest }
+  | { type: "advanceIntro"; to: "withFounder" | "connected" }
+  | { type: "sendIntro" }
+  | { type: "passIntro"; by: PassedBy }
   | { type: "markDone"; id: string; slot?: string }
   | { type: "reset" };
 
 export const MAX_PLACES = 8;
 
-const NO_PICKS = { shortlist: [] as string[], introRequest: null, done: [] as string[], picked: {} as Record<string, string> };
+const NO_PICKS = { shortlist: [] as string[], introRequest: null, passed: [] as { key: string; by: PassedBy }[], done: [] as string[], picked: {} as Record<string, string> };
 
 export function initialDemoState(live: Live): DemoState {
   return {
@@ -72,6 +77,7 @@ export function initialDemoState(live: Live): DemoState {
     result: null,
     shortlist: [],
     introRequest: null,
+    passed: [],
     done: [],
     picked: {},
     live,
@@ -96,11 +102,15 @@ function clampStep(answers: Answers, joinStep: number) {
 /** The request's key first, then the live shortlist in order (Ruling 45's `ranked`). */
 const rankedFor = (requestKey: string, shortlist: string[]) => [requestKey, ...shortlist.filter((key) => key !== requestKey)];
 
+const toFront = (key: string, shortlist: string[]) => [key, ...shortlist.filter((other) => other !== key)];
+
 /** Sets the shortlist and keeps the request's `ranked` in step with it. */
 function withShortlist(state: DemoState, shortlist: string[]): DemoState {
   const request = state.introRequest;
   return { ...state, shortlist, introRequest: request ? { ...request, ranked: rankedFor(request.matchKey, shortlist) } : null };
 }
+
+const isPassed = (state: DemoState, key: string) => state.passed.some((p) => p.key === key);
 
 export function demoReducer(state: DemoState, action: DemoAction): DemoState {
   switch (action.type) {
@@ -146,9 +156,12 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     case "bringForward": {
       const has = state.shortlist.includes(action.key);
       if (action.on === has) return state;
+      if (action.on && isPassed(state, action.key)) return state;
       if (action.on) return withShortlist(state, [...state.shortlist, action.key]);
       // Taking the requested match off the shortlist withdraws the request with it.
       const requestGone = state.introRequest?.matchKey === action.key;
+      // The desk has moved it: only a request still at `requested` can be withdrawn.
+      if (requestGone && state.introRequest?.status !== "requested") return state;
       return withShortlist({ ...state, introRequest: requestGone ? null : state.introRequest }, state.shortlist.filter((key) => key !== action.key));
     }
     case "moveShortlist": {
@@ -161,12 +174,32 @@ export function demoReducer(state: DemoState, action: DemoAction): DemoState {
     }
     // One live request at a time (a passed one does not count), and only on a match that is on the shortlist.
     case "requestIntro":
-      if (isLive(state.introRequest) || !state.shortlist.includes(action.request.matchKey)) return state;
+      if (isLive(state.introRequest) || !state.shortlist.includes(action.request.matchKey) || isPassed(state, action.request.matchKey)) return state;
       return withShortlist({ ...state, introRequest: action.request }, state.shortlist);
     // The swap moves the pick to #1 and the request with it, and only while the talent team has not picked it up.
     case "swapIntro":
-      if (state.introRequest?.status !== "requested" || !state.shortlist.includes(action.request.matchKey)) return state;
-      return withShortlist({ ...state, introRequest: action.request }, [action.request.matchKey, ...state.shortlist.filter((key) => key !== action.request.matchKey)]);
+      if (state.introRequest?.status !== "requested" || !state.shortlist.includes(action.request.matchKey) || isPassed(state, action.request.matchKey)) return state;
+      return withShortlist({ ...state, introRequest: action.request }, toFront(action.request.matchKey, state.shortlist));
+    case "advanceIntro": {
+      const request = state.introRequest;
+      const next = request && (action.to === "withFounder" ? sendToFounder(request) : founderYes(request));
+      return next ? { ...state, introRequest: next } : state;
+    }
+    case "sendIntro": {
+      const next = state.introRequest && markIntroSent(state.introRequest);
+      return next ? { ...state, introRequest: next } : state;
+    }
+    // The live request is found by its own key, never by shortlist position.
+    case "passIntro": {
+      const request = state.introRequest;
+      if (!isLive(request) || !state.result) return state;
+      const passed = [...state.passed, { key: request.matchKey, by: action.by }];
+      const open = state.shortlist.filter((key) => !passed.some((p) => p.key === key));
+      const { live } = pass(request, action.by, resolveShortlist(state.result, open), state.intake);
+      // A passed key leaves the shortlist for good, so the pick is free to spend on another match.
+      if (!live) return withShortlist({ ...state, passed, introRequest: null }, open);
+      return withShortlist({ ...state, passed, introRequest: live }, toFront(live.matchKey, open));
+    }
     case "markDone":
       if (state.done.includes(action.id)) return state;
       return { ...state, done: [...state.done, action.id], picked: action.slot ? { ...state.picked, [action.id]: action.slot } : state.picked };

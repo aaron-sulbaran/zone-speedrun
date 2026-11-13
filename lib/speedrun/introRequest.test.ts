@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createRequest, eligible, isLive, pass, swapRequest, type IntroRequest } from "./introRequest";
+import { createRequest, eligible, founderYes, isLive, markIntroSent, pass, resolveShortlist, sendToFounder, swapRequest, type IntroRequest } from "./introRequest";
 import { matchKey } from "./matchList";
-import type { Match } from "./match";
+import type { Match, MatchResult } from "./match";
 import type { Intake } from "./types";
 
 function match(name: string, connect: Match["connect"], reason?: string): Match {
@@ -82,5 +82,42 @@ describe("isLive", () => {
     expect(isLive(null)).toBe(false);
     expect(isLive({ ...base, status: "passed" })).toBe(false);
     for (const status of ["requested", "withFounder", "connected"] as const) expect(isLive({ ...base, status })).toBe(true);
+  });
+});
+
+describe("the desk's transitions", () => {
+  const base = createRequest({ candidate: CANDIDATE, shortlist: [A, B, C], intake: INTAKE }) as IntroRequest;
+  const withFounder = { ...base, status: "withFounder" as const };
+  const connected = { ...base, status: "connected" as const };
+  const passed = { ...base, status: "passed" as const, passedBy: "team" as const };
+
+  it("sendToFounder moves requested to withFounder and nothing else", () => {
+    expect(sendToFounder(base)?.status).toBe("withFounder");
+    expect(sendToFounder(withFounder)).toBeNull();
+    expect(sendToFounder(connected)).toBeNull();
+    expect(sendToFounder(passed)).toBeNull();
+  });
+
+  it("founderYes cannot skip gate 1", () => {
+    expect(founderYes(base)).toBeNull();
+    expect(founderYes(withFounder)?.status).toBe("connected");
+    expect(founderYes(connected)).toBeNull();
+    expect(founderYes(passed)).toBeNull();
+  });
+
+  it("markIntroSent needs a connected request that has not sent yet", () => {
+    expect(markIntroSent(base)).toBeNull();
+    expect(markIntroSent(withFounder)).toBeNull();
+    expect(markIntroSent(connected)).toMatchObject({ status: "connected", introSent: true });
+    expect(markIntroSent({ ...connected, introSent: true })).toBeNull();
+  });
+});
+
+describe("resolveShortlist", () => {
+  const result: MatchResult = { matches: [A, B, C], routes: [], narrowing: { companies: 0, roles: 0, speedrunRoles: 0, a16zRoles: 0, afterFilters: 0, shown: 0 } };
+
+  it("keeps the order of the keys and drops unknown ones", () => {
+    expect(resolveShortlist(result, [matchKey(C), "nope", matchKey(A)])).toEqual([C, A]);
+    expect(resolveShortlist(result, [])).toEqual([]);
   });
 });

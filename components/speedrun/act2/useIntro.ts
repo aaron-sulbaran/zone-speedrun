@@ -1,8 +1,7 @@
 import { useMemo, type Dispatch } from "react";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
-import { createRequest, swapRequest, type IntroRequest } from "@/lib/speedrun/introRequest";
-import { eligible } from "@/lib/speedrun/introRequest";
-import { introSlot } from "@/lib/speedrun/introSlot";
+import { createRequest, eligible, swapRequest, type IntroRequest } from "@/lib/speedrun/introRequest";
+import { introSlot, slotLocked } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
 import { matchKey } from "@/lib/speedrun/matchList";
 import { visitorFirstName } from "../visitorName";
@@ -19,7 +18,7 @@ function candidateFor(state: DemoState): IntroRequest["candidate"] {
 }
 
 /** Wires the shortlist and the one intro request to the matches on screen. */
-export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onBoard: () => void) {
+export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onDoor: () => void, onBoard: () => void) {
   const { shortlist, introRequest } = state;
   const shortlisted = useMemo(() => {
     const byKey = new Map((state.result?.matches ?? []).map((match) => [matchKey(match), match]));
@@ -32,11 +31,17 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onBoa
     return at < 0 ? null : at + 1;
   };
 
+  /** Whether a row's bookmark is locked, by the same rule as the detail's Bring forward. */
+  const lockedOf = (key: string) => {
+    const match = (state.result?.matches ?? []).find((candidate) => matchKey(candidate) === key);
+    return !!match && slotLocked(introSlot(match, shortlist, introRequest, state.passed));
+  };
+
   /** What one match's detail needs. */
   const forMatch = (match: Match): MatchIntro => {
     const key = matchKey(match);
     return {
-      slot: introSlot(match, shortlist, introRequest, !shortlisted[0] || eligible(shortlisted[0])),
+      slot: introSlot(match, shortlist, introRequest, state.passed, !shortlisted[0] || eligible(shortlisted[0])),
       onBoard,
       rank: rankOf(key),
       onBring: (on) => bring(key, on),
@@ -44,6 +49,7 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onBoa
         const request = createRequest({ candidate: candidateFor(state), shortlist: shortlisted, intake: state.intake });
         if (request) dispatch({ type: "requestIntro", request });
       },
+      onDoor,
       onSwap: () => {
         if (!introRequest) return;
         const request = swapRequest(introRequest, match, shortlisted, state.intake);
@@ -51,5 +57,5 @@ export function useIntro(state: DemoState, dispatch: Dispatch<DemoAction>, onBoa
       },
     };
   };
-  return { forMatch, rankOf, bring };
+  return { forMatch, rankOf, lockedOf, bring };
 }

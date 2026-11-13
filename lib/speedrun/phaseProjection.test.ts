@@ -3,7 +3,7 @@ import { createExitQueue } from "./exitQueue";
 import { phaseEventFor, phaseReducer, type PhaseEvent, type PhaseState } from "./phase";
 import { offerAgainst } from "./phaseProjection";
 
-const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches"): PhaseState => ({ phase, tab });
+const at = (phase: PhaseState["phase"], tab: PhaseState["tab"] = "matches"): PhaseState => ({ phase, tab, side: "candidate" });
 
 describe("offerAgainst", () => {
   it("reports an event the reducer would ignore as changing nothing", () => {

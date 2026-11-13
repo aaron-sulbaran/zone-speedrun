@@ -1,0 +1,952 @@
+import { speedrunCopy } from "../lib/content";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./support/fixtures";
+import { LEARNED_FROM_SAMPLE, RIVALS } from "../lib/speedrun/deskSamples";
+import { PEOPLE } from "../lib/speedrun/people";
+import { accountButton, answerOnboarding, networkPhase, openTab, skipBuildLog, skipToSam, spendIntro, startOver, tabKey } from "./speedrun-flow";
+
+const TAB = speedrunCopy.network.tabs;
+const SWITCH = speedrunCopy.team.switch;
+const TABS = [TAB.matches, TAB.board, TAB.brief, TAB.decisions];
+
+const group = (page: Page) => page.locator("[data-side-switch]");
+const candidateButton = (page: Page) => group(page).getByRole("button", { name: SWITCH.candidate, exact: true });
+const teamButton = (page: Page) => group(page).getByRole("button", { name: SWITCH.team, exact: true });
+const desk = (page: Page) => page.locator("[data-desk]");
+
+async function toNetwork(page: Page) {
+  await page.goto("/speedrun");
+  await skipToSam(page);
+  await skipBuildLog(page);
+}
+
+test("switch: Talent team shows the desk and hides the tabs from every tab, and Candidate returns to the same tab", async ({ page }) => {
+  await toNetwork(page);
+  await expect(group(page)).toHaveAccessibleName(SWITCH.label);
+  await expect(candidateButton(page)).toHaveAttribute("aria-pressed", "true");
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  for (const label of TABS) {
+    await openTab(page, label);
+    await teamButton(page).click();
+    // Catches: a switch that only works from one tab.
+    await expect(desk(page)).toBeVisible();
+    await expect(page.getByRole("tablist")).toBeHidden();
+    await expect(networkPhase(page)).toHaveAttribute("data-side", "team");
+    await expect(teamButton(page)).toHaveAttribute("aria-pressed", "true");
+    await candidateButton(page).click();
+    await expect(desk(page)).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: label, exact: true })).toHaveAttribute("aria-selected", "true");
+  }
+});
+
+test("switch: the candidate side returns exactly as left, with the same match selected", async ({ page }) => {
+  await toNetwork(page);
+  await openTab(page, TAB.matches);
+  const rows = page.locator("[data-match-row]");
+  await expect(rows.first()).toBeVisible();
+  const target = rows.nth(1);
+  await target.click();
+  const key = await target.getAttribute("data-match-row");
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+  await candidateButton(page).click();
+  // Catches: the candidate side resetting on a flip (unmounted panels, a reselected first row).
+  await expect(page.locator(`[data-match-row="${key}"][aria-current="true"]`)).toBeVisible();
+});
+
+test("switch: focus stays on the pressed button after a keyboard flip", async ({ page }) => {
+  await toNetwork(page);
+  const focusedText = () => page.evaluate(() => document.activeElement?.textContent?.trim());
+  // WebKit never focuses a clicked button, so the pin flips with the keyboard, as a keyboard reader does.
+  await teamButton(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(desk(page)).toBeVisible();
+  // Catches: a keyboard reader losing their place (focus dropped to body) when the panels swap.
+  expect(await focusedText()).toBe(SWITCH.team);
+  await candidateButton(page).focus();
+  await page.keyboard.press("Space");
+  await expect(desk(page)).toHaveCount(0);
+  expect(await focusedText()).toBe(SWITCH.candidate);
+});
+
+test("switch: Start over from the team side, then a rebuild, lands on the candidate side", async ({ page }) => {
+  await toNetwork(page);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+  await startOver(page);
+  await expect(page.locator('#act-2[data-phase="join"]')).toBeVisible({ timeout: 8000 });
+  await skipToSam(page);
+  await skipBuildLog(page);
+  // Catches: a stale team side surviving Start over (Review Focus 1).
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  await expect(desk(page)).toHaveCount(0);
+  await expect(page.getByRole("tablist")).toBeVisible();
+});
+
+for (const width of [320, 390, 640, 1024, 1440]) {
+  test(`switch: both labels fit and the page does not scroll sideways at ${width} wide`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toNetwork(page);
+    const probe = await page.evaluate(() => {
+      const labels = [...document.querySelectorAll<HTMLElement>("[data-side-switch] button")];
+      const rects = labels.map((node) => node.getBoundingClientRect());
+      return {
+        cut: labels.map((node) => node.scrollWidth > node.clientWidth),
+        sizes: rects.map((rect) => ({ w: rect.width, h: rect.height, inside: rect.left >= 0 && rect.right <= window.innerWidth })),
+        page: document.documentElement.scrollWidth,
+      };
+    });
+    // Catches: a cut label, or a sideways scroll.
+    expect(probe.cut).toEqual([false, false]);
+    expect(probe.page).toBe(width);
+    for (const size of probe.sizes) {
+      // Catches: a tap target under 44 by 44 (sizes rounded to two decimals, so subpixel layout noise like 43.99999 passes), or a button pushed off the edge.
+      expect(Math.round(size.w * 100) / 100).toBeGreaterThanOrEqual(44);
+      expect(Math.round(size.h * 100) / 100).toBeGreaterThanOrEqual(44);
+      expect(size.inside).toBe(true);
+    }
+  });
+}
+
+const box = (page: Page, selector: string) =>
+  page.locator(selector).first().evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2 };
+  });
+
+for (const width of [640, 768]) {
+  test(`switch: at ${width} the avatar stays in the top row and the switch takes its own row below`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await toNetwork(page);
+    const avatar = await accountButton(page).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { right: r.right, top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2 };
+    });
+    const bar = await box(page, "[data-shell] header");
+    const wordmark = await box(page, "[data-shell] header span");
+    // Catches: the avatar wrapping to a second row (its menu then opens off screen).
+    expect(bar.right - avatar.right).toBeLessThanOrEqual(32);
+    expect(Math.abs(avatar.mid - wordmark.mid)).toBeLessThanOrEqual(4);
+    const pill = await box(page, "[data-side-switch]");
+    // Catches: the switch squeezed into the top row.
+    expect(pill.top).toBeGreaterThanOrEqual(avatar.bottom);
+    expect(Math.abs(pill.right - avatar.right)).toBeLessThanOrEqual(2);
+  });
+}
+
+for (const width of [1024, 1280, 1440]) {
+  test(`switch: at ${width} no tab is covered by the switch`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await toNetwork(page);
+    const probe = await page.evaluate(() => {
+      const tabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+      const hit = tabs.map((tab) => {
+        const r = tab.getBoundingClientRect();
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return !!top && tab.contains(top);
+      });
+      const last = tabs[tabs.length - 1].getBoundingClientRect();
+      const group = document.querySelector("[data-side-switch]")!.getBoundingClientRect();
+      // On its own row the switch cannot touch the tabs; only a shared row needs horizontal clearance.
+      const sharedRow = group.top < last.bottom && group.bottom > last.top;
+      return { hit, gap: sharedRow ? group.left - last.right : Infinity };
+    });
+    // Catches: the switch covering a tab (the tablist's own box can look clear while its buttons overflow it).
+    expect(probe.hit).toEqual([true, true, true, true]);
+    // Catches: the last tab ending under or against the switch.
+    expect(probe.gap).toBeGreaterThanOrEqual(8);
+  });
+}
+
+test("switch: at 375 the two buttons are equal halves", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await toNetwork(page);
+  const widths = await page.locator("[data-side-switch] button").evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().width));
+  // Catches: unequal halves on the phone row.
+  expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
+});
+
+const TEAM = speedrunCopy.team;
+const STAGES = ["requested", "withFounder", "connected", "tracking", "outcome"];
+
+async function toDesk(page: Page, spend: boolean) {
+  await toNetwork(page);
+  if (spend) await spendIntro(page);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+}
+
+const strip = (page: Page) => page.locator("[data-stage-strip] button");
+const docFits = (page: Page) => page.evaluate(() => ({ wide: document.documentElement.scrollWidth, width: window.innerWidth }));
+
+test("desk board: at 1440 five columns share a row, counts sum to ten, and the visitor's card leads Requested", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, true);
+  const columns = page.locator("[data-desk-column]");
+  await expect(columns).toHaveCount(5);
+  const probe = await columns.evaluateAll((nodes) => nodes.map((node) => ({ stage: node.getAttribute("data-desk-column"), count: Number(node.getAttribute("data-count")), top: Math.round(node.getBoundingClientRect().top), cards: node.querySelectorAll("[data-desk-card]").length })));
+  // Catches: columns stacked or wrapped instead of one row.
+  expect(new Set(probe.map((p) => p.top)).size).toBe(1);
+  expect(probe.map((p) => p.stage)).toEqual(STAGES);
+  // Catches: the data-count drifting from the cards shown, or the visitor's card missing from the total.
+  for (const p of probe) expect(p.count).toBe(p.cards);
+  expect(probe.reduce((sum, p) => sum + p.count, 0)).toBe(10);
+  // Catches: the visitor's card missing, or out of place.
+  const first = page.locator('[data-desk-column="requested"] [data-desk-card]').first();
+  await expect(first).toHaveAttribute("data-mine", "true");
+  await expect(first).toContainText(TEAM.yours);
+  await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(1);
+  const fit = await docFits(page);
+  // Catches: a sideways page scroll (a weak backstop: #act-2 clips overflow, so the desk pins below carry the weight).
+  expect(fit.wide).toBe(fit.width);
+});
+
+test("desk board: at 390 one column shows under a five-button stage strip", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toDesk(page, true);
+  // Catches: five squeezed columns on a phone.
+  await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
+  await expect(strip(page)).toHaveCount(5);
+  await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
+  await strip(page).nth(3).click();
+  await expect(page.locator('[data-desk-column="tracking"]')).toBeVisible();
+  await expect(page.locator("[data-desk-column]:visible")).toHaveCount(1);
+  // Catches: a stage pill under 44 by 44.
+  for (const button of await strip(page).all()) {
+    const box = (await button.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.width).toBeGreaterThanOrEqual(44);
+  }
+  const fit = await docFits(page);
+  // Catches: a sideways page scroll (a weak backstop: #act-2 clips overflow).
+  expect(fit.wide).toBe(fit.width);
+});
+
+for (const width of [320, 390]) {
+  test(`desk board: at ${width} the desk scrolls inside itself and its lower half is reachable`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const probe = await desk(page).evaluate((el) => ({ high: el.scrollHeight, shown: el.clientHeight, wide: el.scrollWidth, narrow: el.clientWidth }));
+    // Catches: a desk too short to scroll, or content clipped away instead of scrolled.
+    expect(probe.high).toBeGreaterThan(probe.shown);
+    // Catches: sideways overflow inside the desk.
+    expect(probe.wide).toBeLessThanOrEqual(probe.narrow);
+    await desk(page).evaluate((el) => void (el.scrollTop = el.scrollHeight));
+    // Catches: the lower desk (the full-version list) being unreachable.
+    await expect(page.locator("[data-full-version] summary")).toBeInViewport();
+    const fit = await docFits(page);
+    // Catches: a sideways page scroll (a weak backstop).
+    expect(fit.wide).toBe(fit.width);
+  });
+
+  test(`desk board: at ${width} every stage label is whole`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const cut = await strip(page).evaluateAll((pills) => pills.map((pill) => ({ pill: pill.scrollWidth > pill.clientWidth, label: [...pill.querySelectorAll("span")].some((span) => span.scrollWidth > span.clientWidth || getComputedStyle(span).textOverflow === "ellipsis") })));
+    // Catches: clipped stage labels ("WITH FOUN...").
+    expect(cut).toEqual(Array(5).fill({ pill: false, label: false }));
+  });
+
+  test(`desk board: at ${width} the selected pill stays in the strip`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await toDesk(page, true);
+    const inside = () =>
+      page.evaluate(() => {
+        const box = document.querySelector("[data-stage-strip]")!.getBoundingClientRect();
+        const pill = document.querySelector('[data-stage-strip] [aria-pressed="true"]')!.getBoundingClientRect();
+        return pill.left >= box.left - 1 && pill.right <= box.right + 1;
+      });
+    // A programmatic click does not scroll the strip itself, so only the desk's own scroll-into-view can bring the pill in.
+    await strip(page).nth(4).evaluate((el) => (el as HTMLElement).click());
+    await expect(strip(page).nth(4)).toHaveAttribute("aria-pressed", "true");
+    // Catches: the selected pill left out of view after the selection changes.
+    expect(await inside()).toBe(true);
+    await strip(page).nth(0).evaluate((el) => (el as HTMLElement).click());
+    expect(await inside()).toBe(true);
+  });
+}
+
+test("desk board: with no request spent the nudge shows, there is no Review, and Matches leads back to the candidate side", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await openTab(page, TAB.board);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+  // Catches: the desk showing a request nobody made.
+  await expect(page.locator("[data-desk-nudge]")).toBeVisible();
+  await expect(page.locator("[data-desk-card][data-mine]")).toHaveCount(0);
+  await expect(desk(page).getByRole("button", { name: TEAM.review, exact: true })).toHaveCount(0);
+  await expect(page.locator("[data-narration]")).toHaveText(TEAM.beats.empty);
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.nudgeButton }).click();
+  // Catches: the nudge's button leaving the switch on Talent team (Review Focus 3).
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  await expect(candidateButton(page)).toHaveAttribute("aria-pressed", "true");
+  // Catches: the button dropping its tab, so the flip lands on whichever tab was last open (the test starts on Board).
+  await expect(page.getByRole("tab", { name: TAB.matches, exact: true })).toHaveAttribute("aria-selected", "true");
+  // Catches: focus dropping to the body when the desk unmounts under the pressed button.
+  await expect(page.getByRole("tab", { name: TAB.matches, exact: true })).toBeFocused();
+});
+
+test("desk board: the sample's Back to the candidate view puts focus on the current tab", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await openTab(page, TAB.board);
+  await teamButton(page).click();
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks }).click();
+  await page.locator("[data-finished-sample]").getByRole("button", { name: TEAM.sample.back, exact: true }).click();
+  await expect(networkPhase(page)).toHaveAttribute("data-side", "candidate");
+  // Catches: focus dropping to the body when the desk unmounts under the sample's Back button.
+  await expect(page.getByRole("tab", { name: TAB.board, exact: true })).toBeFocused();
+});
+
+test("desk board: the narration is a polite status, the visitor's card carries Review, and the full version lists twelve steps", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, true);
+  const narration = page.locator("[data-narration]");
+  // Catches: a live region that is silent, or a narration that does not read the beat.
+  await expect(narration).toHaveAttribute("role", "status");
+  await expect(narration).toHaveAttribute("aria-live", "polite");
+  // Catches: the ">" prompt inside the live region, which a screen reader reads out with every line. The aria snapshot includes ::before content and matches exactly, so a CSS prompt on the status element fails it.
+  await expect(narration).toMatchAriaSnapshot(`- status: ${TEAM.beats.arrive}`);
+  await expect(page.locator("[data-acting-as]")).toHaveText(TEAM.actingAs.team);
+  const mine = page.locator("[data-desk-card][data-mine]");
+  await expect(mine.getByRole("button", { name: TEAM.review, exact: true })).toBeVisible();
+  await expect(page.locator("[data-learned]")).toContainText(TEAM.learnedHeading);
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+  const full = page.locator("[data-full-version]");
+  await full.locator("summary").click();
+  // Catches: the loop visual dropped, or a step lost.
+  await expect(full.locator("ol li")).toHaveCount(12);
+  await expect(full.locator("ul li")).toHaveCount(6);
+});
+
+test("desk board: Two weeks later from the nudge adds the sample's line to the learned strip, and the desk survives a flip", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toDesk(page, false);
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks }).click();
+  // Catches: the way out doing nothing, or the sample's tag line never joining the strip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+  await expect(page.locator("[data-narration]")).toHaveText(TEAM.beats.twoWeeks);
+  await candidateButton(page).click();
+  await teamButton(page).click();
+  // Catches: desk state lost on a switch flip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+});
+
+// ---- The walk (Rulings 74 to 78) ----
+
+const BEATS = TEAM.beats;
+const narration = (page: Page) => page.locator("[data-narration]");
+const mineCard = (page: Page) => page.locator("[data-desk-card][data-mine]");
+const mineIn = (page: Page, stage: string) => page.locator(`[data-desk-column="${stage}"] [data-desk-card][data-mine]`);
+const compare = (page: Page) => page.locator('[data-desk-panel="compare"]');
+const founderPanel = (page: Page) => page.locator("[data-founder-panel]");
+const draft = (page: Page) => page.locator("[data-intro-draft]");
+const mineCompany = (page: Page) => mineCard(page).locator("[data-card-company]").innerText();
+
+/** The fit line the desk shows for Sam's live request, built from the copy so a reworded draft does not break the pins. A match with no role names the company. */
+async function samFitLine(page: Page) {
+  const hasRole = (await mineCard(page).locator("p").nth(2).locator("span").count()) > 1;
+  return TEAM.fit.whyThem("Sam", PEOPLE.sam.profile.shipped[0], hasRole ? null : await mineCompany(page));
+}
+
+/** Sam with her two intro-eligible matches brought forward (she has no third), the request on #1, on the talent team's desk. */
+async function deskWithTwo(page: Page) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+}
+
+async function toFounderPanel(page: Page) {
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  await expect(founderPanel(page)).toBeVisible();
+}
+
+test("desk walk: Review, Send, Yes, the intro and two weeks later play the whole loop, one narration beat per step", async ({ page }) => {
+  await deskWithTwo(page);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  // Catches: Review doing nothing, or a compare with no one to compare.
+  await expect(compare(page)).toBeVisible();
+  await expect(compare(page).locator('[data-compare-person="rival"]')).toHaveCount(2);
+  await expect(compare(page).locator('[data-compare-person="mine"]')).toHaveCount(1);
+  // Catches: a silent step.
+  await expect(narration(page)).toHaveText(BEATS.review);
+  const name = (await mineCard(page).locator("p").nth(1).innerText()).trim();
+  const fitLine = await samFitLine(page);
+  await compare(page).getByRole("button", { name: TEAM.compare.send(name), exact: true }).click();
+  await expect(founderPanel(page)).toBeVisible();
+  // Catches: the view shift not said (the founder's page under the team's chip).
+  await expect(founderPanel(page).locator("[data-acting-as]")).toHaveText(TEAM.actingAs.founder);
+  await expect(founderPanel(page).getByRole("heading", { level: 2 })).toBeFocused();
+  await expect(narration(page)).toHaveText(BEATS.sent);
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect(founderPanel(page).locator("[data-one-pager]")).toBeVisible();
+  // Catches: the one-pager's fit list reading to the candidate ("You asked for...") instead of about them to the founder.
+  const whyItems = founderPanel(page).locator("[data-one-pager] section").filter({ hasText: TEAM.founder.why }).locator("li");
+  await expect(whyItems.first()).toContainText(fitLine);
+  const whyTexts = await whyItems.allInnerTexts();
+  expect(whyTexts.length).toBeGreaterThan(0);
+  for (const text of whyTexts) expect(text).not.toMatch(/^You(r)?\b/);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the card staying in With founder after a Yes.
+  await expect(mineIn(page, "connected")).toHaveCount(1);
+  await expect(draft(page)).toBeVisible();
+  // Catches: the founder's email repeating the candidate-facing line ("You asked for...") or leaving a double space.
+  const emailBody = (await draft(page).locator("p").innerText()).trim();
+  expect(emailBody).toContain(fitLine);
+  expect(emailBody).not.toMatch(/\bYou asked/);
+  expect(emailBody).not.toMatch(/ {2}/);
+  // Catches: the panel's focus resolver returning the card's button while the drawer holds the intro draft (focus lands behind it).
+  // The hand-back runs on the next frame, so the read waits two frames and then happens in one tick.
+  const heading = await page.evaluate(
+    () => new Promise<boolean>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(document.activeElement?.tagName === "H3" && !!document.activeElement.closest("[data-desk-panel]"))))),
+  );
+  expect(heading).toBe(true);
+  await expect(narration(page)).toHaveText(BEATS.interested);
+  await page.locator("[data-intro-draft]").getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  await expect(narration(page)).toHaveText(BEATS.introSent);
+  await expect(draft(page)).toContainText(TEAM.introDraft.sent);
+  await expect(page.locator("[data-finished-sample]")).toHaveCount(0);
+  await page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  // Catches: the finished sample never reached, or reached without its survey.
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.surveyQuestion);
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.fitHit);
+  await expect(page.locator("[data-finished-sample]")).toContainText(TEAM.sample.end);
+  // Catches: the learned line hidden under the drawer (the strip behind it is covered at 1440).
+  await expect(page.locator("[data-finished-sample] [data-sample-learned]")).toContainText(LEARNED_FROM_SAMPLE);
+  await expect(narration(page)).toHaveText(BEATS.twoWeeks);
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+});
+
+test("desk walk: Not now passes the request, and the candidate's next match goes live on both sides", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.notNow("Sam"));
+  // Catches: the next match never going live, or the old card staying.
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  const second = await mineCompany(page);
+  expect(second).not.toBe(first);
+  await expect(mineIn(page, "withFounder")).toHaveCount(0);
+  await candidateButton(page).click();
+  const row = page.locator("[data-match-row]").filter({ hasText: second }).first();
+  await row.click();
+  // Catches: the desk and the candidate's shortlist out of sync (the request not moved to #2, or still at the passed match).
+  await expect(page.locator("[data-match-detail] [data-intro-here]")).toBeVisible();
+  await expect(page.locator("[data-match-detail] [data-shortlist-rank]")).toHaveText("#1");
+});
+
+test("desk walk: after a pass with one pick the pick is free, and another match can be brought forward and requested", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the free-pick line promising a next match that is not coming.
+  await expect(narration(page)).toHaveText(BEATS.notNowFree("Sam"));
+  expect(await narration(page).innerText()).not.toContain("goes live");
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const total = await rows.count();
+  let other = "";
+  for (let i = 0; i < total && !other; i++) {
+    await rows.nth(i).click();
+    const bring = matchDetail(page).locator("[data-bring-forward]");
+    if ((await matchDetail(page).locator("[data-request-intro]").count()) === 0 || (await bring.getAttribute("aria-disabled")) === "true") continue;
+    // Catches: the passed key still at #1 of the shortlist, so this match reads #2 and its request stays disabled for good.
+    await bring.click();
+    await expect(matchDetail(page).locator("[data-shortlist-rank]")).toHaveText("#1");
+    await expect(matchDetail(page).locator("[data-request-intro]")).toBeEnabled();
+    await matchDetail(page).locator("[data-request-intro]").click();
+    await expect(matchDetail(page).locator("[data-intro-here]")).toBeVisible();
+    other = await rows.nth(i).innerText();
+  }
+  expect(other).not.toBe("");
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: a request landing in the emptied slot still narrating the old notNow beat ("goes live") instead of the arrive beat.
+  expect(await narration(page).innerText()).toBe(BEATS.arrive);
+  expect(await narration(page).innerText()).not.toContain("goes live");
+  expect(other).not.toContain(first);
+  expect(await mineCompany(page)).not.toBe(first);
+});
+
+test("founder panel: Shift+Tab from the heading lands on Close", async ({ page, browserName }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  await expect(founderPanel(page).getByRole("heading", { level: 2 })).toBeFocused();
+  await page.keyboard.press(`Shift+${tabKey(browserName)}`);
+  // Catches: a hand-rolled wrap sending Shift+Tab from the heading to the last button instead of the Close before it.
+  await expect(founderPanel(page).locator("[data-founder-close]")).toBeFocused();
+});
+
+test("desk walk: Send instead sends the rival on, and the rival never becomes a card at a real company", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  const rivalNames = await compare(page).locator('[data-compare-person="rival"] [data-compare-name]').allInnerTexts();
+  expect(rivalNames).toHaveLength(2);
+  await compare(page).getByRole("button", { name: TEAM.compare.sendInstead, exact: true }).first().click();
+  await expect(compare(page)).toHaveCount(0);
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.sentInstead(rivalNames[0].trim(), "Sam"));
+  // Catches: the visitor's card moving on, or the old match staying live.
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  expect(await mineCompany(page)).not.toBe(first);
+  // Catches: a rival at a real company moving on as a card (Ruling 2).
+  const everyRival = RIVALS.engineering.concat(RIVALS.ai, RIVALS.product, RIVALS.design, RIVALS.operations, RIVALS.default).map((r) => r.firstName);
+  const founderColumn = await page.locator('[data-desk-column="withFounder"]').innerText();
+  for (const rival of everyRival) expect(founderColumn).not.toContain(rival);
+  await expect(page.locator('[data-desk-column="withFounder"] [data-desk-card]')).toHaveCount(2);
+});
+
+test("desk walk: with one match brought forward, Not now leaves the nudge and Two weeks later still works", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  // Catches: a pass with nowhere to go leaving a ghost card, or no way forward.
+  await expect(mineCard(page)).toHaveCount(0);
+  await expect(page.locator("[data-desk-nudge]")).toBeVisible();
+  await expect(narration(page)).toHaveText(BEATS.notNowFree("Sam"));
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+});
+
+test("desk walk: a candidate-side swap while the drawer is open shows the new match", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toContainText(first);
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#2") break;
+  }
+  await expect(rank).toHaveText("#2");
+  await page.locator("[data-swap-intro]").click();
+  await teamButton(page).click();
+  const second = await mineCompany(page);
+  expect(second).not.toBe(first);
+  // Catches: the drawer copying the request when it opened, so it keeps showing the old match.
+  await expect(compare(page)).toBeVisible();
+  await expect(compare(page)).toContainText(second);
+  await expect(compare(page)).not.toContainText(first);
+});
+
+test("desk walk: the founder panel traps focus, Escape closes it onto the visitor's card, and the one-pager reopens", async ({ page, browserName }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press(tabKey(browserName));
+    // Catches: Tab leaving the panel for the dimmed desk behind it.
+    expect(await page.evaluate(() => !!document.activeElement?.closest("[data-founder-panel]"))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: Escape sending the card back, or closing onto nothing.
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await mineCard(page).getByRole("button", { name: TEAM.openFounder, exact: true }).click();
+  await expect(founderPanel(page)).toBeVisible();
+});
+
+test("desk walk: the compare drawer takes focus on its heading and Escape closes it onto the visitor's card", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  // Catches: focus left on the Review button behind the drawer.
+  await expect(compare(page).getByRole("heading", { level: 3 })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(compare(page)).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+});
+
+test("desk walk: a rebuild mid-walk leaves a fresh desk, with no panel and the arrive line", async ({ page }) => {
+  await deskWithTwo(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(mineIn(page, "connected")).toHaveCount(1);
+  await draft(page).getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  await page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator("[data-learned] li")).toHaveCount(4);
+  await startOver(page);
+  await expect(page.locator('#act-2[data-phase="join"]')).toBeVisible({ timeout: 8000 });
+  await skipToSam(page);
+  await skipBuildLog(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  // Catches: desk state surviving a rebuild (a stale panel, a stale beat, a card still in Connected).
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(founderPanel(page)).toHaveCount(0);
+  // Catches: the old walk's sample line still on the learned strip.
+  await expect(page.locator("[data-learned] li")).toHaveCount(3);
+});
+
+test("desk walk: taking the request off the shortlist while the drawer is open closes it, and the desk reads as the empty queue", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#1") break;
+  }
+  await expect(rank).toHaveText("#1");
+  await page.locator("[data-match-detail] [data-bring-forward]").click();
+  await teamButton(page).click();
+  // Catches: a drawer left open on a request that no longer exists.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(mineCard(page)).toHaveCount(0);
+  // Catches: the narration still saying the team is comparing.
+  await expect(narration(page)).toHaveText(BEATS.empty);
+  // A new request must arrive on a clean desk: the closed drawer may not come back with it.
+  await candidateButton(page).click();
+  for (let i = 0; i < total; i++) {
+    await rows.nth(i).click();
+    if ((await rank.count()) > 0 && (await rank.innerText()) === "#1") break;
+  }
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: a stale drawer, or a stale review line, reappearing on the next request.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+});
+
+test("desk walk: removing the request and re-requesting without visiting the team side leaves no stale drawer", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  await candidateButton(page).click();
+  const rows = page.locator("[data-match-row]");
+  const rank = page.locator("[data-match-detail] [data-shortlist-rank]");
+  const total = await rows.count();
+  const pickRank = async (wanted: string) => {
+    for (let i = 0; i < total; i++) {
+      await rows.nth(i).click();
+      if ((await rank.count()) > 0 && (await rank.innerText()) === wanted) return;
+    }
+  };
+  await pickRank("#1");
+  await page.locator("[data-match-detail] [data-bring-forward]").click();
+  await pickRank("#1");
+  await page.locator("[data-match-detail] [data-request-intro]").click();
+  await teamButton(page).click();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  // Catches: the drawer, closed only when the team side was mounted, reopening over the new arrival.
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect(narration(page)).toHaveText(BEATS.arrive);
+});
+
+test("desk walk: at 390 every panel carries the narration line and the phone walk reaches the finished sample", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await expect(desk(page)).toBeVisible();
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  const panelLine = page.locator("[data-desk-panel] [data-panel-narration]");
+  // Catches: the drawer covering the narration with nothing in its place.
+  await expect(panelLine).toHaveText(BEATS.review);
+  await expect(panelLine).toBeInViewport();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  // Catches: the founder's modal dimming the value statement at the moment it matters (Aaron's line, verbatim).
+  await expect(founderPanel(page).locator("[data-panel-narration]")).toHaveText("Splits then puts together a one-page profile so the founder can see the candidate's experience.");
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.yes, exact: true }).click();
+  await expect(panelLine).toHaveText(BEATS.interested);
+  await draft(page).getByRole("button", { name: TEAM.introDraft.send, exact: true }).click();
+  const twoWeeks = page.locator("[data-desk-panel]").getByRole("button", { name: TEAM.twoWeeks, exact: true });
+  // Catches: a phone walk that dead-ends because Two weeks later sits on the card under the drawer.
+  await expect(twoWeeks).toBeInViewport();
+  await twoWeeks.click();
+  await expect(page.locator("[data-finished-sample]")).toBeVisible();
+  await expect(page.locator("[data-desk-panel] [data-panel-narration]")).toHaveText(BEATS.twoWeeks);
+});
+
+// ---- The earned door, the survey's Why card, and the phones (Ruling 72, section 7) ----
+
+test("earned door at 390: a request that lands after Two weeks later puts the live card's column on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await teamButton(page).click();
+  await page.locator("[data-desk-nudge]").getByRole("button", { name: TEAM.twoWeeks, exact: true }).click();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeVisible();
+  await candidateButton(page).click();
+  await spendIntro(page, 1);
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  // Catches: the phone left on the Outcome column while the narration talks about a card in Requested.
+  await expect(page.locator('[data-desk-column="requested"]')).toBeVisible();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeHidden();
+  await expect(mineCard(page)).toBeVisible();
+});
+
+test("earned door at 390: taking the door selects the live card's column on its own", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 1);
+  await teamButton(page).click();
+  await strip(page).nth(4).click();
+  await expect(page.locator('[data-desk-column="outcome"]')).toBeVisible();
+  await candidateButton(page).click();
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  // Catches: the door opening the desk on the stage the phone was left on (Outcome), when no settle runs to correct it (the door's own stage selection is dropped).
+  // The read is one tick, so a later correction cannot hide the miss.
+  const shown = await page.evaluate(() => {
+    const visible = (el: Element | null) => !!el && (el as HTMLElement).getClientRects().length > 0;
+    return { requested: visible(document.querySelector('[data-desk-column="requested"]')), mine: visible(document.querySelector("[data-desk-card][data-mine]")) };
+  });
+  expect(shown).toEqual({ requested: true, mine: true });
+});
+
+const EARNED = TEAM.earned;
+const door = (page: Page) => page.locator("[data-match-detail] [data-earned-door]");
+const matchDetail = (page: Page) => page.locator("[data-match-detail]");
+
+/** Back on Matches, the row for `company` selected, so its detail is the one on screen. */
+async function openMatch(page: Page, company: string) {
+  await candidateButton(page).click();
+  await page.locator("[data-match-row]").filter({ hasText: company }).first().click();
+}
+
+test("earned door: lifting the other pick above the live request on the Board leaves the door and the status chip on the requested match", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await openTab(page, speedrunCopy.network.tabs.board);
+  const items = page.locator("[data-shortlist-item]");
+  await expect(items).toHaveCount(2);
+  const requestedItem = items.filter({ has: page.locator("[data-shortlist-status]") });
+  const otherItem = items.filter({ hasNot: page.locator("[data-shortlist-status]") });
+  await expect(requestedItem).toHaveCount(1);
+  await expect(otherItem).toHaveCount(1);
+  const requested = (await requestedItem.locator("[data-shortlist-company]").innerText()).trim();
+  const other = (await otherItem.locator("[data-shortlist-company]").innerText()).trim();
+  expect(other).not.toBe(requested);
+  const up = otherItem.locator("[data-shortlist-up]");
+  for (let i = 0; i < 2 && (await up.isEnabled()); i++) await up.click();
+  // Catches: the earned door (or the Shortlist's status chip) following shortlist #1 instead of the request's own match key.
+  await expect(items.first().locator("[data-shortlist-company]")).toHaveText(other);
+  await expect(items.filter({ hasText: requested }).locator("[data-shortlist-status]")).toHaveCount(1);
+  await expect(items.filter({ hasText: other }).locator("[data-shortlist-status]")).toHaveCount(0);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await openMatch(page, requested);
+  await expect(door(page)).toContainText(EARNED.line);
+  await openMatch(page, other);
+  await expect(door(page)).toHaveCount(0);
+});
+
+test("earned door: the spent request shows the line and a door to the desk, with the visitor's card first and focus on the heading", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await toNetwork(page);
+  await spendIntro(page);
+  // Catches: the earned moment missing, or the generic "reviews it next" line standing in for it.
+  await expect(door(page)).toContainText(EARNED.line);
+  await expect(door(page).getByRole("button", { name: EARNED.button, exact: true })).toBeVisible();
+  // Catches: Apply staying filled beside the door, so the pane shows two primary actions.
+  await expect(matchDetail(page).locator('[data-weight="filled"]')).toHaveCount(1);
+  await expect(matchDetail(page).locator('[data-weight="filled"]')).toHaveAttribute("data-earned-door-button", "");
+  await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+  await expect(desk(page)).toBeVisible();
+  await expect(mineIn(page, "requested")).toHaveCount(1);
+  expect(await page.locator('[data-desk-column="requested"] [data-desk-card]').first().getAttribute("data-mine")).not.toBeNull();
+  // Catches: the flip leaving focus on a hidden button, so a keyboard reader lands nowhere.
+  await expect(desk(page).getByRole("heading", { level: 2 })).toBeFocused();
+});
+
+test.describe("earned door: reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+  test("the visitor's card arrives with no running animation anywhere in the desk", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    // The hero's skip button is not on this path under reduced motion, so the visitor answers the questions as Sam.
+    await page.goto("/speedrun");
+    await answerOnboarding(page, { name: "Sam", targets: ["product", "engineering"], places: ["New York", "Remote"], why: PEOPLE.sam.intake.why, person: "sam" });
+    await skipBuildLog(page);
+    await spendIntro(page);
+    await door(page).getByRole("button", { name: EARNED.button, exact: true }).click();
+    await expect(mineIn(page, "requested")).toHaveCount(1);
+    // Catches: motion under reduced motion (the card's enter, or any desk animation).
+    const running = await page.evaluate(() => document.getAnimations().filter((a) => (a.effect as KeyframeEffect | null)?.target?.closest?.("[data-desk]")).length);
+    expect(running).toBe(0);
+  });
+});
+
+test("why card: the Why tab lists the survey's decision", async ({ page }) => {
+  await toNetwork(page);
+  await openTab(page, TAB.decisions);
+  // Catches: the survey's decision missing from the Why tab.
+  await expect(page.locator("[data-decision-card]").filter({ hasText: speedrunCopy.decisions.cards.at(-1)!.title })).toBeVisible();
+});
+
+test("earned door: after Not now the passed match shows the founder's line and no way to request it again", async ({ page }) => {
+  await deskWithTwo(page);
+  const first = await mineCompany(page);
+  await toFounderPanel(page);
+  await founderPanel(page).getByRole("button", { name: TEAM.founder.notNow, exact: true }).click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await openMatch(page, first);
+  // Catches: re-requesting a match the founder passed.
+  await expect(matchDetail(page).locator("[data-intro-passed]")).toHaveText(TEAM.passedLine.founder);
+  await expect(matchDetail(page).locator("[data-request-intro]")).toHaveCount(0);
+  await expect(matchDetail(page).locator("[data-swap-intro]")).toHaveCount(0);
+  await expect(matchDetail(page).getByRole("button", { name: speedrunCopy.matches.intro.swap })).toHaveCount(0);
+  await expect(matchDetail(page).locator("[data-earned-door]")).toHaveCount(0);
+  // Catches: the "on its way" line showing for a match the founder passed.
+  await expect(matchDetail(page).locator("[data-intro-on]")).toHaveCount(0);
+  // Catches: a passed match going back on the shortlist, where it would hold the pick again.
+  const bring = matchDetail(page).locator("[data-bring-forward]");
+  await expect(bring).toHaveAttribute("aria-disabled", "true");
+  await bring.click({ force: true });
+  await expect(bring).toHaveAttribute("aria-pressed", "false");
+  await expect(matchDetail(page).locator("[data-shortlist-rank]")).toHaveCount(0);
+  // Catches: the row's own bookmark staying live on a passed match while the detail's is locked.
+  const rowBookmark = page.locator("[data-match-row][aria-current='true'] + [data-row-bring-forward]");
+  await expect(rowBookmark).toHaveAttribute("aria-disabled", "true");
+  await rowBookmark.click({ force: true });
+  await expect(rowBookmark).toHaveAttribute("aria-pressed", "false");
+});
+
+test("earned door: after Send on the desk the line names With founder and the request can no longer be withdrawn", async ({ page }) => {
+  await deskWithTwo(page);
+  const company = await mineCompany(page);
+  await toFounderPanel(page);
+  // The one-pager is modal; Close leaves the card in With founder, which is where Send put it.
+  await founderPanel(page).locator("[data-founder-close]").click();
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await openMatch(page, company);
+  // Catches: a stale "reviews it next" line after the desk moved the request.
+  await expect(door(page).locator("[data-intro-here]")).toContainText(TEAM.stages.withFounder);
+  await expect(door(page).locator("[data-intro-here]")).not.toContainText("reviews it next");
+  await expect(door(page).getByRole("button", { name: EARNED.button, exact: true })).toBeVisible();
+  // Catches: a withdrawable request after the desk moved it.
+  const bring = matchDetail(page).locator("[data-bring-forward]");
+  await expect(bring).toHaveAttribute("aria-disabled", "true");
+  await bring.click({ force: true });
+  await expect(bring).toHaveAttribute("aria-pressed", "true");
+  // Catches: the row's bookmark staying live once the desk has the request past requested.
+  const rowBookmark = page.locator("[data-match-row][aria-current='true'] + [data-row-bring-forward]");
+  await expect(rowBookmark).toHaveAttribute("aria-disabled", "true");
+  await rowBookmark.click({ force: true });
+  await expect(rowBookmark).toHaveAttribute("aria-pressed", "true");
+});
+
+test("founder panel: the visible Close button closes it without answering and hands focus to the visitor's card", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+  const close = founderPanel(page).locator("[data-founder-close]");
+  // Catches: a phone with no way out of the one-pager but answering it (no Escape key on iOS).
+  await expect(close).toBeVisible();
+  await expect(close).toHaveText(TEAM.closePanel);
+  const box = await close.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await close.click();
+  await expect(founderPanel(page)).toHaveCount(0);
+  await expect(mineIn(page, "withFounder")).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest("[data-desk-card][data-mine]"))).toBe(true);
+  await expect.poll(() => page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+});
+
+for (const width of [320, 390]) {
+  test(`desk phone: at ${width} the drawer and the founder panel fit the viewport with no sideways scroll`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 740 });
+    await toNetwork(page);
+    await spendIntro(page, 2);
+    await teamButton(page).click();
+    await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+    await expect(compare(page)).toBeVisible();
+    // Catches: the drawer, off screen while it slides in, widening the page (read once, in the frame the drawer opens).
+    const drawerFit = await docFits(page);
+    expect(drawerFit.wide - drawerFit.width).toBe(0);
+    expect((await compare(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
+    await compare(page).getByRole("button", { name: /^Send .* to the founder$/ }).click();
+    await expect(founderPanel(page)).toBeVisible();
+    // Catches: the one-pager wider than the phone, or pushing the page sideways.
+    const panelFit = await docFits(page);
+    expect(panelFit.wide - panelFit.width).toBe(0);
+    expect((await founderPanel(page).boundingBox())!.width).toBeGreaterThanOrEqual(width - 32);
+  });
+}
+
+test("founder panel: at 320 the chip stays on one line, as tall as at 1440, and Close wraps below it", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await toNetwork(page);
+  await spendIntro(page, 2);
+  await teamButton(page).click();
+  await toFounderPanel(page);
+  const chip = founderPanel(page).locator("[data-acting-as]");
+  const narrow = (await chip.boundingBox())!.height;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const wide = (await chip.boundingBox())!.height;
+  // Catches: the chip wrapping its own text inside the rounded pill beside Close on a 320 phone.
+  expect(Math.abs(narrow - wide)).toBeLessThanOrEqual(1);
+});
+
+const barOpacity = (page: Page) => narration(page).locator("xpath=..").evaluate((el) => getComputedStyle(el).opacity);
+
+test("side panel at 1440: the scrim dims the desk, the desk's line steps back to one live region, and the scrim closes the panel", async ({ page }) => {
+  await deskWithTwo(page);
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  const scrim = page.locator("[data-desk-scrim]");
+  // Catches: the drawer floating on the desk with nothing between them.
+  await expect(scrim).toBeVisible();
+  await expect.poll(() => barOpacity(page)).toBe("0");
+  const same = await page.evaluate(() => {
+    const live = [...document.querySelectorAll('[role="status"], [aria-live]:not([aria-live="off"])')];
+    const line = document.querySelector("[data-narration]")?.textContent ?? "";
+    const bar = document.querySelector("[data-narration]")?.parentElement;
+    return {
+      line,
+      panel: document.querySelector("[data-panel-narration]")?.textContent ?? "",
+      opacity: bar ? getComputedStyle(bar).opacity : "missing",
+      liveCount: live.filter((node) => line !== "" && (node.textContent ?? "").includes(line)).length,
+    };
+  });
+  // Catches: the line showing twice (a visible copy in the desk's bar and at the panel's top).
+  expect(same.opacity).toBe("0");
+  expect(same.line).not.toBe("");
+  expect(same.line).toBe(same.panel);
+  // Catches: a screen reader announcing each beat twice.
+  expect(same.liveCount).toBe(1);
+  // Catches: the scrim not closing the panel.
+  await scrim.click({ position: { x: 40, y: 200 } });
+  await expect(page.locator("[data-desk-panel]")).toHaveCount(0);
+  await expect.poll(() => barOpacity(page)).toBe("1");
+});
+
+test("side panel at 390: no scrim is visible", async ({ page }) => {
+  await deskWithTwo(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mineCard(page).getByRole("button", { name: TEAM.review, exact: true }).click();
+  await expect(compare(page)).toBeVisible();
+  // Catches: the scrim showing on a phone, where the panel already covers the desk.
+  await expect(page.locator("[data-desk-scrim]")).toBeHidden();
+});
