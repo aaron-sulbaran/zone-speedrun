@@ -6,7 +6,7 @@ import { INBOX_TODAY } from "../lib/speedrun/inbox";
 import { addDays } from "../lib/speedrun/today";
 import { shortDay } from "../lib/speedrun/when";
 import type { Page } from "@playwright/test";
-import { test, expect } from "./support/fixtures";
+import { test, expect, pinToday } from "./support/fixtures";
 import { answerOnboarding, openAccountMenu, probeFlowLabels, networkHeading, openTab, playSwitch, skipBuildLog } from "./speedrun-flow";
 
 const COPY = speedrunCopy.board;
@@ -115,12 +115,13 @@ const boardHeading = (page: Page) => page.locator("#sr-board-heading");
 const rows = (page: Page) => page.locator("[data-board-table] [data-row]");
 const rowNames = (page: Page) => rows(page).locator('[data-cell="company"]').allInnerTexts().then((names) => names.map((name) => name.split("\n")[0].trim()));
 const th = (page: Page, key: string) => page.locator(`[data-board-table] th[data-col="${key}"]`);
-// Sam's four, in the order the due dates and ranks give: Wrenfield (today), Lumora Health (+1), Cindermoor Cloud (+2), Quillbright (+3); the suite pins today to the reference day.
+// Sam's four, in the order the due dates and ranks give: Wrenfield (today), Lumora Health (+1), Cindermoor Cloud (+2), Quillbright (+3); these tests pin today to the reference day with pinToday.
 const dueOn = (offset: number) => shortDay(addDays(INBOX_TODAY, offset));
 const NEEDS = ["Wrenfield", "Lumora Health", "Cindermoor Cloud", "Quillbright"];
 const DATE = /^[A-Z][a-z]{2} \d{1,2}$/;
 
 test("board top: at 1440 the four things that need Sam sit above the fold, each with a company, a person, a deadline and a button", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   // Catches: a heading that never says whose board this is (Ruling 46).
   await expect(boardHeading(page)).toHaveText(COPY.heading("Sam"));
@@ -206,6 +207,7 @@ test("needs you: confirming Pick a time in the brief drops the Board's count by 
 });
 
 test("board top: pressing the Offers tile lists both offers with deadlines, filters the table to them, and pressing it again clears", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   const tile = stat(page, "offers");
   await expect(tile).toHaveAttribute("aria-pressed", "false");
@@ -306,6 +308,7 @@ test("board table: a header click sorts, and aria-sort flips", async ({ page }) 
 });
 
 test("board table: the cells carry dates, and the Next step cell opens the very sheet the needs-you item opens", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   const wren = rows(page).filter({ hasText: "Wrenfield" }).first();
   // Catches: an Applied or Last update column of raw ISO text, or empty cells.
@@ -623,6 +626,7 @@ const needsTitle = async (page: Page, company: string) => {
 };
 
 test("today: the Cindermoor interview is confirmed first, then joined, and every button opens the sheet it names", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam", true);
   // Catches: Today still a bare list of sentences, with no item to act on.
   await expect(today(page)).toHaveCount(3);
@@ -1065,9 +1069,8 @@ test("phones: the Needs you details, every tile panel and Show all reveal 44 px 
 
 test.describe("a visitor who opens the page on a later day", () => {
   const LATER = "2026-12-03";
-  test.use({ today: LATER });
-
   test("every due is today or later and Cindermoor's call is after today", async ({ page }) => {
+    await pinToday(page, LATER);
     await joinAs(page, "sam", true);
     // Catches: Sam's dues staying pinned to November, so a visitor on a later day reads past-due dates (the stale-date bug).
     await expect(needs(page).locator("[data-needs-due]")).toHaveText([0, 1, 2, 3].map((offset) => COPY.needs.due(shortDay(addDays(LATER, offset)))));

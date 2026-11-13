@@ -3,7 +3,7 @@ import { renderBriefEmail } from "../lib/speedrun/brief";
 import { sampleBrief } from "../lib/speedrun/briefSample";
 import { getSnapshot } from "../lib/speedrun/snapshot";
 import type { Page } from "@playwright/test";
-import { test, expect } from "./support/fixtures";
+import { test, expect, pinToday } from "./support/fixtures";
 import { DETAILS } from "../lib/speedrun/details";
 import { whenLabel } from "../lib/speedrun/when";
 import { PERSON_KEYS } from "../lib/speedrun/types";
@@ -213,6 +213,7 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
 });
 
 test("brief action: a booked call is worded like the offered times, with no time zone", async ({ page }) => {
+  await pinToday(page);
   await joinAs(page, "sam");
   await lines(page).nth(2).locator("[data-brief-action]").click();
   const meeting = DETAILS.sam!["Cindermoor Cloud"].meeting!;
