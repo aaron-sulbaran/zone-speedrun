@@ -14,8 +14,8 @@ type Fixtures = {
 };
 
 type Options = {
-  /** The calendar day the page believes it is, as YYYY-MM-DD; local noon of it. The demo's dates follow the visitor's today. */
-  today: string;
+  /** The calendar day the page believes it is, as YYYY-MM-DD; local noon of it. The demo's dates follow the visitor's today. null leaves the real clock alone. */
+  today: string | null;
 };
 
 export const test = base.extend<Fixtures & Options>({
@@ -23,7 +23,7 @@ export const test = base.extend<Fixtures & Options>({
   // setFixedTime moves "now" and leaves every timer running, so the pill auto-advance, the build log and the count-ups keep their real pace.
   pinnedClock: [
     async ({ context, today }, provide) => {
-      await context.clock.setFixedTime(new Date(`${today}T12:00:00`));
+      if (today !== null) await context.clock.setFixedTime(new Date(`${today}T12:00:00`));
       await provide();
     },
     { auto: true },

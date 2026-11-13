@@ -1475,24 +1475,29 @@ test("a real scroll of the page during the hold ends the intro", async ({ page }
   expect(await page.locator(SPOTLIGHT).count()).toBe(0);
 });
 
-// Catches: Replay from the top from a scrolled page ending its own intro at once, because the remounted hero's scroll skip hears the move back to the top (or measures the words at the old scroll position).
-test("Replay from the top on a scrolled network page still plays the intro", async ({ page }) => {
-  await page.setViewportSize({ width: 844, height: 390 });
-  await reachNetwork(page);
-  await openAccountMenu(page);
-  const scrolled = await page.evaluate(() => {
-    window.scrollTo({ top: 60, behavior: "instant" });
-    return window.scrollY;
+// This pin reads no dates, and a frozen Date.now races the hero intro's own scroll arm (the intro ends before the pin reads "running"), so it runs on the real clock.
+test.describe("on the real clock", () => {
+  test.use({ today: null });
+
+  // Catches: Replay from the top from a scrolled page ending its own intro at once, because the remounted hero's scroll skip hears the move back to the top (or measures the words at the old scroll position).
+  test("Replay from the top on a scrolled network page still plays the intro", async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    await reachNetwork(page);
+    await openAccountMenu(page);
+    const scrolled = await page.evaluate(() => {
+      window.scrollTo({ top: 60, behavior: "instant" });
+      return window.scrollY;
+    });
+    expect(scrolled).toBeGreaterThan(0);
+    await page.evaluate((name) => {
+      [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!.click();
+    }, network.account.replayTop);
+    await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
+    await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "running");
+    await page.waitForTimeout(500);
+    expect(await page.locator("[data-hero]").getAttribute("data-intro")).toBe("running");
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
   });
-  expect(scrolled).toBeGreaterThan(0);
-  await page.evaluate((name) => {
-    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === name)!.click();
-  }, network.account.replayTop);
-  await expect(page.locator("[data-hero]")).toBeVisible({ timeout: 8000 });
-  await expect(page.locator("[data-hero]")).toHaveAttribute("data-intro", "running");
-  await page.waitForTimeout(500);
-  expect(await page.locator("[data-hero]").getAttribute("data-intro")).toBe("running");
-  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
 // Catches: the subtitle's word spans read one by one by a screen reader, or the full sentence missing from (or doubled in) the accessible text.
