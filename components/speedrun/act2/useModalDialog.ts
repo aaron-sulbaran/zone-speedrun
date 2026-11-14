@@ -13,8 +13,10 @@ function keepTabInside(dialog: HTMLDialogElement, event: KeyboardEvent) {
   const first = controls[0];
   const last = controls[controls.length - 1];
   const at = document.activeElement;
-  // The heading takes focus on open and is not a tab stop, so a Shift+Tab from it wraps like one from the first control.
-  if (event.shiftKey && (at === first || at === dialog || (at instanceof HTMLElement && !controls.includes(at)))) {
+  // The heading takes focus on open and is not a tab stop. When it sits before the first control (the action sheet), a Shift+Tab from it
+  // wraps like one from the first control; when a control precedes it (the founder panel's Close), the browser's own step is right.
+  const beforeFirst = at instanceof HTMLElement && !controls.includes(at) && !!(first.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_PRECEDING);
+  if (event.shiftKey && (at === first || at === dialog || beforeFirst)) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && at === last) {
