@@ -12,7 +12,8 @@ const BOT_PROTECTED = [
   { path: "/speedrun/api/brief", method: "POST" },
 ];
 
-const SHARE_CARD = { url: "/opengraph-image", width: 1200, height: 630, alt: siteContent.meta.title };
+// Public files carry the basePath themselves, and metadataBase makes the url absolute.
+const SHARE_CARD = { url: "/speedrun/splits-card.png", width: 2400, height: 1260, alt: speedrunCopy.meta.cardAlt };
 
 export const metadata: Metadata = {
   title: { absolute: speedrunCopy.meta.title },
@@ -20,8 +21,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   // A page-level openGraph or twitter object replaces the layout's whole object,
   // and the file-based share card only attaches to the objects that have no
-  // images of their own, so the card is named here (the root opengraph-image
-  // route, 1200 by 630) and the rest is restated.
+  // images of their own, so this page's own card (public/splits-card.png) is
+  // named here and the rest is restated.
   openGraph: {
     title: speedrunCopy.meta.title,
     description: speedrunCopy.meta.description,
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: speedrunCopy.meta.title,
     description: speedrunCopy.meta.description,
-    images: [SHARE_CARD.url],
+    images: [{ url: SHARE_CARD.url, alt: SHARE_CARD.alt }],
   },
 };
 
