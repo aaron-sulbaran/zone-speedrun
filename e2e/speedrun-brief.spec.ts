@@ -141,6 +141,15 @@ test("brief action: tapping a time sends that time, dims the line and keeps it i
   await expect(lines(page).nth(1)).toHaveAttribute("data-done", "false");
 });
 
+test("brief action: Shift+Tab from the sheet's heading lands on its last control", async ({ page, browserName }) => {
+  await joinAs(page, "sam");
+  await lines(page).nth(1).locator("[data-brief-action]").click();
+  await expect(sheet(page).locator("#sr-sheet-title")).toBeFocused();
+  await page.keyboard.press(`Shift+${tabKey(browserName)}`);
+  // Catches: Shift+Tab from the heading leaving the sheet for the page's chrome instead of wrapping to the last control (Not now).
+  await expect(sheet(page).locator("[data-sheet-close]")).toBeFocused();
+});
+
 test("brief action: the sheet traps Tab, locks the page, closes on Escape and returns focus to its opener", async ({ page, browserName }) => {
   await joinAs(page, "sam");
   const opener = lines(page).nth(1).locator("[data-brief-action]");
