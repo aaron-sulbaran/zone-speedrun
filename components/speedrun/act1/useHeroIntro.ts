@@ -53,6 +53,8 @@ function makeClone(root: HTMLElement, source: HTMLElement, rootRect: DOMRect, fr
 export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: () => boolean } {
   // The closing button is pressable from its own cue, not only once the whole intro has finished.
   const pressableAt = useRef<number | null>(null);
+  // Held in a ref: React Strict Mode runs the effect twice in dev, and the second run reads scrollY 0 while the first run's scroll is still on its way.
+  const returning = useRef(false);
   const settled = () => root.current?.dataset.intro === "done" || (pressableAt.current !== null && performance.now() >= pressableAt.current);
 
   useLayoutEffect(() => {
@@ -72,7 +74,9 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     setIntro(el, "running");
     const startedAt = performance.now();
     // The intro plays from the top (a replay from a scrolled phase remounts this hero before the page returns to the top), and the scroll
-    // this causes must not count as the reader's: measure from the top, and listen for scroll only from the next frame.
+    // this causes must not count as the reader's: measure from the top, and swallow the one scroll event that move delivers (it can land any
+    // number of frames later) by its position, the top, instead of by a frame count.
+    returning.current ||= window.scrollY > 0;
     if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "instant" });
 
     const m = motion();
@@ -160,11 +164,9 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
     const replace = () => spotlight?.place();
     let releaseHold: (() => void) | undefined;
 
-    let scrollArm = 0;
     const stopListening = () => {
-      cancelAnimationFrame(scrollArm);
       SKIP_EVENTS.forEach((type) => document.removeEventListener(type, skip));
-      document.removeEventListener("scroll", skip);
+      document.removeEventListener("scroll", onScroll);
     };
     const complete = () => {
       if (el.dataset.intro === "done") return;
@@ -184,10 +186,16 @@ export function useHeroIntro(root: RefObject<HTMLElement | null>): { settled: ()
       animations.forEach((animation) => animation.finish());
       complete();
     }
-    SKIP_EVENTS.forEach((type) => document.addEventListener(type, skip, { passive: true }));
     // "scroll" covers a scrollbar drag and a script that moves the page; the dim should not hold a reader who is already leaving it.
-    // Armed a frame late: the scroll events of the move above are delivered before this callback runs.
-    scrollArm = requestAnimationFrame(() => document.addEventListener("scroll", skip, { passive: true }));
+    function onScroll(event: Event) {
+      if (returning.current && window.scrollY === 0) {
+        returning.current = false;
+        return;
+      }
+      skip(event);
+    }
+    SKIP_EVENTS.forEach((type) => document.addEventListener(type, skip, { passive: true }));
+    document.addEventListener("scroll", onScroll, { passive: true });
     Promise.all(animations.map((animation) => animation.finished)).then(complete, () => {});
 
     document.fonts?.ready.then(() => el.dataset.intro === "running" && replace());

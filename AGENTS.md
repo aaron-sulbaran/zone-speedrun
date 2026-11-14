@@ -111,16 +111,16 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **One phase on screen at a time** (`lib/speedrun/phase.ts`), and the phase follows the demo step.
 - **Motion values.** Every value the dev-only `?tune` panel tunes lives in `lib/speedrun/motion.ts`: the switch, the steps and the hero intro. A few fixed timings still sit beside their components (the matches cascade, BuildLog and Rise), and the hero's 3,500 ms no-JS failsafe lives in `app/globals.css`.
 - **Intro z order.** The spotlight layer is body-level at z 42, over the site chrome (40). The flight clone sits at 44 in the root stacking context, so no hero ancestor may become a stacking context. The dev tuning panel is at 45.
-- **The board is fixed, not arrangeable.** `DemoState` (`lib/speedrun/demoState.ts`) holds `shortlist`, `introRequest`, `passed` and `done`; `lib/speedrun/introRequest.ts` is the request's contract (Ruling 70). The board builds from the inbox, or from matches brought forward.
+- **The board is fixed, not arrangeable.** `DemoState` (`lib/speedrun/demoState.ts`) holds `shortlist`, `introRequest`, `passed`, `done` and `picked` (the time tapped on a Pick a time sheet); `lib/speedrun/introRequest.ts` is the request's contract (Ruling 70). The board builds from the inbox, or from matches brought forward.
 - **One action model.** `lib/speedrun/actions.ts` derives every action, one `ActionSheet` renders them, and `settledAction` decides when a warm intro card and its Intros tile row read as done.
 - **Times.** Meeting, slot and send times join the clock and am/pm with a no-break space (`lib/speedrun/when.ts`).
 - **Desktop header.** Tab labels never wrap. From lg to below xl the concept badge stacks under the brand and the side switch (`[data-shell-switch-slot]`) takes its own row; from xl it sits beside the avatar. The desk's e2e drives every `data-*` hook in `act2/IntroControls.tsx`; never rename one.
 - **Phones.** Every `a`, `button`, `[role=tab]` and `summary` in the shell, the open account menu and Today prep included, is 44 by 44 (padding or `min-h-11 min-w-11`, never a bigger font); inline links use `INLINE_LINK`. The board table scrolls inside `TableScroller`, which shows a right-edge fade while columns remain.
 - **Short landscape.** A phone held sideways (`SHORT_LANDSCAPE` in `lib/speedrun/viewport.ts`) is styled with the `short-landscape` plugin variant. A bare rule sorts after base utilities and before every screen variant, so stack it on the screen whose rule it has to beat. Never add it as a Tailwind screen: in 3.4 an object screen stops `max-lg:` and the other max variants from generating at all.
-- **The desk's walk** runs only through `deskStep` (`lib/speedrun/desk.ts`). An illegal action is a no-op, and the request changes only through its effect.
+- **The desk's walk** runs only through `deskStep` (`lib/speedrun/desk.ts`). An illegal action is a no-op.
 - **`PhaseState.side` is `candidate` on every phase change**; the candidate panels stay mounted on the team side.
 - **Sample desk cards** name only fictional companies.
-- **One intro request per candidate.** A pass frees the pick; the shortlist never holds a passed key (`passIntro` drops it, `bringForward` refuses it).
+- **One intro request per candidate.** A pass frees the pick; the shortlist never holds a passed key.
 
 ## Gotchas
 
@@ -133,7 +133,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - **Network chrome.** In the network phase the chrome is the shell's top bar plus the site's logo, and the pinned pill is hidden.
 - **WebKit e2e.** e2e is Chromium unless `E2E_ALL=1`, which adds desktop WebKit. WebKit never focuses a clicked button without a tabindex; focus goes to its nearest focusable ancestor, so focus from code where it matters, and treat focus landing on an ancestor as not leaving. macOS WebKit tabs only between form fields, so Tab pins press `tabKey(browserName)` from `e2e/speedrun-flow.ts`.
 - **e2e pins** name the regression they catch, and must go red without their guard.
-- **The demo's today is the visitor's date** (`demoToday()`, read on the client only); Sam's dues and calls sit at offsets from it (`detailsFor`). e2e pins the clock only in tests that assert a demo date: `pinToday(page, day = INBOX_TODAY)` from `e2e/support/fixtures.ts` (`setFixedTime` freezes `Date.now`, which skews hero and switch timing pins, so never pin by default).
+- **The demo's today is the visitor's date** (`demoToday()`, read on the client only); Sam's dues and calls sit at offsets from it (`detailsFor`). e2e pins the clock only in tests that assert a demo date: `pinToday(page, day = INBOX_TODAY)` from `e2e/support/fixtures.ts` (`setSystemTime` moves `Date.now` and lets it run; a frozen clock skewed hero and switch timing pins, so never pin by default).
 
 ## Run and deploy
 
@@ -151,4 +151,4 @@ A PR per change with CI green before merge. Second-model review on anything touc
 - `lib/content/speedrun.ts`: the page's copy; `lib/content.ts`: the few site strings
 - `lib/security/`, `scripts/speedrun-snapshot.mjs`, `e2e/`, `docs/superpowers/`
 
-Last verified: 2026-11-13 at e40454e
+Last verified: 2026-11-13 at c0a9d60

@@ -1,4 +1,5 @@
 import { speedrunCopy } from "../lib/content";
+import { cleanUrl } from "../lib/speedrun/cleanUrl";
 import { renderBriefEmail } from "../lib/speedrun/brief";
 import { sampleBrief } from "../lib/speedrun/briefSample";
 import { getSnapshot } from "../lib/speedrun/snapshot";
@@ -140,6 +141,15 @@ test("brief action: tapping a time sends that time, dims the line and keeps it i
   await expect(lines(page).nth(1)).toHaveAttribute("data-done", "false");
 });
 
+test("brief action: Shift+Tab from the sheet's heading lands on its last control", async ({ page, browserName }) => {
+  await joinAs(page, "sam");
+  await lines(page).nth(1).locator("[data-brief-action]").click();
+  await expect(sheet(page).locator("#sr-sheet-title")).toBeFocused();
+  await page.keyboard.press(`Shift+${tabKey(browserName)}`);
+  // Catches: Shift+Tab from the heading leaving the sheet for the page's chrome instead of wrapping to the last control (Not now).
+  await expect(sheet(page).locator("[data-sheet-close]")).toBeFocused();
+});
+
 test("brief action: the sheet traps Tab, locks the page, closes on Escape and returns focus to its opener", async ({ page, browserName }) => {
   await joinAs(page, "sam");
   const opener = lines(page).nth(1).locator("[data-brief-action]");
@@ -181,7 +191,9 @@ test("brief action: Bring forward adds the role to the shortlist, and Apply is t
   const apply = line.locator("[data-brief-apply]");
   const href = await apply.getAttribute("href");
   // Catches: Apply drawn as a button that goes nowhere.
-  expect(getSnapshot().roles.some((role) => role.url === href), `${href}`).toBe(true);
+  expect(getSnapshot().roles.some((role) => cleanUrl(role.url) === href), `${href}`).toBe(true);
+  // Catches: a person's click carrying the snapshot's agent tags (utm_medium=agent).
+  expect(href).not.toContain("utm_medium=agent");
   // Catches: a posting link that leaves this tab behind or leaks the opener.
   await expect(apply).toHaveAttribute("target", "_blank");
   await expect(apply).toHaveAttribute("rel", "noopener noreferrer");

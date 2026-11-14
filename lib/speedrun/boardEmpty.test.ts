@@ -7,6 +7,7 @@ import { speedrunCopy } from "@/lib/content";
 import { WarmIntros } from "@/components/speedrun/act2/WarmIntros";
 import { TodayList } from "@/components/speedrun/act2/TodayList";
 import { introCards, todayItems } from "./actions";
+import { cleanUrl } from "./cleanUrl";
 import { getSnapshot } from "./snapshot";
 import { classifyEmail } from "./classify";
 import { initialDemoState, type DemoState } from "./demoState";
@@ -108,8 +109,17 @@ describe("the Board for a sample person", () => {
     expect((doneOne.match(/data-needs-item=/g) ?? []).length).toBe(4);
     const allDone = render({ ...connected, done: ["decideOffer:Wrenfield:Founding Engineer", "pickTime:Lumora Health:-", "confirmInterview:Cindermoor Cloud:Software Engineer, New Grad", "decideOffer:Quillbright:Software Engineer, Product"] });
     // Catches: a heading that says "0 things need you today" instead of a calm line.
-    expect(allDone).toContain(apos(copy.allClear));
     expect(allDone).not.toContain("things need you");
+    // Catches: the calm line shown while Today and Warm intros still hold open actions (Tarnmoor's reply, Cindermoor's call, min/Max's prep, two follow-ups).
+    expect(allDone).not.toContain(apos(copy.allClear));
+    expect(allDone).toContain(apos(copy.nothingUrgent(5)));
+  });
+
+  it("shows the calm line only when nothing is open anywhere", () => {
+    const connected = { ...sam, inboxConnected: true };
+    const everything = ["decideOffer:Wrenfield:Founding Engineer", "pickTime:Lumora Health:-", "confirmInterview:Cindermoor Cloud:Software Engineer, New Grad", "decideOffer:Quillbright:Software Engineer, Product", "replyTimes:Tarnmoor Robotics:Founding Engineer", "joinMeeting:Cindermoor Cloud:Software Engineer, New Grad", "prepare:min/Max:-", "followUp:Cobalt Meadow:-", "followUp:Velmora Loft:-"];
+    // Catches: the new line never giving way to the calm one once the last open action is done.
+    expect(render({ ...connected, done: everything })).toContain(apos(copy.allClear));
   });
 });
 
@@ -174,7 +184,7 @@ describe("Today's prep drop-down", () => {
 
   it("shows the role's snapshot posting as a real new-tab link", () => {
     // Catches: a prep item whose posting link is missing, or not opened safely in a new tab (Ruling 51).
-    const anchor = html.slice(html.indexOf(`<a href="${role.url.replace(/&/g, "&amp;")}"`));
+    const anchor = html.slice(html.indexOf(`<a href="${cleanUrl(role.url).replace(/&/g, "&amp;")}"`));
     expect(anchor.startsWith("<a href=")).toBe(true);
     expect(anchor.slice(0, anchor.indexOf(">"))).toContain('target="_blank" rel="noopener noreferrer"');
   });

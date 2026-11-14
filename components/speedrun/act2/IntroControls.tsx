@@ -3,6 +3,7 @@
 import { Bookmark } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { speedrunCopy } from "@/lib/content";
+import { INLINE_LINK } from "./links";
 import type { IntroSlot } from "@/lib/speedrun/introSlot";
 
 const copy = speedrunCopy.matches.intro;
@@ -79,7 +80,7 @@ export function IntroButton({ slot, onRequest, onSwap }: SlotProps) {
 }
 
 /** The line under the buttons: why the request is off, where it sits, or that this match holds it. */
-export function IntroNote({ slot, onDoor }: { slot: IntroSlot; onDoor: () => void }) {
+export function IntroNote({ slot, onDoor, onBoard }: { slot: IntroSlot; onDoor: () => void; onBoard: () => void }) {
   const hereRef = useRef<HTMLParagraphElement>(null);
   const isHere = slot.kind === "here";
   const wasHere = useRef(isHere);
@@ -123,6 +124,16 @@ export function IntroNote({ slot, onDoor }: { slot: IntroSlot; onDoor: () => voi
   }
   const { hint } = slot;
   if (!hint) return null;
+  if (hint.reason === "leadNoPath") {
+    const lead = copy.hintNoPathFirst;
+    return (
+      <p id="sr-intro-note" className="mt-3 text-sm text-sr-ink2">
+        {lead.before}
+        <button type="button" data-intro-board="" onClick={onBoard} className={INLINE_LINK}>{lead.link}</button>
+        {lead.after}
+      </p>
+    );
+  }
   const text = hint.reason === "bring" ? copy.hintBring : copy.hintFirst(hint.rank);
   return (
     <p id="sr-intro-note" className="mt-3 text-sm text-sr-ink2">

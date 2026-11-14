@@ -10,12 +10,13 @@ export type IntroSlot =
   | { kind: "elsewhere"; company: string; canSwap: boolean }
   /** No intro path: no button, only the line. */
   | { kind: "noPath" }
-  | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | null };
+  | { kind: "request"; enabled: boolean; hint: { reason: "bring" } | { reason: "first"; rank: number } | { reason: "leadNoPath" } | null };
 
 /** The bookmark cannot change: the desk has the request past requested (the reducer refuses the withdrawal), or the match was passed and never returns to the shortlist. */
 export const slotLocked = (slot: IntroSlot): boolean => (slot.kind === "here" && slot.stage !== "requested") || slot.kind === "passed";
 
-export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, passed: { key: string; by: PassedBy }[]): IntroSlot {
+/** `leadHasPath` is whether the shortlist's #1 can take an intro; a #1 that cannot leaves every other pick with no way to request one. */
+export function introSlot(match: Match, shortlist: string[], request: IntroRequest | null, passed: { key: string; by: PassedBy }[], leadHasPath = true): IntroSlot {
   const key = matchKey(match);
   const gone = passed.find((entry) => entry.key === key);
   if (gone) return { kind: "passed", by: gone.by };
@@ -26,6 +27,7 @@ export function introSlot(match: Match, shortlist: string[], request: IntroReque
   if (!eligible(match)) return { kind: "noPath" };
   const at = shortlist.indexOf(key);
   if (at < 0) return { kind: "request", enabled: false, hint: { reason: "bring" } };
+  if (at > 0 && !leadHasPath) return { kind: "request", enabled: false, hint: { reason: "leadNoPath" } };
   if (at > 0) return { kind: "request", enabled: false, hint: { reason: "first", rank: at + 1 } };
   return { kind: "request", enabled: true, hint: null };
 }

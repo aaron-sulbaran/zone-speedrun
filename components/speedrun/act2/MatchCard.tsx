@@ -3,23 +3,13 @@
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { speedrunCopy } from "@/lib/content";
+import { cleanUrl } from "@/lib/speedrun/cleanUrl";
 import { slotLocked, type IntroSlot } from "@/lib/speedrun/introSlot";
 import type { Match } from "@/lib/speedrun/match";
 import { BringForwardToggle, FILLED, IntroButton, IntroNote, SECONDARY } from "./IntroControls";
 
 const copy = speedrunCopy.matches;
 const CHIP = "rounded-full bg-sr-hud px-2.5 py-1 font-srcond text-[11px] uppercase tracking-wider text-sr-ink2";
-
-// Role links carry the snapshot's agent tracking; a person's click is not agent traffic.
-function cleanUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    [...parsed.searchParams.keys()].filter((key) => key.startsWith("utm_")).forEach((key) => parsed.searchParams.delete(key));
-    return parsed.toString();
-  } catch {
-    return url;
-  }
-}
 
 export function CompanyLogo({ name, logo }: { name: string; logo: string | null }) {
   const [broken, setBroken] = useState(false);
@@ -43,6 +33,8 @@ export type MatchIntro = {
   onSwap: () => void;
   /** The earned door: across to the talent team's side. */
   onDoor: () => void;
+  /** Switches to the Board tab, where the shortlist is reordered. */
+  onBoard: () => void;
 };
 
 export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro }) {
@@ -124,7 +116,7 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
         )}
         <BringForwardToggle rank={intro.rank} onChange={intro.onBring} filled={!requestReady && !applyAvailable} locked={slotLocked(intro.slot)} />
       </div>
-      <IntroNote slot={intro.slot} onDoor={intro.onDoor} />
+      <IntroNote slot={intro.slot} onDoor={intro.onDoor} onBoard={intro.onBoard} />
       <div id={sheetId}>
         {sheet && (
           <p ref={sheetRef} tabIndex={-1} data-connect-sheet={sheet} className="mt-3 rounded-lg bg-sr-bg px-4 py-3 text-sm text-sr-ink2 focus:outline-none">

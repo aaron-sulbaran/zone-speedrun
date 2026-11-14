@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { speedrunCopy } from "@/lib/content";
 import { briefAction, introCards, needsYou, rowAction, settledAction, todayActions, todayItems, type Action } from "./actions";
+import { whoLine } from "./boardLabels";
 import type { BriefItem } from "./brief";
 import { sampleBrief } from "./briefSample";
 import type { CompanyDetail } from "./details";
 import { classifyEmail } from "./classify";
 import { DETAILS } from "./details";
 import { INBOX_TODAY, generateInbox } from "./inbox";
+import { cleanUrl } from "./cleanUrl";
 import { createRequest } from "./introRequest";
 import type { Match } from "./match";
 import { PEOPLE } from "./people";
@@ -143,7 +145,7 @@ describe("rowAction", () => {
     const event = { emailId: "t-1", company: role.company, role: role.title, kind: "interview" as const, date: `${INBOX_TODAY}T09:00:00.000Z`, lane: "jobs" as const };
     const [item] = todayItems([event], undefined, INBOX_TODAY);
     expect(item.action.kind).toBe("prepare");
-    expect(item.action.sheet.links).toEqual([{ label: copy.postingLink, href: role.url }]);
+    expect(item.action.sheet.links).toEqual([{ label: copy.postingLink, href: cleanUrl(role.url) }]);
   });
 
   // Catches: a company-keyed detail leaking onto Sam's other roles at the same company.
@@ -398,5 +400,55 @@ describe("every sheet", () => {
     const pick = needsYou(pipeline, details, INBOX_TODAY).find((action) => action.kind === "pickTime");
     expect(pick?.sheet.slots?.length).toBe(3);
     expect(pick?.sheet.pickSlot).toBe(true);
+  });
+});
+
+describe("a fund's or accelerator's row", () => {
+  const aaron = (title: string) => ({ name: "Aaron Sulbaran" as const, title });
+  const row = (furthest: AppRow["furthest"], lastEventAt = `${INBOX_TODAY}T08:00:00.000Z`): AppRow => ({ company: "Pelican Row Capital", role: "Seed intro", lane: "founder", furthest, exit: "open", appliedAt: null, lastEventAt, next: null });
+  const detail = { "Pelican Row Capital": { contact: aaron("Partner, Pelican Row Capital"), due: "2026-11-14" } };
+  const cases: [string, Action | null, string][] = [
+    ["offer", rowAction(row("offer"), undefined, INBOX_TODAY), "decideOffer"],
+    ["screen", rowAction(row("screen"), undefined, INBOX_TODAY), "replyTimes"],
+    ["interview", rowAction(row("interview"), undefined, INBOX_TODAY), "prepare"],
+    ["pinned interview", rowAction(row("interview"), detail, INBOX_TODAY), "confirmInterview"],
+    ["assessment", rowAction(row("assessment"), undefined, INBOX_TODAY), "finishAssessment"],
+    ["quiet screen", rowAction(row("screen", "2026-10-20T08:00:00.000Z"), undefined, INBOX_TODAY), "followUp"],
+  ];
+  const today = todayActions([{ emailId: "f-1", company: "Oriel Partners", role: "Seed pitch", kind: "screen", date: `${INBOX_TODAY}T09:00:00.000Z`, lane: "founder" }], undefined, INBOX_TODAY)[0];
+
+  // Catches: job wording on a fund (an offer "for the Seed intro role", "the recruiting team", "check in on the Seed pitch role").
+  it.each([...cases, ["Today's reply", today, "replyTimes"] as [string, Action | null, string]])("reads without a role or a recruiting team: %s", (_name, action, kind) => {
+    expect(action?.kind).toBe(kind);
+    const text = JSON.stringify([action!.label, action!.sheet, whoLine(action!)]);
+    expect(text).not.toMatch(/\brole\b|recruiting|Seed (intro|pitch)/i);
+    if (!action!.who) expect(whoLine(action!)).toBe(speedrunCopy.board.needs.fundTeam(action!.company));
+  });
+});
+
+describe("Add to calendar", () => {
+  // Catches: Add to calendar sharing the Join action, so adding the call marks it joined and settles the row.
+  it("is its own action beside Join, and settling it settles nothing else", () => {
+    const { events, details } = inboxOf("sam");
+    const card = introCards(events, null, details, INBOX_TODAY).find((entry) => entry.company === "min/Max")!;
+    expect(card.call?.kind).toBe("joinMeeting");
+    expect(card.calendar?.id).toBe("addToCalendar:min/Max:-");
+    expect(card.calendar?.id).not.toBe(card.call?.id);
+    expect(card.calendar?.sheet).toMatchObject({ title: copy.sheets.addToCalendar.title("min/Max"), confirm: "Add to calendar", done: "Added" });
+    expect(card.calendar?.sheet.meeting?.link).toBeTruthy();
+    expect(settledAction(card, (action) => action.id === card.calendar!.id)).toBeNull();
+    const cinder = todayItems(events, details, INBOX_TODAY).find((item) => item.action.company === "Cindermoor Cloud")!;
+    expect(cinder.calendar?.id).toBe("addToCalendar:Cindermoor Cloud:Software Engineer, New Grad");
+  });
+});
+
+describe("links a person clicks", () => {
+  // Catches: the snapshot's agent tracking (utm_medium=agent) reaching a posting link a visitor taps.
+  it("carry no agent tags", () => {
+    const roles = getSnapshot().roles.slice(0, 8);
+    const events = roles.map((role, i) => ({ emailId: `u-${i}`, company: role.company, role: role.title, kind: "interview" as const, date: `${INBOX_TODAY}T09:00:00.000Z`, lane: "jobs" as const }));
+    const links = todayItems(events, undefined, INBOX_TODAY).flatMap((item) => item.action.sheet.links ?? []).filter((link) => link.label === copy.postingLink);
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link.href).not.toContain("utm_medium=agent");
   });
 });

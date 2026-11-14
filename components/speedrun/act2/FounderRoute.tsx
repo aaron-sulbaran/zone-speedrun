@@ -2,7 +2,7 @@ import { speedrunCopy } from "@/lib/content";
 import type { FounderRoute as Route } from "@/lib/speedrun/match";
 
 const LINK =
-  "rounded-full bg-sr-ink px-5 py-2.5 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0";
+  "inline-flex min-h-11 items-center rounded-full bg-sr-ink px-5 py-2.5 font-srcond text-sm uppercase tracking-wider text-sr-surface transition-transform duration-200 ease-sr hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sr-purple motion-reduce:transition-none motion-reduce:hover:translate-y-0";
 
 export function FounderRoute({ routes, mentioned = false }: { routes: Route[]; mentioned?: boolean }) {
   const copy = speedrunCopy.matches.founder;

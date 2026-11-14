@@ -23,9 +23,9 @@ type Shared = {
 };
 type Props = Shared & { tile: TileKey; rows: AppRow[]; actions: Map<string, Action>; intros: IntroCard[] };
 
-function Item({ company, second, status, statusAttr, action }: { company: string; second: ReactNode; status: ReactNode; statusAttr: string; action: ReactNode }) {
+function Item({ company, second, status, statusAttr, action, done }: { company: string; second: ReactNode; status: ReactNode; statusAttr: string; action: ReactNode; done: boolean }) {
   return (
-    <li data-tile-item="" data-done-scope="" className={`flex flex-col gap-1 py-3 ${LIST_GRID}`}>
+    <li data-tile-item="" data-done={done} data-done-scope="" className={`flex flex-col gap-1 py-3 transition-opacity duration-200 motion-reduce:transition-none ${LIST_GRID} ${done ? "opacity-70" : ""}`}>
       <p data-tile-company="" className="break-words font-semibold [overflow-wrap:anywhere]">{company}</p>
       {second}
       <p {...{ [statusAttr]: "" }} className="text-sm font-semibold text-sr-ink">{status}</p>
@@ -43,6 +43,7 @@ function RowItem({ row, action, shared }: { row: AppRow; action: Action | undefi
       second={<p className="text-sm text-sr-ink2">{row.role ?? copy.table.noRole}</p>}
       status={status}
       statusAttr="data-tile-due"
+      done={!!action && shared.isDone(action)}
       action={
         action ? (
           <ActionSlot action={action} slot="tile" label={copy.nextStep[action.kind]} done={shared.isDone(action)} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} />
@@ -86,6 +87,7 @@ export function TilePanel({ tile, rows, actions, intros, ...shared }: Props) {
                     second={<p data-tile-who="" className="text-sm text-sr-ink2">{copy.needs.who(card.who.name, card.who.title)}</p>}
                     status={copy.introStatus[card.status]}
                     statusAttr="data-tile-status"
+                    done={!!settled}
                     action={action ? <ActionSlot action={action} slot="tile" label={copy.nextStep[action.kind]} done={!!settled} picked={shared.pickedFor(action)} className={SECONDARY} onOpen={shared.onOpen} /> : null}
                   />
                 );

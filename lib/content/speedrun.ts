@@ -128,7 +128,7 @@ export const speedrunCopy = {
       connectedGmail: "Gmail connected",
       connectedCalendar: "Calendar connected",
       connectNote:
-        "In production this reads your inbox and calendar, read-only, and never sends as you. In this demo it loads the sample person's inbox.",
+        "In production this reads your inbox and calendar, read-only. Replies open in your own Gmail, and you send them. In this demo it loads the sample person's inbox.",
     },
     targetLabels: {
       engineering: "Software engineering",
@@ -313,6 +313,7 @@ export const speedrunCopy = {
       hintBring: "Bring this match forward first, then ask for an intro.",
       hintFirst: (rank: number) => `You get one intro request, and it goes to your #1 pick. This one is #${rank}.`,
       hintNoPath: "There is no warm intro path here yet. Apply or follow instead.",
+      hintNoPathFirst: { before: "Your #1 pick has no warm intro path. Move a match that has one to #1 on ", link: "your Board", after: "." },
       on: (company: string) => `Your intro request is on ${company}`,
     },
     connectSheet: {
@@ -366,10 +367,12 @@ export const speedrunCopy = {
     // A sample person's board names them; anyone else gets "Your board".
     heading: (name: string | null) => (name ? `${name}'s board` : "Your board"),
     count: (open: number) => (open === 1 ? "1 thing needs you today" : `${open} things need you today`),
+    nothingUrgent: (more: number) => `Nothing urgent left. ${more} more below.`,
     allClear: "Nothing needs you today. Quiet is fine, and I'll tell you when that changes.",
     needs: {
       label: "What needs you",
       team: (company: string) => `The ${company} recruiting team`,
+      fundTeam: (fund: string) => `The ${fund} team`,
       who: (name: string, title: string) => `${name}, ${title}`,
       due: (day: string) => `Due ${day}`,
       quiet: (days: number) => (days === 0 ? "Heard today" : `Quiet ${days} ${days === 1 ? "day" : "days"}`),
@@ -388,6 +391,7 @@ export const speedrunCopy = {
       finishApplication: "Finish the application",
       followUp: "Follow up",
       joinMeeting: "Join the call",
+      addToCalendar: "Add to calendar",
       bringForward: "Bring forward",
       apply: "Apply",
     },
@@ -554,6 +558,7 @@ export const speedrunCopy = {
       finishApplication: "Finish",
       followUp: "Follow up",
       joinMeeting: "Join",
+      addToCalendar: "Add to calendar",
       bringForward: "Bring forward",
       apply: "Apply",
     },
@@ -581,16 +586,17 @@ export const speedrunCopy = {
       finishApplication: (company: string) => `Finish your application to ${company}`,
       followUp: (company: string) => `Follow up with ${company}`,
       joinMeeting: (company: string) => `Join the call with ${company}`,
+      addToCalendar: (company: string) => `Add your call with ${company} to your calendar`,
       bringForward: () => "Bring forward",
       apply: (company: string) => `Apply to ${company}`,
     },
     sheets: {
       decideOffer: {
-        done: "Done",
+        done: "Sent",
         title: (company: string, role: string | null) => (role ? `Your ${role} offer from ${company}` : `Your offer from ${company}`),
         draft: (_company: string, role: string | null) =>
           `Thank you for the offer${role ? ` for the ${role} role` : ""}. I'm excited about it. I have one or two questions before I answer, and I'll reply before the deadline. Do you have 15 minutes this week?`,
-        confirm: "Mark the offer as decided",
+        confirm: "Send the reply",
         note: "This demo sends nothing. The real version would open this draft in Gmail.",
       },
       pickTime: {
@@ -639,6 +645,8 @@ export const speedrunCopy = {
           role
             ? `I wanted to check in on the ${role} role. I'm still very interested and happy to share anything that helps. Thanks for your time.`
             : "I wanted to check in on the introduction. I'm still keen to talk and happy to work around your schedule. Thanks for making time.",
+        // A fund or an accelerator has a round, not a role.
+        founderDraft: () => "I wanted to check in on my pitch. I'm still very interested and happy to share anything that helps. Thanks for your time.",
         confirm: "Send the follow-up",
         note: "This demo sends nothing. The real version would open this draft in Gmail.",
       },
@@ -647,6 +655,12 @@ export const speedrunCopy = {
         title: (company: string) => `Your call with ${company}`,
         confirm: "Mark as joined",
         note: "This demo sends nothing. When it's live, the real version opens Meet or Zoom at the time of the call.",
+      },
+      addToCalendar: {
+        done: "Added",
+        title: (company: string) => `Add your call with ${company} to your calendar`,
+        confirm: "Add to calendar",
+        note: "This demo sends nothing. The real version would add this to your calendar.",
       },
       bringForward: {
         done: "Added",
@@ -756,7 +770,7 @@ export const speedrunCopy = {
       },
       {
         title: "Your inbox is read-only.",
-        body: "It reads confirmations, invites and rejections to build your board. It never sends as you, and it never keeps the raw email.",
+        body: "It reads confirmations, invites and rejections to build your board. Replies open in your Gmail for you to send, and it never keeps the raw email.",
       },
       {
         title: "Intros stay human.",

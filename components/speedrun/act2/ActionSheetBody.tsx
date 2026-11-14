@@ -9,7 +9,7 @@ const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:rin
 export function ActionSheetBody({ sheet, ui, onConfirm, onClose }: { sheet: SheetContent; ui: Ui; onConfirm: (picked?: string) => void; onClose: () => void }) {
   return (
     <div className="flex flex-col gap-5">
-      <h2 id="sr-sheet-title" className="text-xl font-semibold leading-tight">
+      <h2 id="sr-sheet-title" tabIndex={-1} className="text-xl font-semibold leading-tight focus:outline-none">
         {sheet.title}
       </h2>
       {sheet.summary && <p data-sheet-summary="" className="text-base text-sr-ink">{sheet.summary}</p>}

@@ -24,7 +24,9 @@ export function useActionSheet(state: Pick<DemoState, "done" | "shortlist" | "pi
   // The opener while it is still on the page; after a confirm it has been swapped for its scope's done marker, which takes focus.
   const returnFocus = () => {
     if (!open) return null;
-    return open.scope?.querySelector<HTMLElement>("[data-action-done]") ?? (open.opener.isConnected ? open.opener : null);
+    // The marker for this very action; a row can hold more than one (confirmed, and added to the calendar).
+    const markers = [...(open.scope?.querySelectorAll<HTMLElement>("[data-action-done]") ?? [])];
+    return markers.find((marker) => marker.dataset.actionDone === open.action.id) ?? (open.opener.isConnected ? open.opener : null);
   };
 
   return {

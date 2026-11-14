@@ -91,6 +91,18 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
     if (next === "candidate") requestAnimationFrame(() => document.getElementById(tabId(nextTab ?? tab))?.focus({ preventScroll: true }));
   };
 
+  // "Your Board" in a Matches hint is about the shortlist: land on it, and let its heading say where the reader is.
+  const toShortlist = () => {
+    onTab("board");
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const heading = document.getElementById("sr-section-shortlist");
+        heading?.scrollIntoView({ block: "start", behavior: "instant" });
+        heading?.focus({ preventScroll: true });
+      }),
+    );
+  };
+
   // Play the step enter when the tab changes.
   useLayoutEffect(() => {
     const previous = shownTab.current;
@@ -113,7 +125,7 @@ export function NetworkPhase({ state, dispatch, tab, side, onTab, onSide, onStar
           const following = nextTab(id);
           return (
             <div key={id} ref={(node) => void (panels.current[id] = node)} role="tabpanel" id={panelId(id)} aria-labelledby={tabId(id)} hidden={id !== tab || side === "team"} className="h-full overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-6 short-landscape:overflow-visible lg:px-2">
-              {visited.has(id) && id === "matches" && <Matches result={state.result!} state={state} dispatch={dispatch} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} onDoor={openDesk} />}
+              {visited.has(id) && id === "matches" && <Matches result={state.result!} state={state} dispatch={dispatch} name={visitorFirstName(state)} mentionedFounding={state.answers.founding === true} nextLabel={speedrunCopy.network.nextTo.matches} onNext={() => goTo("board")} onDoor={openDesk} onShortlist={toShortlist} />}
               {visited.has(id) && id === "board" && <Board state={state} dispatch={dispatch} onTab={goTo} />}
               {visited.has(id) && id === "brief" && <BriefPreview state={state} dispatch={dispatch} name={name} />}
               {visited.has(id) && id === "decisions" && (

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
 import { speedrunCopy } from "@/lib/content";
-import { introCards, needsYou, rowAction, todayItems, type Action } from "@/lib/speedrun/actions";
+import { boardHeadline, introCards, needsYou, rowAction, todayItems, type Action } from "@/lib/speedrun/actions";
 import { boardMode, tileOfFilter, TILE_FILTER, type BoardFilter, type TileKey } from "@/lib/speedrun/board";
 import { classifyEmail } from "@/lib/speedrun/classify";
 import type { DemoAction, DemoState } from "@/lib/speedrun/demoState";
@@ -66,7 +66,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
 
   const mode = boardMode(personKey, connected, pipeline.rows.length);
   const firstName = visitorFirstName(state);
-  const stillOpen = needs.filter((action) => !sheet.isDone(action)).length;
+  const headline = boardHeadline({ needs, today: todays, intros }, sheet.isDone);
   const flowTitle = firstName ? copy.flowTitle(firstName) : copy.flowTitleFallback;
 
   const pressTile = (tile: TileKey) => {
@@ -96,7 +96,7 @@ export function Board({ state, dispatch, onTab }: { state: DemoState; dispatch: 
       </h3>
       {mode === "full" && (
         <p data-needs-count="" className="mt-1 text-lg text-sr-ink2">
-          {stillOpen > 0 ? copy.count(stillOpen) : copy.allClear}
+          {headline.kind === "count" ? copy.count(headline.open) : headline.kind === "urgentDone" ? copy.nothingUrgent(headline.more) : copy.allClear}
         </p>
       )}
       <div className="mt-5 space-y-6">

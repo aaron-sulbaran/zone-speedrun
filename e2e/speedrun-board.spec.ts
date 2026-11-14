@@ -168,6 +168,8 @@ test("needs you: confirming one dims it in place, lowers the count and leaves th
   await first.locator("[data-needs-action]").click();
   // Catches: a button that opens nothing, so the decision cannot be made.
   await expect(sheet(page)).toBeVisible();
+  // Catches: focus landing on the sheet's first link (LinkedIn), so Enter opens a new tab instead of reading the sheet.
+  await expect(sheet(page).locator("#sr-sheet-title")).toBeFocused();
   await sheet(page).locator("[data-sheet-confirm]").click();
   // Catches: a confirm or Not now that leaves the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
@@ -210,11 +212,11 @@ test("board top: pressing the Offers tile lists both offers with deadlines, filt
   await pinToday(page);
   await joinAs(page, "sam", true);
   const tile = stat(page, "offers");
-  await expect(tile).toHaveAttribute("aria-pressed", "false");
   await expect(tile).toHaveAttribute("aria-expanded", "false");
+  // Catches: a tile announcing "pressed" and "expanded" at once, which a screen reader reads as two states for one control.
+  await expect(tile).not.toHaveAttribute("aria-pressed");
   await tile.click();
   // Catches: a tile that looks like a button and leads nowhere.
-  await expect(tile).toHaveAttribute("aria-pressed", "true");
   await expect(tile).toHaveAttribute("aria-expanded", "true");
   const panel = page.locator('[data-tile-panel="offers"]');
   await expect(panel.locator("[data-tile-item]")).toHaveCount(2);
@@ -234,7 +236,7 @@ test("board top: pressing the Offers tile lists both offers with deadlines, filt
   await expect(sheet(page)).toBeHidden();
   await tile.click();
   // Catches: a pressed tile that cannot be un-pressed.
-  await expect(tile).toHaveAttribute("aria-pressed", "false");
+  await expect(tile).toHaveAttribute("aria-expanded", "false");
   await expect(panel).toHaveCount(0);
   await expect(rows(page)).toHaveCount(8);
 });
@@ -273,11 +275,11 @@ test("board table: stage chips and tiles stay in step", async ({ page }) => {
   await expect(chip("closed")).toHaveAttribute("aria-pressed", "true");
   await chip("inProcess").click();
   // Catches: a chip that filters while the matching tile still says nothing is pressed.
-  await expect(stat(page, "inProcess")).toHaveAttribute("aria-pressed", "true");
+  await expect(stat(page, "inProcess")).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator('[data-tile-panel="inProcess"]')).toBeVisible();
   await chip("all").click();
   // Catches: All leaving a tile pressed, so the filter and the tiles disagree.
-  await expect(stat(page, "inProcess")).toHaveAttribute("aria-pressed", "false");
+  await expect(stat(page, "inProcess")).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("[data-tile-panel]")).toHaveCount(0);
 });
 
@@ -506,7 +508,7 @@ test("board top: the Intros list and the table's filter leave each other alone",
   await chip("closed").click();
   // Catches: a chip press closing the Intros list, which has nothing to do with the filter.
   await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
-  await expect(stat(page, "intros")).toHaveAttribute("aria-pressed", "true");
+  await expect(stat(page, "intros")).toHaveAttribute("aria-expanded", "true");
   await chip("all").click();
   // Catches: the All chip closing the Intros list, which it has no tile for.
   await expect(page.locator('[data-tile-panel="intros"]')).toBeVisible();
@@ -661,15 +663,15 @@ test("today: the Cindermoor interview is confirmed first, then joined, and every
   await cinder.getByRole("button", { name: COPY.today.calendar }).click();
   // Catches: a dead Add to calendar.
   await expect(sheet(page)).toBeVisible();
-  const title = await sheet(page).locator("#sr-sheet-title").innerText();
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.addToCalendar.title("Cindermoor Cloud"));
   await sheet(page).locator("[data-sheet-close]").click();
   // Catches: Not now leaving the sheet open over the page.
   await expect(sheet(page)).toBeHidden();
   await cinder.getByRole("button", { name: COPY.today.join }).click();
   // Catches: a dead Join, a button that opens nothing.
   await expect(sheet(page)).toBeVisible();
-  // Catches: Join opening a different sheet from Add to calendar (Ruling 51 says the same sheet).
-  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(title);
+  // Catches: Join opening the calendar sheet, which has no call to join.
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.joinMeeting.title("Cindermoor Cloud"));
   // Catches: the made-up meeting link missing from the sheet.
   await expect(sheet(page).locator("[data-sheet-meeting-link]")).toHaveText("https://meet.example/cindermoor-interview");
   // Catches: a sheet that hides what the real version would do, or promises a real call.
@@ -750,10 +752,17 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(sheet(page).locator("[data-sheet-meeting-link]")).toContainText("meet.example/minmax-intro");
   await sheet(page).locator("[data-sheet-close]").click();
   await card.getByRole("button", { name: COPY.today.calendar }).click();
-  // Catches: Add to calendar opening the Prepare sheet instead of the call's (fix 7).
-  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.joinMeeting.title("min/Max"));
+  // Catches: Add to calendar opening the Prepare or the Join sheet instead of its own.
+  await expect(sheet(page).locator("#sr-sheet-title")).toHaveText(ACTIONS.sheets.addToCalendar.title("min/Max"));
   await sheet(page).locator("[data-sheet-confirm]").click();
-  // Catches: a joined call that leaves the sheet open.
+  await expect(sheet(page)).toBeHidden();
+  // Catches: adding a call to the calendar settling the card, so a call days away reads joined.
+  await expect(card).toHaveAttribute("data-done", "false");
+  await expect(card.locator("[data-action-done]")).toHaveText(ACTIONS.sheets.addToCalendar.done);
+  await expect(card.locator("[data-action-done]")).toBeFocused();
+  await card.getByRole("button", { name: COPY.nextStep.prepare }).click();
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  // Catches: a prepared card that keeps the sheet open.
   await expect(sheet(page)).toBeHidden();
   // Catches: "Mark as joined" changing nothing on the card, which reads one action model in Today and another here (fix round 2, item 11).
   await expect(card).toHaveAttribute("data-done", "true");
@@ -767,6 +776,8 @@ test("warm intros: the min/Max card names Aaron with a monogram, links LinkedIn,
   await expect(tileRow).toHaveCount(1);
   // Catches: the open Intros tile keeping a done marker off a row whose card is settled (Ruling 58: one action model).
   await expect(tileRow.locator("[data-action-done]")).toHaveCount(1);
+  // Catches: a done tile row that does not dim like the Needs you and Today rows do.
+  await expect(tileRow).toHaveAttribute("data-done", "true");
   // Catches: the tile row keeping a live button after the same company's call was joined.
   await expect(tileRow.locator("[data-tile-action]")).toHaveCount(0);
 });
@@ -969,7 +980,11 @@ for (const width of [375, 390]) {
     await sheet(page).locator("[data-sheet-close]").first().click();
     await sheet(page).waitFor({ state: "hidden" });
     const panel = page.locator('[role="tabpanel"]:not([hidden])');
-    await panel.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    // Catches: measuring before the scroll holds (useModalDialog's next-frame target.focus() on the closed sheet's opener scrolls the panel back to it after the test sets scrollTop, which left the last control at y 5092 against a dock top of 729 about 1 run in 10 in WebKit; two frames, then setting the scroll again, covers it).
+    const atBottom = () => panel.evaluate((el) => { el.scrollTop = el.scrollHeight; return el.scrollHeight - el.clientHeight - el.scrollTop <= 1; });
+    await expect.poll(atBottom).toBe(true);
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    await expect.poll(atBottom).toBe(true);
     // The panel's last focusable control (today the Next button) is what the dock must never cover.
     const probe = await page.evaluate(() => {
       const panelEl = document.querySelector('[role="tabpanel"]:not([hidden])')!;
@@ -1078,4 +1093,47 @@ test.describe("a visitor who opens the page on a later day", () => {
     const callDay = shortDay(addDays(LATER, 7));
     await expect(today(page).filter({ hasText: "Cindermoor Cloud" }).locator("[data-today-when]")).toContainText(callDay);
   });
+});
+
+test("today: Add to calendar before Confirm leaves Confirm live, the row undimmed and the count alone", async ({ page }) => {
+  await pinToday(page);
+  await joinAs(page, "sam", true);
+  const cinder = today(page).filter({ hasText: "Cindermoor Cloud" });
+  await cinder.getByRole("button", { name: COPY.today.calendar }).click();
+  await sheet(page).locator("[data-sheet-confirm]").click();
+  await expect(sheet(page)).toBeHidden();
+  // Catches: Add to calendar marking the call joined, which dims the row and takes Confirm away before the interview is confirmed.
+  await expect(cinder).toHaveAttribute("data-done", "false");
+  await expect(cinder.getByRole("button", { name: ACTIONS.briefButtons.confirmInterview })).toBeVisible();
+  await expect(cinder.locator("[data-action-done]")).toHaveText(ACTIONS.sheets.addToCalendar.done);
+  await expect(cinder.locator("[data-today-calendar]")).toHaveCount(0);
+  // Catches: Needs you losing or gaining an item because of a calendar add.
+  await expect(countLine(page)).toHaveText(COPY.count(4));
+  await expect(needs(page).filter({ hasText: "Cindermoor Cloud" })).toHaveAttribute("data-done", "false");
+});
+
+test("board top: with Sam's four done the calm line stays away while Today and Warm intros still hold open actions", async ({ page }) => {
+  await pinToday(page);
+  await joinAs(page, "sam", true);
+  for (let i = 0; i < 4; i += 1) {
+    await needs(page).nth(i).locator("[data-needs-action]").click();
+    const slot = sheet(page).locator("[data-sheet-slot]").first();
+    if (await slot.count()) await slot.click();
+    else await sheet(page).locator("[data-sheet-confirm]").click();
+    await expect(sheet(page)).toBeHidden();
+  }
+  // Catches: "Nothing needs you today" above Tarnmoor's reply, min/Max's prep and the follow-ups.
+  await expect(countLine(page)).not.toHaveText(COPY.allClear);
+  // Catches: the heading miscounting what is left (Tarnmoor, Cindermoor's call, min/Max, Cobalt Meadow, Velmora Loft).
+  await expect(countLine(page)).toHaveText(COPY.nothingUrgent(5));
+});
+
+test("phones: Dev's founder route links are 44 px targets at 390", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await joinAs(page, "dev", true);
+  await openTab(page, speedrunCopy.network.tabs.matches);
+  await page.locator("[data-match-row]").first().click();
+  // Catches: the sweep never opening Dev's founder route, so its links go unmeasured.
+  await expect(page.locator("[data-founder-route] a:visible")).toHaveCount(2);
+  checkTouchSizes("founder route", await measureShell(page));
 });
