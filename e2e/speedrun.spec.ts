@@ -25,7 +25,12 @@ test("renders logged out with noindex, then the join card carries the affiliatio
   expect(response?.status()).toBe(200);
 
   await expect(page).toHaveTitle(speedrunCopy.meta.title);
-  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/opengraph-image/);
+  // Catches: the card silently reverting to the site's generic card, or a doubled basePath or a vercel.app host in the absolute url.
+  const card = "https://aaronsulbaran.com/speedrun/splits-card.png";
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", card);
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute("content", card);
+  await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "2400");
+  await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute("content", "1260");
   const robots = page.locator('meta[name="robots"]');
   await expect(robots).toHaveAttribute("content", /noindex/);
   await expect(robots).toHaveAttribute("content", /nofollow/);
@@ -1516,8 +1521,8 @@ test("the subtitle reads as one sentence to a screen reader", async ({ page }) =
     return text.replace(/\s+/g, " ").trim();
   });
   expect(readable).toBe(sentence);
-  // Catches: the subtitle drifting from Aaron's line (his wording, the three plain dots, the final period).
-  expect(readable).toBe(`As an ECE student at UT Austin, I've sent ${AARON_ENTRIES.length} applications this fall... and counting.`);
+  // Catches: the subtitle drifting from Aaron's line (his wording, the final period, and "and counting" coming back).
+  expect(readable).toBe(`As an ECE student at UT Austin, I've sent ${AARON_ENTRIES.length} applications this fall.`);
   const spans = await page.locator('[data-intro-el="subtitle"]').evaluateAll((els) => els.map((el) => !!el.closest('[aria-hidden="true"]')));
   expect(spans.length).toBeGreaterThan(8);
   expect(spans.every(Boolean)).toBe(true);

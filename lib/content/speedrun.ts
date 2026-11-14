@@ -11,6 +11,8 @@ export const speedrunCopy = {
     title: "Splits: a concept for the speedrun talent team \u00b7 Aaron Sulbaran",
     description:
       "What joining the speedrun talent network could give you on day one: a concept and working demo by Aaron Sulbaran.",
+    cardAlt:
+      "job hunting sux. I would know. My fall search as a flow chart, 84 applications, beside Splits showing a candidate's matches and the talent team's intro queue.",
   },
   newTab: "Opens in a new tab.",
   affiliation: "A concept by Aaron Sulbaran for the speedrun talent team. Not affiliated.",
@@ -22,7 +24,7 @@ export const speedrunCopy = {
     subtitle: {
       before: "As an ECE student at UT Austin, I've sent ",
       count: (n: number) => `${n} applications`,
-      after: " this fall... and counting.",
+      after: " this fall.",
     },
     spotlightCaption: "Some of my friends have sent 400.",
     p1: "I've been grinding for internships for a long time. Every recruiting season I know I'm not the only one suffering, because my friends are too.",
