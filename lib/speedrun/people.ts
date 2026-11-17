@@ -76,7 +76,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
     resumeText: LENA_RESUME,
     intake: {
       targets: ["design"],
-      places: ["New York", "Remote"],
+      places: ["New York", "San Francisco", "Remote"],
       why: "A product design role where design and engineering sit close and work ships quickly.",
     },
     volume: 40,
@@ -88,7 +88,7 @@ export const PEOPLE: Record<PersonKey, Person> = {
       seniority: "junior",
       skills: ["Figma", "prototyping", "design systems", "user research", "accessibility"],
       shipped: ["Invoice flow redesign", "Component library", "Pocket Ledger prototype"],
-      locations: ["New York", "Remote"],
+      locations: ["New York", "San Francisco", "Remote"],
       remoteOk: true,
       founderSignal: { score: 0.2, evidence: ["Presented research to founders"] },
       source: "sample",
