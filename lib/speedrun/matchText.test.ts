@@ -107,6 +107,8 @@ describe("namesArea", () => {
     "Security Research", "Partnerships", "Assembly", "Inference Engineering", "Finance & Business Operations", "Sales Development",
     "General Application - Join Our Team", "Founding Role, Multifamily Partnerships", "Product Operations, Brand Partnerships",
     "2027 Early Career Division Operations", "Finance & Business Operations",
+    "Nearby AI Internship Program - Engineering Track", "Partnerships, Sales Internship", "Inference Engineering, Co-op",
+    "Sales Development - ANZ", "Strategic Finance, GTM",
   ])("treats %s as an area", (title) => expect(namesArea(title)).toBe(true));
 
   it.each([
@@ -117,5 +119,10 @@ describe("namesArea", () => {
     "Business Development Associate, Care Partnerships", "Associate Product Designer, Early Career", "Analyst, Corporate Development",
     "Creative Strategist, Brand Partnerships", "Founding Producer, Design Operations", "Business Operations Intern, Commercial Partnerships",
     "Account Executive & Business Development", "Intern, Software Engineering, 2027",
+    "Early Career, Inside Sales Representative", "Marketplace Strategy & Operations Manager", "Agentic AI Team - Tech Lead, Software Engineer",
+    "Software Engineer- Early Career (Platform)", "Supply Chain Data & Analytics Intern (2027 Summer Internship)", "Security Research, Intern",
+    "Assembly, Integration, and Test Intern (Winter 2027)", "Finance & Business Operations, MBA Intern",
+    "Wargaming Research & Systems Analyst - Red Cell", "Agentic AI Team - Software Engineer (Mid-level)", "Early Career, Product Designer",
+    "Commercial Strategy & Operations Intern (Summer 2027)",
   ])("treats %s as a person", (title) => expect(namesArea(title)).toBe(false));
 });

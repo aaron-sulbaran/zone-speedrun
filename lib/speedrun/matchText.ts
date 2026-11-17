@@ -17,14 +17,15 @@ export function withArticle(title: string): string {
 }
 
 // A title that names a team or an area rather than a person: "Product", "Product Team", "General Application".
-// Only the head before any comma, paren, slash, ampersand or spaced dash counts: "Intern, Graphic Design" is a person.
+// The head (before any comma, paren, slash, ampersand or spaced dash) must end in an area word, and no person word
+// may appear anywhere in the title: "Intern, Graphic Design" and "Early Career, Product Designer" are people.
 const AREA_LAST = /^(team|role|roles|application|interest|product|growth|operations|finance|analytics|partnerships|research|engineering|development|program|assembly|design|marketing|sales|data|career|strategy)$/i;
-const PERSON_WORD = /\b(head|lead|leader|manager|director|vp|chief|of)\b/i;
+const PERSON_WORD = /\b(head|lead|leader|manager|director|vp|chief|of|engineer|designer|developer|intern|analyst|associate|representative|rep|specialist|scientist|researcher|architect|strategist|producer|coordinator|consultant|executive|officer|writer|editor|operator|administrator|technician|generalist|pm|sre|programmer|marketer|accountant|counsel|apprentice|fellow|member|owner|assistant|agent|planner|buyer|tester|mechanic|machinist|electrician|pilot|nurse|therapist|practitioner|physician)s?\b/i;
 export function namesArea(title: string): boolean {
   const head = title.split(/[,(/&]|\s[-\u2013]\s/)[0].trim();
   const words = head.split(/[^A-Za-z]+/).filter(Boolean);
   const last = words[words.length - 1];
-  return !!last && AREA_LAST.test(last) && !PERSON_WORD.test(head);
+  return !!last && AREA_LAST.test(last) && !PERSON_WORD.test(title);
 }
 
 /**
