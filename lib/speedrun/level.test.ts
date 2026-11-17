@@ -11,7 +11,7 @@ const role = (over: Partial<SnapshotRole>): SnapshotRole => ({
 });
 
 const title = (word: string): LevelNote => ({ kind: "says", source: "title", word } as LevelNote);
-const listing = (word: string): LevelNote => ({ kind: "says", source: "listing", word } as LevelNote);
+const listing = (word: string, phrase: string): LevelNote => ({ kind: "says", source: "listing", word, phrase } as LevelNote);
 
 const NOTES: [string, Partial<SnapshotRole>, LevelNote][] = [
   ["new grad in the title", { title: "Software Engineer, New Grad" }, title("new grad")],
@@ -38,10 +38,15 @@ const NOTES: [string, Partial<SnapshotRole>, LevelNote][] = [
   ["the intern tag", { seniority: "intern" }, { kind: "says", source: "tag", word: "intern" }],
   ["the junior tag", { seniority: "junior" }, { kind: "says", source: "tag", word: "junior" }],
   ["the tag wins over listing hints", { seniority: "junior", levelHints: ["We hire new grads."] }, { kind: "says", source: "tag", word: "junior" }],
-  ["a listing hint naming new grads", { levelHints: ["We welcome new grads and career changers."] }, listing("new grad")],
-  ["a listing hint naming co-ops", { levelHints: ["Open to co-op students."] }, listing("co-op")],
-  ["the first matching hint", { levelHints: ["Open to interns.", "Open to co-ops."] }, listing("intern")],
-  ["a hint that names new grads and asks for years says, not asks", { levelHints: ["New grads welcome, though 3+ years of experience helps."] }, listing("new grad")],
+  ["a listing hint naming new grads", { levelHints: ["We welcome new grads and career changers."] }, listing("new grad", "new grads")],
+  ["a listing hint naming co-ops", { levelHints: ["Open to co-op students."] }, listing("co-op", "co-op")],
+  ["the first matching hint", { levelHints: ["Open to interns.", "Open to co-ops."] }, listing("intern", "interns")],
+  ["a hint that names new grads and asks for years says, not asks", { levelHints: ["New grads welcome, though 3+ years of experience helps."] }, listing("new grad", "new grads")],
+  ["Metal quotes internships as the listing wrote it", { levelHints: ["Evidence of execution: you've shipped projects, run workstreams, or delivered outcomes independently (internships, research, side projects, student org leadership all count)."] }, listing("intern", "internships")],
+  ["Clair Health quotes recent graduate", { levelHints: ["A strong recent graduate with real ownership experience is welcome to apply"] }, listing("new grad", "recent graduate")],
+  ["4\u20138+ years is 4", { levelHints: ["4\u20138+ years of experience"] }, { kind: "asksYears", years: 4 }],
+  ["2\u20134+ years of professional video editing experience is 2", { levelHints: ["2\u20134+ years of professional video editing experience"] }, { kind: "asksYears", years: 2 }],
+  ["5\u201310 years in proptech is 5", { levelHints: ["5\u201310 years of experience in proptech"] }, { kind: "asksYears", years: 5 }],
   ["3-5 years is 3", { levelHints: ["3-5 years of experience in backend work."] }, { kind: "asksYears", years: 3 }],
   ["5+ years of professional experience is 5", { levelHints: ["5+ years of professional experience."] }, { kind: "asksYears", years: 5 }],
   ["3 to 5 years is 3", { levelHints: ["3 to 5 years of experience."] }, { kind: "asksYears", years: 3 }],

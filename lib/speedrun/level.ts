@@ -6,7 +6,8 @@ import type { Intake, Profile } from "./types";
 export type LevelWord = "new grad" | "co-op" | "intern" | "early career" | "entry level" | "junior";
 
 export type LevelNote =
-  | { kind: "says"; source: "title" | "tag" | "listing"; word: LevelWord }
+  | { kind: "says"; source: "title" | "tag"; word: LevelWord }
+  | { kind: "says"; source: "listing"; word: LevelWord; phrase: string }
   | { kind: "asksYears"; years: number }
   | { kind: "unstated"; read: boolean };
 
@@ -22,10 +23,14 @@ const EARLY_PHRASES: [EarlyWord, RegExp][] = [
 ];
 
 // "3-5 years of experience" and "5+ years of professional experience" both count; a bare "years" does not.
-const YEARS = /\b(\d{1,2})\s*(?:\+|[-–]\s*\d{1,2}|to\s+\d{1,2})?\s*years?\b[^.]{0,40}\bexperience/gi;
+const YEARS = /\b(\d{1,2})\s*(?:\+|[-\u2013]\s*\d{1,2}\+?|to\s+\d{1,2}\+?)?\s*years?\b[^.]{0,40}\bexperience/gi;
 
-function earlyWord(text: string): EarlyWord | null {
-  return EARLY_PHRASES.find(([, phrase]) => phrase.test(text))?.[0] ?? null;
+function earlyWord(text: string): { word: EarlyWord; phrase: string } | null {
+  for (const [word, pattern] of EARLY_PHRASES) {
+    const found = text.match(pattern);
+    if (found) return { word, phrase: found[0].toLowerCase() };
+  }
+  return null;
 }
 
 function smallestYears(hints: string[]): number | null {
@@ -35,11 +40,11 @@ function smallestYears(hints: string[]): number | null {
 
 export function levelNote(role: SnapshotRole): LevelNote {
   const inTitle = earlyWord(role.title);
-  if (inTitle) return { kind: "says", source: "title", word: inTitle };
+  if (inTitle) return { kind: "says", source: "title", word: inTitle.word };
   if (role.seniority === "intern" || role.seniority === "junior") return { kind: "says", source: "tag", word: role.seniority };
   for (const hint of role.levelHints) {
-    const word = earlyWord(hint);
-    if (word) return { kind: "says", source: "listing", word };
+    const found = earlyWord(hint);
+    if (found) return { kind: "says", source: "listing", ...found };
   }
   const years = smallestYears(role.levelHints);
   if (years !== null) return { kind: "asksYears", years };

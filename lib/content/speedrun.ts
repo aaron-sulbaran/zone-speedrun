@@ -364,7 +364,7 @@ export const speedrunCopy = {
       says: {
         title: { text: (word: string) => `The title says ${word}.`, chip: (word: string) => `Says ${word}` },
         tag: { text: (word: string) => `speedrun's board tags it ${word}.`, chip: (word: string) => `Tagged ${word}` },
-        listing: { text: (word: string) => `The listing mentions ${word} roles.`, chip: (word: string) => `Says ${word}` },
+        listing: { text: (phrase: string) => `The listing mentions "${phrase}".`, chip: (word: string) => `Mentions ${word}` },
       },
       asksYears: { text: (years: number) => `The listing asks for ${years}+ years of experience.`, chip: (years: number) => `Asks ${years}+ years` },
       unstated: {

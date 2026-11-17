@@ -173,7 +173,10 @@ function levelLine(role: SnapshotRole, ask: string | null): LevelLine | null {
   const note = levelNote(role);
   const level = copy.level;
   switch (note.kind) {
-    case "says": return { kind: note.kind, text: level.says[note.source].text(note.word), chip: level.says[note.source].chip(note.word) };
+    case "says":
+      return note.source === "listing"
+        ? { kind: note.kind, text: level.says.listing.text(note.phrase), chip: level.says.listing.chip(note.word) }
+        : { kind: note.kind, text: level.says[note.source].text(note.word), chip: level.says[note.source].chip(note.word) };
     case "asksYears": return { kind: note.kind, text: level.asksYears.text(note.years), chip: level.asksYears.chip(note.years) };
     case "unstated": return { kind: note.kind, text: note.read ? level.unstated.read(ask) : level.unstated.unread(ask), chip: level.unstated.chip };
   }
