@@ -11,6 +11,7 @@ function match(name: string, connect: Match["connect"], reason?: string): Match 
     score: 1,
     reasons: reason ? [{ text: reason, cites: ["title"] }] : [],
     connect,
+    level: null,
   };
 }
 

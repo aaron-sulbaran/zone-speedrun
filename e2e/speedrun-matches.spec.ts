@@ -66,6 +66,18 @@ test("Sam sees the build log, the made-for beat, then a list of matches with rea
   await expect(page.locator("[data-matches-count]")).toHaveText(copy.listCount(matches.length));
 });
 
+test("Sam's first match says whether the listing takes co-ops or new grads", async ({ page }) => {
+  const seen = await watchMatches(page);
+  await page.setViewportSize(DESKTOP);
+  await joinAs(page, "sam");
+  await toMatches(page);
+  const level = seen.result!.matches[0].level;
+  // Catches: a match that says nothing about level, so a visitor asking for an intro has to open the listing first.
+  expect(level).not.toBeNull();
+  await expect(rows(page).first().locator("[data-level-chip]")).toHaveText(level!.chip);
+  await expect(detail(page).locator("[data-level]")).toHaveText(level!.text);
+});
+
 test("desktop: the first match is selected and its detail shows beside the list", async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   await joinAs(page, "sam");

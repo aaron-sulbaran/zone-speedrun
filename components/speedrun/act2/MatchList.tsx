@@ -54,6 +54,11 @@ function RowBody({ item, mentionedFounding }: { item: ListItem; mentionedFoundin
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
           {role ? <span className="break-words text-sm font-medium">{role.title}</span> : <span className={CHIP}>{copy.companyOnly}</span>}
+          {item.match.level && (
+            <span data-level-chip={item.match.level.kind} className={CHIP}>
+              {item.match.level.chip}
+            </span>
+          )}
         </span>
         <span className="mt-1 block break-words text-sm text-sr-ink2">{reasonLine(item.match)}</span>
       </span>

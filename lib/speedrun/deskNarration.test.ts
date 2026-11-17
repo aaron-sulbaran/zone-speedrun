@@ -55,7 +55,7 @@ describe("desk narration", () => {
 });
 
 describe("desk fit brief", () => {
-  const match: Match = { company: { name: "Halcyon Works", slug: "halcyon", logo: null, cohort: null, stage: null, blurb: "blurb" }, role: null, score: 1, reasons: [], connect: ["intro"] };
+  const match: Match = { company: { name: "Halcyon Works", slug: "halcyon", logo: null, cohort: null, stage: null, blurb: "blurb" }, role: null, score: 1, reasons: [], connect: ["intro"], level: null };
   const roleMatch: Match = { ...match, role: { title: "Product Engineer" } as Match["role"] };
   const request = (candidate: Partial<IntroRequest["candidate"]>, whyRole: string, forMatch: Match = match): IntroRequest => ({
     candidate: { firstName: "Sam", headline: "", shipped: [], kind: "visitor", ...candidate },

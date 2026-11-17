@@ -6,7 +6,7 @@ import { matchKey } from "./matchList";
 import type { Intake } from "./types";
 
 function match(name: string, connect: Match["connect"]): Match {
-  return { company: { name, slug: name.toLowerCase(), logo: null, cohort: null, stage: null, blurb: "" }, role: null, score: 1, reasons: [], connect };
+  return { company: { name, slug: name.toLowerCase(), logo: null, cohort: null, stage: null, blurb: "" }, role: null, score: 1, reasons: [], connect, level: null };
 }
 const A = match("A", ["intro"]);
 const B = match("B", ["intro"]);

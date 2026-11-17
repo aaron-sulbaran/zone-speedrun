@@ -3,6 +3,11 @@ import { EMPTY_ANSWERS, toIntake } from "./onboarding";
 import { briefRequestBody, matchRequestBody } from "./requests";
 
 describe("matchRequestBody", () => {
+  it("carries the visitor's arrangements to the match route", () => {
+    const intake = toIntake({ ...EMPTY_ANSWERS, student: true, arrangements: ["between"] });
+    expect(JSON.parse(matchRequestBody(intake, "maya")).intake.asks).toEqual(["between"]);
+  });
+
   it("never carries the visitor's name", () => {
     const intake = toIntake({ ...EMPTY_ANSWERS, name: "Zelda Quinn", targets: ["ai"] });
     const body = matchRequestBody(intake, "sam");

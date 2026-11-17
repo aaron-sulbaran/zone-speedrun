@@ -344,6 +344,7 @@ export const speedrunCopy = {
     },
     reasons: {
       fnTitle: (label: string, title: string) => `You asked for ${label}, and they are hiring ${title}.`,
+      fnListed: (label: string, title: string) => `You asked for ${label}, and they have an opening listed as "${title}".`,
       fnCompany: (label: string, name: string) => `You asked for ${label}, and ${name} hires for it.`,
       seniority: (listed: string) => `The role is listed as ${listed}, which fits where you are.`,
       earlyCareer: "The title says it is open to people early in their career.",
@@ -356,6 +357,21 @@ export const speedrunCopy = {
       skillsExcerpt: (skills: string) => `The role description mentions your ${skills}.`,
       skillsBlurb: (skills: string) => `What the company builds lines up with your ${skills}.`,
       aiBlurb: "The company works on AI, though the listing itself does not say so.",
+    },
+    // What the listing says about the level the visitor asked for, named by the visitor's own arrangements.
+    level: {
+      asks: { between: "interns", during: "part-time students", whileInSchool: "co-ops", afterGrad: "new grads" },
+      says: {
+        title: { text: (word: string) => `The title says ${word}.`, chip: (word: string) => `Says ${word}` },
+        tag: { text: (word: string) => `speedrun's board tags it ${word}.`, chip: (word: string) => `Tagged ${word}` },
+        listing: { text: (phrase: string) => `The listing mentions "${phrase}".`, chip: (word: string) => `Mentions ${word}` },
+      },
+      asksYears: { text: (years: number) => `The listing asks for ${years}+ years of experience.`, chip: (years: number) => `Asks ${years}+ years` },
+      unstated: {
+        read: (ask: string) => `The listing doesn't say whether it takes ${ask}. Ask before you request an intro.`,
+        unread: (ask: string) => `The title doesn't say whether it takes ${ask}. Ask before you request an intro.`,
+        chip: "Doesn't say",
+      },
     },
   },
   board: {

@@ -16,6 +16,7 @@ function match(name: string, connect: Match["connect"]): Match {
     score: 1,
     reasons: [],
     connect,
+    level: null,
   };
 }
 const A = match("A", ["intro"]);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ARRANGEMENTS } from "./onboarding";
 import { rankMatches, type MatchResult } from "./match";
 import { PEOPLE } from "./people";
 import { getSnapshot } from "./snapshot";
@@ -11,6 +12,7 @@ export const matchBodySchema = z.object({
     why: z.string().max(400),
     seniority: z.enum(["intern", "new_grad"]).optional(),
     founding: z.boolean().optional(),
+    asks: z.array(z.enum(ARRANGEMENTS)).max(4).optional(),
   }),
   personKey: z.enum(PERSON_KEYS),
 });

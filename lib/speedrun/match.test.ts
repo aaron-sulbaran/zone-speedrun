@@ -278,7 +278,7 @@ describe("rankMatches promotion, levels and ordering", () => {
   const role = (over: Partial<SnapshotRole>): SnapshotRole => ({
     id: `r${(next += 1)}`, company: `Co ${next}`, companySlug: null, title: "Software Engineer", location: "Remote", workplace: "Remote",
     fn: "engineering", seniority: null, tier: "a16z", cohort: null, compMin: null, compMax: null, compPeriod: null,
-    postedAt: NEWEST, url: "https://example.com/job", excerpt: "", ...over,
+    postedAt: NEWEST, url: "https://example.com/job", excerpt: "", levelHints: [], descriptionRead: false, ...over,
   });
   const base: Profile = { ...PEOPLE.ravi.profile, functions: ["engineering"], seniority: "mid", skills: ["Python", "Go"], shipped: [], locations: ["Remote"], remoteOk: true };
   const remoteEngineer: Intake = { targets: ["engineering"], places: ["Remote"], why: "" };
@@ -379,7 +379,7 @@ describe("rankMatches with the visitor's student and founding answers", () => {
   const internRole: SnapshotRole = {
     id: "intern-1", company: "Intern Co", companySlug: null, title: "Software Engineering Intern", location: "Remote", workplace: "Remote",
     fn: "engineering", seniority: "intern", tier: "a16z", cohort: null, compMin: null, compMax: null, compPeriod: null,
-    postedAt: "2026-11-01", url: "https://example.com/job", excerpt: "",
+    postedAt: "2026-11-01", url: "https://example.com/job", excerpt: "", levelHints: [], descriptionRead: false,
   };
   const base: Intake = { targets: ["engineering"], places: ["Remote"], why: "" };
 
@@ -388,6 +388,15 @@ describe("rankMatches with the visitor's student and founding answers", () => {
     expect(rankMatches(sam, base, corpusOfOne).matches).toHaveLength(0);
     const withIntern = rankMatches(sam, { ...base, seniority: "intern" }, corpusOfOne);
     expect(withIntern.matches.map((m) => m.role?.id)).toEqual(["intern-1"]);
+  });
+
+  it("says an area title is an opening, not a person they are hiring", () => {
+    const areaRole: SnapshotRole = { ...internRole, id: "area-1", title: "Product", fn: "product", seniority: null };
+    const intake: Intake = { ...PEOPLE.sam.intake, targets: ["product"], places: [] };
+    const { matches } = rankMatches(sam, intake, { companies: [], roles: [areaRole] });
+    const texts = matches[0].reasons.map((r) => r.text);
+    expect(texts[0]).toBe('You asked for product, and they have an opening listed as "Product".');
+    expect(texts.some((t) => t.includes("hiring a Product"))).toBe(false);
   });
 
   it("matches today's result when seniority is absent", () => {
@@ -399,5 +408,48 @@ describe("rankMatches with the visitor's student and founding answers", () => {
     expect(maya.founderSignal.score).toBeLessThan(0.6);
     expect(rankMatches(maya, PEOPLE.maya.intake, corpus).routes).toEqual([]);
     expect(rankMatches(maya, { ...PEOPLE.maya.intake, founding: true }, corpus).routes.map((r) => r.kind).sort()).toEqual(["alpha", "speedrun"]);
+  });
+});
+
+describe("the level line", () => {
+  const samIntake = PEOPLE.sam.intake;
+  const run = (key: PersonKey, intake: Intake = PEOPLE[key].intake) => rankMatches(PEOPLE[key].profile, intake, corpus);
+
+  it("tells Sam, on every role match, whether the listing takes co-ops or new grads", () => {
+    const withRole = run("sam").matches.filter((m) => m.role);
+    expect(withRole.length).toBeGreaterThan(0);
+    for (const match of withRole) {
+      expect(match.level, match.role!.title).not.toBeNull();
+      const { kind, text } = match.level!;
+      // The ask is named only where the line says the listing is silent.
+      if (kind === "unstated") expect(text).toContain("co-ops or new grads");
+      expect(match.level!.chip.length).toBeGreaterThan(0);
+    }
+    expect(withRole.some((m) => m.level!.kind === "unstated")).toBe(true);
+  });
+
+  it("gives Dev, who asked for no early-career level, no level line", () => {
+    const { matches } = run("dev");
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches.every((m) => m.level === null)).toBe(true);
+  });
+
+  it("gives a company-only card no level line", () => {
+    const companyOnly = ["maya", "ravi", "sam"].flatMap((key) => run(key as PersonKey).matches).filter((m) => m.role === null);
+    expect(companyOnly.length).toBeGreaterThan(0);
+    expect(companyOnly.every((m) => m.level === null)).toBe(true);
+  });
+
+  it("leaves Sam's order and scores alone whatever asks he carries", () => {
+    const bare: Intake = { targets: samIntake.targets, places: samIntake.places, why: samIntake.why };
+    const key = (intake: Intake) => run("sam", intake).matches.map((m) => `${m.role?.id ?? m.company.slug}:${m.score}`);
+    expect(key({ ...bare, asks: ["between"] })).toEqual(key(samIntake));
+    expect(run("sam", bare).matches.map((m) => m.role?.id ?? m.company.slug)).toEqual(run("sam").matches.map((m) => m.role?.id ?? m.company.slug));
+  });
+
+  it("reads a role that names its level in the title as the title's word", () => {
+    const internRole = { ...corpus.roles[0], id: "lvl", companySlug: null, title: "Software Engineering Intern", seniority: "intern", fn: "engineering", location: "Remote", workplace: "Remote", postedAt: "2026-11-01" };
+    const out = rankMatches(PEOPLE.maya.profile, { targets: ["engineering"], places: ["Remote"], why: "", seniority: "intern", asks: ["between"] }, { companies: [], roles: [internRole] });
+    expect(out.matches[0].level).toEqual({ kind: "says", text: "The title says intern.", chip: "Says intern" });
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SnapshotRole } from "./snapshot";
-import { cleanTitle, levelOf, placeMatches, remoteFitsUs, shortLocation, titleFits, withArticle } from "./matchText";
+import { cleanTitle, levelOf, namesArea, placeMatches, remoteFitsUs, shortLocation, titleFits, withArticle } from "./matchText";
 
 describe("matchText", () => {
   it("picks the right article", () => {
@@ -98,4 +98,31 @@ describe("matchText", () => {
     }
     expect(titleFits(role("Growth PM, Next Platforms"), "product")).toBe(true);
   });
+});
+
+describe("namesArea", () => {
+  it.each([
+    "Product", "Product Team", "General Application", "Growth", "Founding Role", "General Interest", "Early Career",
+    "Product Operations", "Strategic Finance", "Finance & Analytics", "Agentic AI Team", "Rotational Development Program",
+    "Security Research", "Partnerships", "Assembly", "Inference Engineering", "Finance & Business Operations", "Sales Development",
+    "General Application - Join Our Team", "Founding Role, Multifamily Partnerships", "Product Operations, Brand Partnerships",
+    "2027 Early Career Division Operations", "Finance & Business Operations",
+    "Nearby AI Internship Program - Engineering Track", "Partnerships, Sales Internship", "Inference Engineering, Co-op",
+    "Sales Development - ANZ", "Strategic Finance, GTM",
+  ])("treats %s as an area", (title) => expect(namesArea(title)).toBe(true));
+
+  it.each([
+    "Head of Product", "VP of Engineering", "Member of Technical Staff, Design", "Engineering Manager", "Software Engineering Intern",
+    "Senior Product Designer (Dashboard)", "Security Researcher", "Software Engineer", "Product Manager", "AI Engineer",
+    "Software Engineer, Product", "Staff Engineer (Agentic AI & Data)", "Manufacturing Engineer, Early Career", "Associate, Strategic Finance",
+    "Intern, Firmware Engineering", "Product Design Engineer (Early Career)", "Intern, Graphic Design",
+    "Business Development Associate, Care Partnerships", "Associate Product Designer, Early Career", "Analyst, Corporate Development",
+    "Creative Strategist, Brand Partnerships", "Founding Producer, Design Operations", "Business Operations Intern, Commercial Partnerships",
+    "Account Executive & Business Development", "Intern, Software Engineering, 2027",
+    "Early Career, Inside Sales Representative", "Marketplace Strategy & Operations Manager", "Agentic AI Team - Tech Lead, Software Engineer",
+    "Software Engineer- Early Career (Platform)", "Supply Chain Data & Analytics Intern (2027 Summer Internship)", "Security Research, Intern",
+    "Assembly, Integration, and Test Intern (Winter 2027)", "Finance & Business Operations, MBA Intern",
+    "Wargaming Research & Systems Analyst - Red Cell", "Agentic AI Team - Software Engineer (Mid-level)", "Early Career, Product Designer",
+    "Commercial Strategy & Operations Intern (Summer 2027)",
+  ])("treats %s as a person", (title) => expect(namesArea(title)).toBe(false));
 });

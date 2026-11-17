@@ -154,12 +154,13 @@ function match(name: string, withRole = true): Match {
       ? {
           id: name, company: name, companySlug: name.toLowerCase(), title: `${name} engineer`, location: "Austin",
           workplace: null, fn: "engineering", seniority: "junior", tier: "speedrun", cohort: null, compMin: null,
-          compMax: null, compPeriod: null, postedAt: "2026-01-01", url: "https://example.com", excerpt: "Ship code.",
+          compMax: null, compPeriod: null, postedAt: "2026-01-01", url: "https://example.com", excerpt: "Ship code.", levelHints: [], descriptionRead: false,
         }
       : null,
     score: 1,
     reasons: [{ text: `${name} original`, cites: ["title"] }],
     connect: ["intro"],
+    level: null,
   };
 }
 
