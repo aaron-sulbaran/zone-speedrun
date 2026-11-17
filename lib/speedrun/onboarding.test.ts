@@ -92,6 +92,13 @@ describe("toIntake", () => {
     expect("founding" in toIntake({ ...EMPTY_ANSWERS, founding: false })).toBe(false);
     expect("founding" in toIntake({ ...EMPTY_ANSWERS, founding: null })).toBe(false);
   });
+  it("carries the arrangements of a student, and no one else's", () => {
+    const student = { ...EMPTY_ANSWERS, student: true };
+    expect(toIntake({ ...student, arrangements: ["whileInSchool", "afterGrad"] }).asks).toEqual(["whileInSchool", "afterGrad"]);
+    expect("asks" in toIntake({ ...student, arrangements: [] })).toBe(false);
+    expect("asks" in toIntake({ ...EMPTY_ANSWERS, student: false, arrangements: ["between"] })).toBe(false);
+    expect("asks" in toIntake({ ...EMPTY_ANSWERS, student: null, arrangements: ["between"] })).toBe(false);
+  });
   it("carries seniority only when defined", () => {
     expect("seniority" in toIntake(EMPTY_ANSWERS)).toBe(false);
     expect(toIntake({ ...EMPTY_ANSWERS, student: true, arrangements: ["between"] }).seniority).toBe("intern");

@@ -70,6 +70,7 @@ export function toIntake(answers: Answers): Intake {
   const intake: Intake = { targets: answers.targets, places: answers.places, why: answers.why };
   const seniority = seniorityFor(answers);
   if (seniority) intake.seniority = seniority;
+  if (answers.student === true && answers.arrangements.length > 0) intake.asks = answers.arrangements;
   if (answers.founding === true) intake.founding = true;
   return intake;
 }

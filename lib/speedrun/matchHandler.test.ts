@@ -34,6 +34,17 @@ describe("handleMatch", () => {
     expect(out.status === 200 && out.body.result.routes.length).toBeGreaterThan(0);
   });
 
+  it("accepts the arrangements the visitor chose", () => {
+    const intake = { targets: ["engineering"], places: [], why: "", seniority: "new_grad", asks: ["whileInSchool", "afterGrad"] };
+    expect(handleMatch({ intake, personKey: "sam" }).status).toBe(200);
+    expect(matchBodySchema.parse({ intake, personKey: "sam" }).intake.asks).toEqual(["whileInSchool", "afterGrad"]);
+  });
+
+  it("rejects an arrangement that is not one of the four", () => {
+    const intake = { targets: ["engineering"], places: [], why: "", asks: ["forever"] };
+    expect(handleMatch({ intake, personKey: "sam" }).status).toBe(400);
+  });
+
   it("rejects a seniority that is not intern or new_grad", () => {
     const intake = { targets: ["engineering"], places: [], why: "", seniority: "senior" };
     expect(handleMatch({ intake, personKey: "maya" }).status).toBe(400);
