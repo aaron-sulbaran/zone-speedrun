@@ -3,6 +3,7 @@ import {
   AI_WORDS, aiStrength, cleanTitle, dayOf, escapeRegex, levelOf, namesArea, namesLevel, placeMatches, remoteFitsUs,
   shortLocation, titleFits, withArticle,
 } from "./matchText";
+import { earlyAsk, levelNote, type LevelNote } from "./level";
 import { ownWords, personalReasons } from "./matchOwn";
 import type { Snapshot, SnapshotCompany, SnapshotRole } from "./snapshot";
 import type { Fn, Intake, Profile } from "./types";
@@ -11,6 +12,8 @@ export type Reason = {
   text: string;
   cites: ("title" | "blurb" | "functions" | "location" | "seniority" | "skills" | "excerpt")[];
 };
+
+export type LevelLine = { kind: LevelNote["kind"]; text: string; chip: string };
 
 export type Match = {
   company: {
@@ -25,6 +28,8 @@ export type Match = {
   score: number;
   reasons: Reason[];
   connect: ("intro" | "apply" | "follow")[];
+  /** Whether the listing takes the level the visitor asked for; null for company-only cards and other visitors. */
+  level: LevelLine | null;
 };
 
 export type FounderRoute = { kind: "speedrun" | "alpha"; url: string };
@@ -163,7 +168,18 @@ function companyOnly(company: SnapshotCompany, fn: Fn, place: string | null, ctx
   return reasons;
 }
 
-function toMatch(scored: Scored): Match {
+function levelLine(role: SnapshotRole, ask: string | null): LevelLine | null {
+  if (ask === null) return null;
+  const note = levelNote(role);
+  const level = copy.level;
+  switch (note.kind) {
+    case "says": return { kind: note.kind, text: level.says[note.source].text(note.word), chip: level.says[note.source].chip(note.word) };
+    case "asksYears": return { kind: note.kind, text: level.asksYears.text(note.years), chip: level.asksYears.chip(note.years) };
+    case "unstated": return { kind: note.kind, text: note.read ? level.unstated.read(ask) : level.unstated.unread(ask), chip: level.unstated.chip };
+  }
+}
+
+function toMatch(scored: Scored, ask: string | null): Match {
   const { role, company } = scored;
   return {
     company: {
@@ -178,6 +194,7 @@ function toMatch(scored: Scored): Match {
     score: Math.round(scored.score * 100) / 100,
     reasons: scored.reasons,
     connect: ["apply", ...(company ? (["intro"] as const) : []), "follow"],
+    level: levelLine(role, ask),
   };
 }
 
@@ -278,6 +295,7 @@ export function rankMatches(ownProfile: Profile, intake: Intake, corpus: Corpus,
         score: Math.round((1 + reasons.length * 0.5) * 100) / 100,
         reasons,
         connect: ["intro", "follow"],
+        level: null,
       };
       companyMatches.push(match);
       if (places.length > 0 && !place) functionOnly.add(match);
@@ -301,7 +319,8 @@ export function rankMatches(ownProfile: Profile, intake: Intake, corpus: Corpus,
   const top = promoted && !ranked.slice(0, 3).some((s) => s.role.tier === "speedrun")
     ? [...ranked.slice(0, 2), promoted, ...ranked.slice(2).filter((s) => s !== promoted)]
     : ranked;
-  const shown = [...top.slice(0, limit).map(toMatch), ...keptCompanyMatches].slice(0, limit);
+  const ask = earlyAsk(profile, intake);
+  const shown = [...top.slice(0, limit).map((scored) => toMatch(scored, ask)), ...keptCompanyMatches].slice(0, limit);
   return {
     matches: shown,
     routes: intake.founding === true || profile.founderSignal.score >= 0.6 ? ROUTES : [],

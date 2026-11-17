@@ -11,6 +11,7 @@ const M: Match = {
   score: 1,
   reasons: [],
   connect: ["intro"],
+  level: null,
 };
 
 function req(status: IntroStatus, introSent = false): IntroRequest {

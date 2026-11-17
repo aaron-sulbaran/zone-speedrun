@@ -215,7 +215,7 @@ describe("todayItems", () => {
 describe("introCards", () => {
   const match: Match = {
     company: { name: "Halden Labs", slug: "halden", logo: null, cohort: null, stage: null, blurb: "A blurb" },
-    role: null, score: 1, reasons: [], connect: ["intro"],
+    role: null, score: 1, reasons: [], connect: ["intro"], level: null,
   };
   const intake: Intake = { targets: ["product"], places: [], why: "I want a small team." };
   const candidate = { firstName: "Alex", headline: "PM", shipped: ["a thing"], kind: "visitor" as const };

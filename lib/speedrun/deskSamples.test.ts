@@ -11,6 +11,7 @@ function match(name: string, fn: string | null): Match {
     score: 1,
     reasons: [],
     connect: ["intro"],
+    level: null,
   };
 }
 

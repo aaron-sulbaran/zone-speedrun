@@ -91,6 +91,11 @@ export function MatchCard({ match, intro }: { match: Match; intro: MatchIntro })
           <span className={CHIP}>{copy.companyOnly}</span>
         )}
       </div>
+      {match.level && (
+        <p data-level={match.level.kind} className="mt-2 text-sm font-medium text-sr-ink">
+          {match.level.text}
+        </p>
+      )}
       <ul className="mt-3 space-y-1.5 text-sm text-sr-ink2">
         {reasons.map((reason) => (
           <li key={reason.text}>{reason.text}</li>
