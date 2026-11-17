@@ -126,7 +126,7 @@ A PR per change with CI green before merge. Second-model review on anything touc
 
 - **Route names.** Next prints routes without the basePath: `/` is the page at `/speedrun`, and `/api/*` serves `/speedrun/api/*`.
 - **Snapshot logos.** Their strings keep the `/speedrun` prefix, and the files live in `public/companies/`.
-- **Snapshot refresh.** `match.test.ts` ranks against the frozen `lib/speedrun/fixtures/snapshot-2026-11-07.json`, so a fresh pull moves the demo, not the quality bars. Delete a dropped company's logo by hand.
+- **Snapshot refresh.** `match.test.ts` ranks against the frozen `lib/speedrun/fixtures/snapshot-2026-11-07.json`, so a fresh pull moves the demo, not the quality bars. Delete a dropped company's logo by hand. Speedrun roles also carry `levelHints`, up to six level or years sentences from the full description, which `lib/speedrun/level.ts` reads for each match's level line.
 - **Share card.** `metadataBase` is `https://aaronsulbaran.com`, so the share card is the site's `/opengraph-image`.
 - **BotID** through the site's cross-project rewrite is unverified. Check it before switching read or brief on.
 - **No analytics yet**: the insights script's root path would route to the site's project.
