@@ -344,6 +344,7 @@ export const speedrunCopy = {
     },
     reasons: {
       fnTitle: (label: string, title: string) => `You asked for ${label}, and they are hiring ${title}.`,
+      fnListed: (label: string, title: string) => `You asked for ${label}, and they have an opening listed as "${title}".`,
       fnCompany: (label: string, name: string) => `You asked for ${label}, and ${name} hires for it.`,
       seniority: (listed: string) => `The role is listed as ${listed}, which fits where you are.`,
       earlyCareer: "The title says it is open to people early in their career.",

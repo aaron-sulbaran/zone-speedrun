@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SnapshotRole } from "./snapshot";
-import { cleanTitle, levelOf, placeMatches, remoteFitsUs, shortLocation, titleFits, withArticle } from "./matchText";
+import { cleanTitle, levelOf, namesArea, placeMatches, remoteFitsUs, shortLocation, titleFits, withArticle } from "./matchText";
 
 describe("matchText", () => {
   it("picks the right article", () => {
@@ -98,4 +98,17 @@ describe("matchText", () => {
     }
     expect(titleFits(role("Growth PM, Next Platforms"), "product")).toBe(true);
   });
+});
+
+describe("namesArea", () => {
+  it.each([
+    "Product", "Product Team", "General Application", "Growth", "Founding Role", "General Interest", "Early Career",
+    "Product Operations", "Strategic Finance", "Finance & Analytics", "Agentic AI Team", "Rotational Development Program",
+    "Security Research", "Partnerships", "Assembly", "Inference Engineering", "Finance & Business Operations", "Sales Development",
+  ])("treats %s as an area", (title) => expect(namesArea(title)).toBe(true));
+
+  it.each([
+    "Head of Product", "VP of Engineering", "Member of Technical Staff, Design", "Engineering Manager", "Software Engineering Intern",
+    "Senior Product Designer (Dashboard)", "Security Researcher", "Software Engineer", "Product Manager", "AI Engineer",
+  ])("treats %s as a person", (title) => expect(namesArea(title)).toBe(false));
 });

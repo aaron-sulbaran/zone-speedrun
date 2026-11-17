@@ -1,6 +1,6 @@
 import { speedrunCopy } from "@/lib/content/speedrun";
 import {
-  AI_WORDS, aiStrength, cleanTitle, dayOf, escapeRegex, levelOf, namesLevel, placeMatches, remoteFitsUs,
+  AI_WORDS, aiStrength, cleanTitle, dayOf, escapeRegex, levelOf, namesArea, namesLevel, placeMatches, remoteFitsUs,
   shortLocation, titleFits, withArticle,
 } from "./matchText";
 import { ownWords, personalReasons } from "./matchOwn";
@@ -117,7 +117,7 @@ function scoreRole(
   const ai = fn === "ai" ? aiStrength(role, company) : null;
   if (ai === "blurb") score -= 1.5;
   const reasons: Reason[] = [
-    { text: copy.reasons.fnTitle(label, withArticle(nameForTitle)), cites: fits ? ["functions", "title"] : ["functions"] },
+    { text: namesArea(nameForTitle) ? copy.reasons.fnListed(label, nameForTitle) : copy.reasons.fnTitle(label, withArticle(nameForTitle)), cites: fits ? ["functions", "title"] : ["functions"] },
   ];
   if (ai === "blurb") reasons.push({ text: copy.reasons.aiBlurb, cites: ["blurb"] });
 

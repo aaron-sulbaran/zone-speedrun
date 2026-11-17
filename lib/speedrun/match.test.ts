@@ -390,6 +390,15 @@ describe("rankMatches with the visitor's student and founding answers", () => {
     expect(withIntern.matches.map((m) => m.role?.id)).toEqual(["intern-1"]);
   });
 
+  it("says an area title is an opening, not a person they are hiring", () => {
+    const areaRole: SnapshotRole = { ...internRole, id: "area-1", title: "Product", fn: "product", seniority: null };
+    const intake: Intake = { ...PEOPLE.sam.intake, targets: ["product"], places: [] };
+    const { matches } = rankMatches(sam, intake, { companies: [], roles: [areaRole] });
+    const texts = matches[0].reasons.map((r) => r.text);
+    expect(texts[0]).toBe('You asked for product, and they have an opening listed as "Product".');
+    expect(texts.some((t) => t.includes("hiring a Product"))).toBe(false);
+  });
+
   it("matches today's result when seniority is absent", () => {
     const person = PEOPLE.sam;
     expect(rankMatches(sam, person.intake, corpus)).toEqual(rankMatches(sam, { ...person.intake }, corpus));

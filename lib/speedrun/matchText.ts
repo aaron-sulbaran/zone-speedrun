@@ -16,6 +16,15 @@ export function withArticle(title: string): string {
   return `${an ? "an" : "a"} ${title}`;
 }
 
+// A title that names a team or an area rather than a person: "Product", "Product Team", "General Application".
+const AREA_LAST = /^(team|role|roles|application|interest|product|growth|operations|finance|analytics|partnerships|research|engineering|development|program|assembly|design|marketing|sales|data|career)$/i;
+const PERSON_WORD = /\b(head|lead|leader|manager|director|vp|chief|of)\b/i;
+export function namesArea(title: string): boolean {
+  const words = title.trim().split(/[^A-Za-z]+/).filter(Boolean);
+  const last = words[words.length - 1];
+  return !!last && AREA_LAST.test(last) && !PERSON_WORD.test(title);
+}
+
 /**
  * Drops the company tail, pipe tails and remote tags: "New Grad - Larkmoor (Remote)" becomes "New Grad", and
  * "Growth PM, Future Platforms | Housing" becomes "Growth PM, Future Platforms".
