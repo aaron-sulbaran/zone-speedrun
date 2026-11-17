@@ -13,6 +13,8 @@ const GAP_MS = 1200;
 const MAX_LOGO_BYTES = 200 * 1024;
 const MAX_A16Z = 400;
 const EXCERPT_CHARS = 600;
+const MAX_LEVEL_HINTS = 6;
+const LEVEL_HINT_CHARS = 240;
 const BLOCKED_MARK = "-ad00000";
 
 let lastRequestAt = 0;
@@ -116,10 +118,28 @@ for (const job of [...speedrunJobs, ...foundingJobs, ...a16zJobs.slice(0, MAX_A1
 }
 const jobList = [...byId.values()];
 
+// Sentences from the whole description that could say who the role is for, so a match can say
+// "the listing mentions new grads" or "doesn't say" about the full text, not just the excerpt.
+const EARLY_HINT = /\b(new grad(uate)?s?|recent grad(uate)?s?|university grad(uate)?s?|class of 20\d\d|20\d\d grad(uate)?s?|co-?ops?|interns?|internships?|early[- ]career|entry[- ]level)\b/i;
+const YEARS_HINT = /\b\d{1,2}\s*\+?\s*(?:(?:-|to|–)\s*\d{1,2}\s*\+?\s*)?years?\b/i;
+
+function levelHints(text) {
+  const sentences = String(text ?? "")
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((sentence) => collapse(sentence))
+    .filter(Boolean);
+  const hints = sentences.filter(
+    (sentence) => EARLY_HINT.test(sentence) || (YEARS_HINT.test(sentence) && /experience/i.test(sentence)),
+  );
+  return hints.slice(0, MAX_LEVEL_HINTS).map((hint) => hint.slice(0, LEVEL_HINT_CHARS));
+}
+
 const excerpts = new Map();
+const hintsById = new Map();
 for (const job of jobList.filter((entry) => entry.tier === "speedrun")) {
   const detail = await getJson(`${API}/jobs/${job.id}?source=portfolio-research`);
   excerpts.set(job.id, collapse(detail.job?.description_text).slice(0, EXCERPT_CHARS));
+  hintsById.set(job.id, levelHints(detail.job?.description_text));
 }
 
 const joinResponse = await politeFetch(`${BASE}/join/`);
@@ -187,6 +207,8 @@ const roles = jobList.map((job) => ({
   postedAt: job.published_at,
   url: job.url,
   excerpt: excerpts.get(job.id) ?? "",
+  levelHints: hintsById.get(job.id) ?? [],
+  descriptionRead: hintsById.has(job.id),
 }));
 
 await mkdir(path.join(ROOT, "public/companies"), { recursive: true });
