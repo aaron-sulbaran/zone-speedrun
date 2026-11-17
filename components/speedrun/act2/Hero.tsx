@@ -5,8 +5,11 @@ import { CountUp } from "./CountUp";
 
 export type DemoStats = { companies: number; roles: number; fetchedAt: string };
 
+// The day in Austin, where the snapshot is taken: an evening run would read as tomorrow in UTC.
+const SNAPSHOT_TIME_ZONE = "America/Chicago";
+
 function snapshotDay(fetchedAt: string) {
-  return new Date(fetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return new Date(fetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: SNAPSHOT_TIME_ZONE });
 }
 
 const GHOST = "rounded-lg px-6 py-3 text-center font-srcond text-sm uppercase tracking-wider shadow-[inset_0_0_0_2px_var(--sr-ink)]";
