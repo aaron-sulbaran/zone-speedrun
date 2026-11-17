@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import { extractProfile } from "./extract";
 import { rankMatches } from "./match";
 import { ownWords } from "./matchOwn";
+import frozenBoard from "./fixtures/snapshot-2026-11-07.json";
 import { PEOPLE } from "./people";
-import { getSnapshot } from "./snapshot";
+import { snapshotSchema } from "./snapshot";
 import type { SnapshotRole } from "./snapshot";
 import type { Intake, PersonKey, Profile } from "./types";
 
-const corpus = getSnapshot();
+// A frozen board, so a fresh snapshot can move the demo but never these quality bars.
+const corpus = snapshotSchema.parse(frozenBoard);
 
 // Everyday words an own-words line must never rest on.
 const EVERYDAY = new Set(
