@@ -32,6 +32,8 @@ const roleSchema = z.object({
   postedAt: z.string(),
   url: z.string(),
   excerpt: z.string(),
+  levelHints: z.array(z.string()).default([]),
+  descriptionRead: z.boolean().default(false),
 });
 
 const portfolioNameSchema = z.object({ name: z.string(), sector: z.string() });
